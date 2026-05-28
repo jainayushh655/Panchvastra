@@ -10,15 +10,15 @@ export function AdminDashboard() {
 
   const nuke = () => {
     if (!confirm('Reset catalog + homepage + orders to seed? Cannot undo.')) return
-    resetCatalogToSeed()
+    void resetCatalogToSeed()
   }
 
   return (
     <div className="max-w-3xl">
       <h1 className="type-page-title text-white">Dashboard</h1>
       <p className="mt-2 text-sm text-zinc-400">
-        Catalog revision <strong className="text-orange-400">#{revision}</strong> · keys{' '}
-        <code className="text-xs text-orange-300">{CMS_STORAGE_KEYS.catalog}</code>,{' '}
+        Catalog revision <strong className="text-orange-400">#{revision}</strong> · synced via{' '}
+        <code className="text-xs text-orange-300">/api/catalog</code> · orders local key{' '}
         <code className="text-xs text-orange-300">{CMS_STORAGE_KEYS.orderLog}</code>
       </p>
       <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

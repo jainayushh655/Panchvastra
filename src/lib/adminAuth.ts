@@ -21,3 +21,8 @@ export function setAdminSession() {
 export function clearAdminSession() {
   sessionStorage.removeItem(CMS_STORAGE_KEYS.adminSession)
 }
+
+/** Same token the admin UI uses; sent as Bearer when saving catalog to `/api/catalog`. */
+export function getAdminApiToken() {
+  return TOKEN
+}

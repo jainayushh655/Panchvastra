@@ -1,6 +1,6 @@
 import { Fragment, useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { syncCatalogFromLocalStorage } from '@/lib/catalogStore'
+import { hydrateCatalogFromApi, syncCatalogFromLocalStorage } from '@/lib/catalogStore'
 import { AdminCategories } from '@/admin/AdminCategories'
 import { AdminDashboard } from '@/admin/AdminDashboard'
 import { AdminHomepage } from '@/admin/AdminHomepage'
@@ -21,6 +21,7 @@ import { ShopPage } from '@/pages/ShopPage'
 function CatalogBootstrap() {
   useEffect(() => {
     syncCatalogFromLocalStorage()
+    void hydrateCatalogFromApi()
   }, [])
   return null
 }

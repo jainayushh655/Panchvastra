@@ -5,6 +5,10 @@
   "functions": {
     "api/orders.js": {
       "maxDuration": 10
+    },
+    "api/catalog.js": {
+      "maxDuration": 10,
+      "includeFiles": "data/catalog.seed.json"
     }
   }
 }

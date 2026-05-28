@@ -1,5 +1,5 @@
 /**
- * CMS field registry — use when swapping localStorage for Sanity / Payload / Directus.
+ * CMS field registry — catalog persists via GET/PUT `/api/catalog` (Vercel Blob + local cache).
  * Product shape matches `Product` + category slugs derived from `CategoryDef`.
  */
 export const PRODUCT_FIELDS_DOC = [

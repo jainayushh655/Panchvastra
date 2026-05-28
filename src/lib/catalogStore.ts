@@ -1,6 +1,8 @@
 import { CMS_STORAGE_KEYS } from '@/cms/registry'
 import { CATEGORIES } from '@/data/categories'
 import { MOCK_PRODUCTS } from '@/data/mockProducts'
+import { adminSessionOk, getAdminApiToken } from '@/lib/adminAuth'
+import { fetchCatalogFromApi, saveCatalogToApi } from '@/lib/catalogApi'
 import type { CategoryDef, Product } from '@/types'
 import { defaultHeroSlides, normalizeHomepageContent } from '@/lib/homepageHero'
 import type { HomepageContent } from '@/types/homepage'
@@ -137,13 +139,46 @@ export function syncCatalogFromLocalStorage(): void {
   }
 }
 
-function persistCatalog() {
+function applyRemoteCatalog(remote: CatalogSnapshot) {
+  snapshot = mergeLsCatalog(remote)
+  persistCatalogLocal()
+  emit()
+}
+
+let apiPushTimer: ReturnType<typeof setTimeout> | null = null
+
+function persistCatalogLocal() {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return
     localStorage.setItem(CMS_STORAGE_KEYS.catalog, JSON.stringify(snapshot))
   } catch {
     /* quota / privacy mode */
   }
+}
+
+function scheduleCatalogApiPush() {
+  if (typeof window === 'undefined' || !adminSessionOk()) return
+  if (apiPushTimer) clearTimeout(apiPushTimer)
+  apiPushTimer = setTimeout(() => {
+    apiPushTimer = null
+    void saveCatalogToApi(snapshot, getAdminApiToken())
+  }, 600)
+}
+
+/** Load shared catalog from Vercel JSON API (source of truth in production). */
+export async function hydrateCatalogFromApi(): Promise<void> {
+  const remote = await fetchCatalogFromApi()
+  if (remote?.products?.length) applyRemoteCatalog(remote)
+}
+
+/** Refresh when user returns to the tab (e.g. admin edited on another device). */
+export async function refreshCatalogFromApi(): Promise<void> {
+  await hydrateCatalogFromApi()
+}
+
+function persistCatalog() {
+  persistCatalogLocal()
+  scheduleCatalogApiPush()
 }
 
 if (typeof window !== 'undefined') {
@@ -160,7 +195,10 @@ if (typeof window !== 'undefined') {
     }
   })
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') syncCatalogFromLocalStorage()
+    if (document.visibilityState === 'visible') {
+      syncCatalogFromLocalStorage()
+      void refreshCatalogFromApi()
+    }
   })
 }
 
@@ -277,12 +315,15 @@ export function setHomepageBulk(next: HomepageContent) {
   emit()
 }
 
-export function resetCatalogToSeed() {
+export async function resetCatalogToSeed() {
   snapshot = seedSnapshot()
-  persistCatalog()
+  persistCatalogLocal()
   orderLogCached = []
   persistOrderLog([])
   emit()
+  if (adminSessionOk()) {
+    await saveCatalogToApi(snapshot, getAdminApiToken())
+  }
 }
 
 /** Newest-first (admin / review). */
@@ -295,11 +336,6 @@ export function appendOrderLog(entry: OrderLogEntry) {
   log.unshift(entry)
   orderLogCached = log
   persistOrderLog(log)
-  snapshot = {
-    ...snapshot,
-    revision: snapshot.revision + 1,
-  }
-  persistCatalog()
   emit()
 }
 
@@ -316,11 +352,6 @@ export function updateOrderStatus(orderId: string, status: import('@/types').Ord
     }
     orderLogCached = log
     persistOrderLog(log)
-    snapshot = {
-      ...snapshot,
-      revision: snapshot.revision + 1,
-    }
-    persistCatalog()
     emit()
   }
 }
