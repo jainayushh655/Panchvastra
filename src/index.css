@@ -1,0 +1,131 @@
+@import 'tailwindcss';
+
+/* Match ThemeProvider: `dark` class on <html> — default v4 dark: uses prefers-color-scheme only. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --color-pv: oklch(0.72 0.19 45);
+  --color-pv-dim: oklch(0.62 0.16 42);
+  --radius-card: 1.25rem;
+
+  /* Responsive type scale (mobile-first) */
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.5;
+  --text-lead: 1rem;
+  --text-lead--line-height: 1.55;
+}
+
+@import './styles/typography.css';
+
+@layer base {
+  html {
+    @apply scroll-smooth antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  html:not(.dark) {
+    color-scheme: light;
+  }
+
+  body {
+    @apply font-sans text-[15px] leading-relaxed antialiased transition-colors duration-200 sm:text-base;
+  }
+
+  html.dark body {
+    @apply bg-zinc-950 text-zinc-100;
+  }
+
+  html:not(.dark) body {
+    @apply bg-zinc-50 text-zinc-950;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+    @apply font-bold tracking-tight;
+  }
+
+  h1 {
+    @apply text-2xl leading-tight sm:text-3xl;
+  }
+
+  h2 {
+    @apply text-xl leading-tight sm:text-2xl;
+  }
+
+  h3 {
+    @apply text-lg leading-snug;
+  }
+
+  button,
+  [role='button'] {
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  /* Typed value + placeholder contrast for form controls */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select {
+    @apply font-sans text-[15px] text-zinc-900 sm:text-base dark:text-zinc-100;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-zinc-400 dark:text-zinc-500;
+  }
+
+  label {
+    @apply font-sans text-sm font-medium text-zinc-700 dark:text-zinc-300;
+  }
+}
+
+@layer components {
+  /* Shop dual price slider: transparent track (custom track drawn in React), visible thumbs */
+  .shop-range {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    height: 2rem;
+  }
+
+  .shop-range::-webkit-slider-runnable-track {
+    height: 6px;
+    background: transparent;
+  }
+
+  .shop-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    margin-top: -6px;
+    height: 18px;
+    width: 18px;
+    border-radius: 9999px;
+    border: 2px solid white;
+    background-color: oklch(0.72 0.19 45);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.22);
+  }
+
+  .shop-range::-moz-range-track {
+    height: 6px;
+    background: transparent;
+  }
+
+  .shop-range::-moz-range-thumb {
+    height: 18px;
+    width: 18px;
+    border-radius: 9999px;
+    border: 2px solid white;
+    background-color: oklch(0.72 0.19 45);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.22);
+  }
+}
