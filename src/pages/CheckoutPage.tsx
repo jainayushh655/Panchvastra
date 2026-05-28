@@ -122,7 +122,7 @@ export function CheckoutPage() {
         return
       }
     } catch {
-      setSubmitError('Network error — check that the dev API is running (npm run dev).')
+      setSubmitError('Network error — could not reach the order API. Try again.')
       setBusy(false)
       return
     }
