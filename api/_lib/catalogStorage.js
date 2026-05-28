@@ -5,6 +5,10 @@ const { getSeedCatalog } = require('./catalogSeed')
 const BLOB_PATHNAME = 'catalog.json'
 const LOCAL_CATALOG = path.join(process.cwd(), 'server', 'data', 'catalog.json')
 
+function blobToken() {
+  return process.env.BLOB_READ_WRITE_TOKEN || ''
+}
+
 function normalizeCatalog(raw) {
   const seed = getSeedCatalog()
   if (!raw || typeof raw !== 'object') return seed
@@ -32,8 +36,17 @@ async function writeLocalFile(snapshot) {
   await fs.writeFile(LOCAL_CATALOG, JSON.stringify(snapshot), 'utf8')
 }
 
+async function fetchBlobJson(url, token) {
+  const headers = token ? { Authorization: `Bearer ${token}` } : {}
+  const res = await fetch(url, { headers, cache: 'no-store' })
+  if (!res.ok) {
+    throw new Error(`Blob read failed (${res.status})`)
+  }
+  return normalizeCatalog(await res.json())
+}
+
 async function readBlob() {
-  const token = process.env.BLOB_READ_WRITE_TOKEN
+  const token = blobToken()
   if (!token) return null
 
   const { list } = await import('@vercel/blob')
@@ -42,20 +55,22 @@ async function readBlob() {
     blobs.find((b) => b.pathname === BLOB_PATHNAME) ||
     blobs.find((b) => b.pathname.endsWith('/' + BLOB_PATHNAME)) ||
     blobs[0]
-  if (!hit?.url) return null
+  if (!hit) return null
 
-  const res = await fetch(hit.url, { cache: 'no-store' })
-  if (!res.ok) return null
-  return normalizeCatalog(await res.json())
+  const url = hit.downloadUrl || hit.url
+  if (!url) return null
+
+  return fetchBlobJson(url, token)
 }
 
 async function writeBlob(snapshot) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN
+  const token = blobToken()
   if (!token) return false
 
   const { put } = await import('@vercel/blob')
-  await put(BLOB_PATHNAME, JSON.stringify(snapshot), {
-    access: 'public',
+  const body = JSON.stringify(snapshot)
+  await put(BLOB_PATHNAME, body, {
+    access: 'private',
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: 'application/json',
@@ -80,7 +95,9 @@ async function writeCatalog(snapshot) {
   if (wroteBlob) return normalized
 
   if (process.env.VERCEL) {
-    throw new Error('BLOB_READ_WRITE_TOKEN is required to save catalog on Vercel')
+    throw new Error(
+      'Could not save catalog to Vercel Blob. Check that panchvastra-blob is connected and BLOB_READ_WRITE_TOKEN is set, then redeploy.',
+    )
   }
 
   await writeLocalFile(normalized)
