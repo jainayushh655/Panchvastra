@@ -4,8 +4,8 @@
 import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
-import { handlePostOrder } from './handlePostOrder'
-import { ordersCsvPath } from './ordersCsvPath'
+import { handlePostOrder } from '../api/_lib/handlePostOrder'
+import { ordersCsvPath } from '../api/_lib/ordersCsvPath'
 
 const app = express()
 app.use(cors({ origin: true }))

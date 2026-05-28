@@ -116,7 +116,9 @@ export function CheckoutPage() {
               ? 'Please complete all shipping fields.'
               : err.error === 'PERSIST_FAILED'
                 ? 'Could not save your order. Try again in a moment.'
-                : 'Could not submit your order. Try again.',
+                : err.error === 'INTERNAL_ERROR'
+                  ? 'Server error while saving your order. Try again.'
+                  : 'Could not submit your order. Try again.',
         )
         setBusy(false)
         return
