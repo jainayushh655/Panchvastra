@@ -10,22 +10,29 @@ function blobToken() {
 }
 
 function mergeHomepage(raw, seedHomepage) {
-  if (!raw || typeof raw !== 'object') return seedHomepage
+  const seed = seedHomepage && typeof seedHomepage === 'object' ? seedHomepage : {}
+  const seedBanners = seed.banners || { sale: {}, arrivals: {} }
   const banners = {
-    sale: { ...seedHomepage.banners.sale, ...(raw.banners?.sale || {}) },
-    arrivals: { ...seedHomepage.banners.arrivals, ...(raw.banners?.arrivals || {}) },
+    sale: { ...(seedBanners.sale || {}), ...(raw?.banners?.sale || {}) },
+    arrivals: { ...(seedBanners.arrivals || {}), ...(raw?.banners?.arrivals || {}) },
   }
   const featuredTiles =
-    Array.isArray(raw.featuredTiles) && raw.featuredTiles.length
+    Array.isArray(raw?.featuredTiles) && raw.featuredTiles.length
       ? raw.featuredTiles
-      : seedHomepage.featuredTiles
+      : Array.isArray(seed.featuredTiles) && seed.featuredTiles.length
+        ? seed.featuredTiles
+        : []
   return {
-    ...seedHomepage,
-    ...raw,
+    ...seed,
+    ...(raw && typeof raw === 'object' ? raw : {}),
     banners,
     featuredTiles,
     heroSlides:
-      Array.isArray(raw.heroSlides) && raw.heroSlides.length ? raw.heroSlides : seedHomepage.heroSlides,
+      Array.isArray(raw?.heroSlides) && raw.heroSlides.length
+        ? raw.heroSlides
+        : Array.isArray(seed.heroSlides) && seed.heroSlides.length
+          ? seed.heroSlides
+          : [],
   }
 }
 
@@ -85,18 +92,41 @@ async function readBlob() {
 
 async function writeBlob(snapshot) {
   const token = blobToken()
-  if (!token) return false
+  if (!token) {
+    console.error('[panchvastra-api] BLOB_READ_WRITE_TOKEN is not set on this deployment')
+    return false
+  }
 
   const { put } = await import('@vercel/blob')
   const body = JSON.stringify(snapshot)
-  await put(BLOB_PATHNAME, body, {
-    access: 'private',
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: 'application/json',
-    token,
+  const bytes = Buffer.byteLength(body, 'utf8')
+  const sizeMb = bytes / (1024 * 1024)
+  console.info('[panchvastra-api] Blob put catalog.json', {
+    bytes,
+    sizeMb: sizeMb.toFixed(2),
+    products: snapshot.products?.length ?? 0,
   })
-  return true
+
+  if (sizeMb > 4.5) {
+    throw new Error(
+      `Catalog is ${sizeMb.toFixed(1)}MB but Vercel accepts ~4.5MB per save. Remove base64 product images or use external image URLs.`,
+    )
+  }
+
+  try {
+    await put(BLOB_PATHNAME, body, {
+      access: 'private',
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: 'application/json',
+      token,
+    })
+    return true
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[panchvastra-api] Blob put failed', err)
+    throw new Error(`Blob write failed: ${msg}`)
+  }
 }
 
 async function readCatalog() {
@@ -126,7 +156,10 @@ async function writeCatalog(snapshot) {
 
 function adminTokenOk(req) {
   const expected = (process.env.ADMIN_API_TOKEN || process.env.VITE_ADMIN_TOKEN || '').trim()
-  if (!expected) return false
+  if (!expected) {
+    console.error('[panchvastra-api] ADMIN_API_TOKEN / VITE_ADMIN_TOKEN is not set')
+    return false
+  }
   const auth = String(req.headers.authorization || '')
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
   const header = req.headers['x-admin-token']

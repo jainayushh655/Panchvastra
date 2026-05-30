@@ -64,8 +64,8 @@ export async function saveCatalogToApi(
     if (!res.ok) {
       let error = `HTTP_${res.status}`
       try {
-        const body = (await res.json()) as { error?: string }
-        if (body?.error) error = body.error
+        const body = (await res.json()) as { error?: string; message?: string; code?: string }
+        error = body.message || body.error || error
       } catch {
         /* non-JSON error body */
       }

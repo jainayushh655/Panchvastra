@@ -46,7 +46,7 @@ async function handler(req, res) {
   } catch (err) {
     console.error('[panchvastra-api] catalog', err)
     const message = err instanceof Error ? err.message : 'Unknown error'
-    res.status(500).json({ ok: false, error: 'INTERNAL_ERROR', message })
+    res.status(500).json({ ok: false, error: message, code: 'INTERNAL_ERROR' })
   }
 }
 
