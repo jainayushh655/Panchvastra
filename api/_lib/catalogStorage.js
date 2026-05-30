@@ -121,16 +121,17 @@ async function writeBlob(snapshot) {
 
   try {
     await put(BLOB_PATHNAME, body, {
-      access: 'public',
+      access: 'private',
       addRandomSuffix: false,
-      allowOverwrite: true,
       contentType: 'application/json',
       token,
     })
     return true
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error('[panchvastra-api] Blob put failed', err)
+    console.error('[panchvastra-api] Blob put failed')
+console.error(err)
+console.error(JSON.stringify(err, null, 2))
     throw new Error(`Blob write failed: ${msg}`)
   }
 }
