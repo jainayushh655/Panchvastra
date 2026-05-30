@@ -121,7 +121,7 @@ async function writeBlob(snapshot) {
 
   try {
     await put(BLOB_PATHNAME, body, {
-      access: 'private',
+      access: 'public',
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: 'application/json',
