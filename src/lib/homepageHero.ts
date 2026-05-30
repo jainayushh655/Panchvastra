@@ -1,4 +1,9 @@
-import type { HomepageContent, HomepageHeroSlide } from '@/types/homepage'
+import type {
+  HomepageBannerPair,
+  HomepageContent,
+  HomepageFeaturedTile,
+  HomepageHeroSlide,
+} from '@/types/homepage'
 
 /** Fixed homepage carousel size (matches original storefront). */
 export const HERO_SLIDE_COUNT = 3
@@ -97,12 +102,55 @@ export function sanitizeHeroSlides(slides: HomepageHeroSlide[]): HomepageHeroSli
   )
 }
 
+function mergeBannerBlock<T extends HomepageBannerPair['sale']>(
+  saved: Partial<T> | undefined,
+  fallback: T,
+): T {
+  if (!saved) return { ...fallback }
+  return {
+    ...fallback,
+    eyebrow: saved.eyebrow?.trim() || fallback.eyebrow,
+    title: saved.title?.trim() || fallback.title,
+    sub: saved.sub?.trim() || fallback.sub,
+    cta: saved.cta?.trim() || fallback.cta,
+    link: saved.link?.trim() || fallback.link,
+  }
+}
+
+function mergeBanners(
+  saved: Partial<HomepageBannerPair> | undefined,
+  fallback: HomepageBannerPair,
+): HomepageBannerPair {
+  return {
+    sale: mergeBannerBlock(saved?.sale, fallback.sale),
+    arrivals: mergeBannerBlock(saved?.arrivals, fallback.arrivals),
+  }
+}
+
+function mergeFeaturedTiles(
+  saved: HomepageFeaturedTile[] | undefined,
+  fallback: HomepageFeaturedTile[],
+): HomepageFeaturedTile[] {
+  if (!Array.isArray(saved) || saved.length === 0) return [...fallback]
+  return saved.map((tile, i) => {
+    const fb = fallback[i] ?? fallback[0]!
+    return {
+      ...fb,
+      ...tile,
+      slug: tile.slug?.trim() || fb.slug,
+      title: tile.title?.trim() || fb.title,
+      blurb: tile.blurb?.trim() || fb.blurb,
+      badge: tile.badge?.trim() || fb.badge,
+      bgClass: tile.bgClass?.trim() || fb.bgClass,
+    }
+  })
+}
+
 /** Merge saved homepage with defaults; carousel is always three slides. */
 export function normalizeHomepageContent(
   raw: HomepageContent | undefined,
   fallback: HomepageContent,
 ): HomepageContent {
-  const merged = { ...fallback, ...raw }
   const defaults = fallback.heroSlides?.length ? fallback.heroSlides : defaultHeroSlides()
   const hasSavedSlides = Array.isArray(raw?.heroSlides) && raw.heroSlides.length > 0
   let heroSlides = mergeHeroSlides(hasSavedSlides ? raw!.heroSlides : undefined, defaults)
@@ -117,5 +165,18 @@ export function normalizeHomepageContent(
     }
   }
 
-  return { ...merged, heroSlides }
+  return {
+    ...fallback,
+    ...raw,
+    heroEyebrow: raw?.heroEyebrow?.trim() || fallback.heroEyebrow,
+    heroTitle: raw?.heroTitle?.trim() || fallback.heroTitle,
+    heroSub: raw?.heroSub?.trim() || fallback.heroSub,
+    featuredSectionTitle: raw?.featuredSectionTitle?.trim() || fallback.featuredSectionTitle,
+    trendingSectionTitle: raw?.trendingSectionTitle?.trim() || fallback.trendingSectionTitle,
+    newsletterTitle: raw?.newsletterTitle?.trim() || fallback.newsletterTitle,
+    newsletterSub: raw?.newsletterSub?.trim() || fallback.newsletterSub,
+    heroSlides,
+    banners: mergeBanners(raw?.banners, fallback.banners),
+    featuredTiles: mergeFeaturedTiles(raw?.featuredTiles, fallback.featuredTiles),
+  }
 }

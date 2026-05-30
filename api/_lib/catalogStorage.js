@@ -9,6 +9,26 @@ function blobToken() {
   return process.env.BLOB_READ_WRITE_TOKEN || ''
 }
 
+function mergeHomepage(raw, seedHomepage) {
+  if (!raw || typeof raw !== 'object') return seedHomepage
+  const banners = {
+    sale: { ...seedHomepage.banners.sale, ...(raw.banners?.sale || {}) },
+    arrivals: { ...seedHomepage.banners.arrivals, ...(raw.banners?.arrivals || {}) },
+  }
+  const featuredTiles =
+    Array.isArray(raw.featuredTiles) && raw.featuredTiles.length
+      ? raw.featuredTiles
+      : seedHomepage.featuredTiles
+  return {
+    ...seedHomepage,
+    ...raw,
+    banners,
+    featuredTiles,
+    heroSlides:
+      Array.isArray(raw.heroSlides) && raw.heroSlides.length ? raw.heroSlides : seedHomepage.heroSlides,
+  }
+}
+
 function normalizeCatalog(raw) {
   const seed = getSeedCatalog()
   if (!raw || typeof raw !== 'object') return seed
@@ -16,7 +36,7 @@ function normalizeCatalog(raw) {
     ...raw,
     products: Array.isArray(raw.products) && raw.products.length ? raw.products : seed.products,
     categories: Array.isArray(raw.categories) && raw.categories.length ? raw.categories : seed.categories,
-    homepage: raw.homepage && typeof raw.homepage === 'object' ? raw.homepage : seed.homepage,
+    homepage: mergeHomepage(raw.homepage, seed.homepage),
     revision: typeof raw.revision === 'number' ? raw.revision : 0,
   }
 }

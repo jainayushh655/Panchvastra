@@ -5,8 +5,8 @@ import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
 import { createRequire } from 'node:module'
-import { handlePostOrder } from '../api/_lib/handlePostOrder'
-import { ordersCsvPath } from '../api/_lib/ordersCsvPath'
+import { handlePostOrder } from './_lib/handlePostOrder'
+import { ordersCsvPath } from './_lib/ordersCsvPath'
 
 const require = createRequire(import.meta.url)
 const catalog = require('../api/_lib/catalogStorage.js') as typeof import('../api/_lib/catalogStorage.js')

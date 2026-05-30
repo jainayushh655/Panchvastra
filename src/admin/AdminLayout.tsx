@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { AdminCatalogSyncBanner } from '@/admin/AdminCatalogSyncBanner'
 import { clearAdminSession } from '@/lib/adminAuth'
 
 const nav = [
@@ -44,6 +45,7 @@ export function AdminLayout() {
         </button>
       </aside>
       <div className="max-h-screen flex-1 overflow-y-auto p-6 md:p-10">
+        <AdminCatalogSyncBanner />
         <Outlet />
       </div>
     </div>

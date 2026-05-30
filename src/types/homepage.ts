@@ -1,4 +1,4 @@
-/** CMS-driven homepage slices — persisted with catalog in localStorage */
+/** CMS-driven homepage slices — persisted with catalog in Vercel Blob (localStorage is offline cache only). */
 
 export interface HomepageHeroSlide {
   id: string

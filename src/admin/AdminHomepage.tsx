@@ -2,8 +2,8 @@ import type { ChangeEvent, FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useCatalog } from '@/hooks/useCatalog'
 import { imageFileToStoredUrl } from '@/lib/cmsImageUpload'
-import { setHomepageBulk } from '@/lib/catalogStore'
-import { HERO_SLIDE_COUNT, sanitizeHeroSlides } from '@/lib/homepageHero'
+import { defaultHomepage, setHomepageBulk } from '@/lib/catalogStore'
+import { HERO_SLIDE_COUNT, normalizeHomepageContent, sanitizeHeroSlides } from '@/lib/homepageHero'
 import type { HomepageContent, HomepageHeroSlide } from '@/types/homepage'
 import { Button } from '@/components/ui/Button'
 
@@ -20,7 +20,7 @@ export function AdminHomepage() {
   const fileRefs = useRef<Record<number, HTMLInputElement | null>>({})
 
   useEffect(() => {
-    setD(structuredClone(homepage))
+    setD(structuredClone(normalizeHomepageContent(homepage, defaultHomepage())))
   }, [homepage])
 
   const patch = (next: HomepageContent) => setD(next)

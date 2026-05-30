@@ -2,9 +2,10 @@ import { CMS_STORAGE_KEYS } from '@/cms/registry'
 import { CATEGORIES } from '@/data/categories'
 import { MOCK_PRODUCTS } from '@/data/mockProducts'
 import { adminSessionOk, getAdminApiToken } from '@/lib/adminAuth'
-import { fetchCatalogFromApi, saveCatalogToApi } from '@/lib/catalogApi'
+import { fetchCatalogFromApiDetailed, saveCatalogToApi, type SaveCatalogResult } from '@/lib/catalogApi'
 import type { CategoryDef, Product } from '@/types'
-import { defaultHeroSlides, normalizeHomepageContent } from '@/lib/homepageHero'
+import { defaultHomepage as buildDefaultHomepage } from '@/lib/defaultHomepage'
+import { normalizeHomepageContent } from '@/lib/homepageHero'
 import type { HomepageContent } from '@/types/homepage'
 import type { OrderLogEntry } from '@/types/orderLog'
 
@@ -15,69 +16,34 @@ export type CatalogSnapshot = {
   revision: number
 }
 
+export const CATALOG_SYNC_EVENT = 'panchvastra:catalog-sync'
+
+export type CatalogSyncDetail = SaveCatalogResult
+
+const LOG_PREFIX = '[panchvastra/catalog]'
+
 function clone<T>(x: T): T {
   return JSON.parse(JSON.stringify(x)) as T
 }
 
-export function defaultHomepage(): HomepageContent {
-  return {
-    heroEyebrow: 'Gen Z · India-first',
-    heroTitle: 'Built for fits that live on feed & off it.',
-    heroSub:
-      'PANCHVASTRA is modular streetwear: regular tees, oversized silhouettes, and shorts — with room to grow into whatever the algorithm wants next.',
-    heroSlides: defaultHeroSlides(),
-    featuredSectionTitle: 'Featured drops',
-    trendingSectionTitle: 'Trending now',
-    featuredTiles: [
-      {
-        slug: 'oversized-tee',
-        title: 'Oversized',
-        blurb: 'Drop shoulders & longline drape',
-        badge: 'Line',
-        bgClass: 'from-violet-900/30 to-zinc-900',
-      },
-      {
-        slug: 'regular-tee',
-        title: 'Regular',
-        blurb: 'Daily rotation staples',
-        badge: 'Core',
-        bgClass: 'from-orange-900/25 to-zinc-900',
-      },
-      {
-        slug: 'shorts',
-        title: 'Shorts',
-        blurb: 'Tech fleece & swim hybrids',
-        badge: 'Line',
-        bgClass: 'from-emerald-900/25 to-zinc-900',
-      },
-    ],
-    banners: {
-      sale: {
-        eyebrow: 'Sale',
-        title: 'End of season — up to 25% off',
-        sub: 'Core staples & shorts while stock lasts.',
-        cta: 'Shop sale →',
-        link: '/shop',
-      },
-      arrivals: {
-        eyebrow: 'New arrivals',
-        title: 'Acid wash + neon mist',
-        sub: "Micro-drops that won't restock.",
-        cta: 'See new →',
-        link: '/shop?q=acid',
-      },
-    },
-    newsletterTitle: 'Join the list',
-    newsletterSub: 'Early access to collabs & restocks. No spam — we respect the inbox.',
-  }
-}
+export { defaultHomepage } from '@/lib/defaultHomepage'
 
 function seedSnapshot(): CatalogSnapshot {
   return {
     products: clone(MOCK_PRODUCTS),
     categories: clone(CATEGORIES),
-    homepage: defaultHomepage(),
+    homepage: buildDefaultHomepage(),
     revision: 0,
+  }
+}
+
+function normalizeSnapshot(raw: CatalogSnapshot): CatalogSnapshot {
+  const fallback = seedSnapshot()
+  return {
+    products: Array.isArray(raw.products) ? raw.products : fallback.products,
+    categories: raw.categories?.length ? raw.categories : fallback.categories,
+    homepage: normalizeHomepageContent(raw.homepage, fallback.homepage),
+    revision: typeof raw.revision === 'number' ? raw.revision : 0,
   }
 }
 
@@ -87,32 +53,23 @@ function readCatalogLs(): CatalogSnapshot | null {
     const raw = localStorage.getItem(CMS_STORAGE_KEYS.catalog)
     if (!raw) return null
     const parsed = JSON.parse(raw) as CatalogSnapshot
-    if (!parsed?.products?.length) return null
-    return parsed
-  } catch {
+    if (!parsed || !Array.isArray(parsed.products)) return null
+    return normalizeSnapshot(parsed)
+  } catch (err) {
+    console.warn(`${LOG_PREFIX} Failed to read localStorage cache`, err)
     return null
   }
 }
 
-function mergeLsCatalog(parsed: CatalogSnapshot): CatalogSnapshot {
-  const needed = seedSnapshot()
-  return {
-    ...parsed,
-    products: parsed.products ?? needed.products,
-    homepage: normalizeHomepageContent(parsed.homepage, needed.homepage),
-    categories: parsed.categories?.length ? parsed.categories : needed.categories,
-    revision: parsed.revision ?? 0,
-  }
-}
-
+/** Offline cache only — API/Blob is the source of truth on startup. */
 function loadSnapshot(): CatalogSnapshot {
-  const fromLs = typeof window !== 'undefined' && window.localStorage ? readCatalogLs() : null
-  if (fromLs) return mergeLsCatalog(fromLs)
   return seedSnapshot()
 }
 
 let snapshot: CatalogSnapshot = loadSnapshot()
 let orderLogCached: OrderLogEntry[] | null = null
+let hasHydratedFromApi = false
+let lastApiPushFailed = false
 
 const listeners = new Set<() => void>()
 
@@ -122,25 +79,28 @@ function emit() {
   })
 }
 
-/** Re-read localStorage when another tab edits catalog, or when LS is newer than memory. */
-export function syncCatalogFromLocalStorage(): void {
+function dispatchSyncEvent(detail: CatalogSyncDetail) {
   if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent<CatalogSyncDetail>(CATALOG_SYNC_EVENT, { detail }))
+}
+
+/** Re-read localStorage when another tab edits catalog on the same device. */
+export function syncCatalogFromLocalStorage(): void {
+  if (typeof window === 'undefined' || !hasHydratedFromApi) return
   const fromLs = readCatalogLs()
   if (!fromLs) return
 
-  const merged = mergeLsCatalog(fromLs)
-  const lsRev = merged.revision ?? 0
+  const lsRev = fromLs.revision ?? 0
   const memRev = snapshot.revision ?? 0
-  const lsCount = merged.products?.length ?? 0
-  const memCount = snapshot.products?.length ?? 0
-  if (lsRev > memRev || lsCount !== memCount || JSON.stringify(snapshot.products.map((p) => p.id)) !== JSON.stringify(merged.products.map((p) => p.id))) {
-    snapshot = merged
+  if (lsRev > memRev) {
+    snapshot = fromLs
     emit()
+    console.info(`${LOG_PREFIX} Applied newer localStorage cache from another tab`, { revision: lsRev })
   }
 }
 
 function applyRemoteCatalog(remote: CatalogSnapshot) {
-  snapshot = mergeLsCatalog(remote)
+  snapshot = normalizeSnapshot(remote)
   persistCatalogLocal()
   emit()
 }
@@ -151,9 +111,27 @@ function persistCatalogLocal() {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return
     localStorage.setItem(CMS_STORAGE_KEYS.catalog, JSON.stringify(snapshot))
-  } catch {
-    /* quota / privacy mode */
+    lastApiPushFailed = false
+  } catch (err) {
+    console.error(`${LOG_PREFIX} localStorage write failed (quota or privacy mode)`, err)
   }
+}
+
+async function pushCatalogToApi(): Promise<SaveCatalogResult> {
+  const result = await saveCatalogToApi(snapshot, getAdminApiToken())
+  dispatchSyncEvent(result)
+  if (result.ok) {
+    lastApiPushFailed = false
+    if (result.revision > snapshot.revision) {
+      snapshot = { ...snapshot, revision: result.revision }
+      persistCatalogLocal()
+      emit()
+    }
+  } else {
+    lastApiPushFailed = true
+    console.error(`${LOG_PREFIX} Save to API failed — changes exist locally only until save succeeds`, result)
+  }
+  return result
 }
 
 function scheduleCatalogApiPush() {
@@ -161,19 +139,72 @@ function scheduleCatalogApiPush() {
   if (apiPushTimer) clearTimeout(apiPushTimer)
   apiPushTimer = setTimeout(() => {
     apiPushTimer = null
-    void saveCatalogToApi(snapshot, getAdminApiToken())
+    void pushCatalogToApi()
   }, 600)
 }
 
-/** Load shared catalog from Vercel JSON API (source of truth in production). */
+/** Load shared catalog from Vercel Blob / backend API (source of truth). */
 export async function hydrateCatalogFromApi(): Promise<void> {
-  const remote = await fetchCatalogFromApi()
-  if (remote?.products?.length) applyRemoteCatalog(remote)
+  const result = await fetchCatalogFromApiDetailed()
+  if (!result.ok) {
+    const cached = readCatalogLs()
+    if (cached) {
+      snapshot = cached
+      emit()
+      console.warn(`${LOG_PREFIX} API unavailable — using localStorage cache`, {
+        revision: cached.revision,
+        products: cached.products.length,
+        error: result.error,
+      })
+    } else {
+      console.warn(`${LOG_PREFIX} API unavailable — using built-in seed`, { error: result.error })
+    }
+    hasHydratedFromApi = true
+    return
+  }
+
+  const remote = normalizeSnapshot(result.catalog)
+
+  if (!hasHydratedFromApi) {
+    applyRemoteCatalog(remote)
+    hasHydratedFromApi = true
+    console.info(`${LOG_PREFIX} Hydrated from API (source of truth)`, {
+      revision: remote.revision,
+      products: remote.products.length,
+    })
+    return
+  }
+
+  const remoteRev = remote.revision ?? 0
+  const localRev = snapshot.revision ?? 0
+  if (remoteRev >= localRev) {
+    applyRemoteCatalog(remote)
+    console.info(`${LOG_PREFIX} Refreshed from API`, { revision: remoteRev })
+  } else if (adminSessionOk() && localRev > remoteRev) {
+    console.info(`${LOG_PREFIX} Local revision is newer — pushing to API`, { localRev, remoteRev })
+    await pushCatalogToApi()
+  }
 }
 
 /** Refresh when user returns to the tab (e.g. admin edited on another device). */
 export async function refreshCatalogFromApi(): Promise<void> {
   await hydrateCatalogFromApi()
+}
+
+/** Force an immediate API save (admin panel). */
+export async function flushCatalogToApi(): Promise<SaveCatalogResult> {
+  if (apiPushTimer) {
+    clearTimeout(apiPushTimer)
+    apiPushTimer = null
+  }
+  if (!adminSessionOk()) {
+    return { ok: false, error: 'NOT_AUTHENTICATED' }
+  }
+  return pushCatalogToApi()
+}
+
+export function catalogLastApiPushFailed(): boolean {
+  return lastApiPushFailed
 }
 
 function persistCatalog() {
@@ -183,15 +214,15 @@ function persistCatalog() {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
-    if (e.key !== CMS_STORAGE_KEYS.catalog || !e.newValue) return
+    if (e.key !== CMS_STORAGE_KEYS.catalog || !e.newValue || !hasHydratedFromApi) return
     try {
       const parsed = JSON.parse(e.newValue) as CatalogSnapshot
-      if (parsed?.products?.length) {
-        snapshot = mergeLsCatalog(parsed)
+      if (parsed && Array.isArray(parsed.products)) {
+        snapshot = normalizeSnapshot(parsed)
         emit()
       }
-    } catch {
-      /* */
+    } catch (err) {
+      console.warn(`${LOG_PREFIX} Ignored invalid storage event`, err)
     }
   })
   document.addEventListener('visibilitychange', () => {
@@ -309,7 +340,7 @@ export function setHomepageBulk(next: HomepageContent) {
   snapshot = {
     ...snapshot,
     revision: snapshot.revision + 1,
-    homepage: next,
+    homepage: normalizeHomepageContent(next, buildDefaultHomepage()),
   }
   persistCatalog()
   emit()
@@ -322,7 +353,7 @@ export async function resetCatalogToSeed() {
   persistOrderLog([])
   emit()
   if (adminSessionOk()) {
-    await saveCatalogToApi(snapshot, getAdminApiToken())
+    await pushCatalogToApi()
   }
 }
 

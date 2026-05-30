@@ -17,8 +17,8 @@ export function AdminDashboard() {
     <div className="max-w-3xl">
       <h1 className="type-page-title text-white">Dashboard</h1>
       <p className="mt-2 text-sm text-zinc-400">
-        Catalog revision <strong className="text-orange-400">#{revision}</strong> · synced via{' '}
-        <code className="text-xs text-orange-300">/api/catalog</code> · orders local key{' '}
+        Catalog revision <strong className="text-orange-400">#{revision}</strong> · source of truth{' '}
+        <code className="text-xs text-orange-300">/api/catalog</code> (Vercel Blob in production) · orders local key{' '}
         <code className="text-xs text-orange-300">{CMS_STORAGE_KEYS.orderLog}</code>
       </p>
       <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
