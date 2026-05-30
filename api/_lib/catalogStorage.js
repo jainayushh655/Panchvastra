@@ -2,7 +2,7 @@ const fs = require('node:fs/promises')
 const path = require('node:path')
 const { getSeedCatalog } = require('./catalogSeed')
 
-const BLOB_PATHNAME = 'catalog.json'
+const BLOB_PREFIX = 'catalog'
 const LOCAL_CATALOG = path.join(process.cwd(), 'server', 'data', 'catalog.json')
 
 function blobToken() {
@@ -77,14 +77,23 @@ async function readBlob() {
   if (!token) return null
 
   const { list } = await import('@vercel/blob')
-  const { blobs } = await list({ prefix: BLOB_PATHNAME, limit: 20, token })
-  const hit =
-    blobs.find((b) => b.pathname === BLOB_PATHNAME) ||
-    blobs.find((b) => b.pathname.endsWith('/' + BLOB_PATHNAME)) ||
-    blobs[0]
-  if (!hit) return null
 
-  const url = hit.downloadUrl || hit.url
+  const { blobs } = await list({
+    prefix: BLOB_PREFIX,
+    limit: 100,
+    token,
+  })
+
+  if (!blobs.length) return null
+
+  const latest = blobs.sort(
+    (a, b) =>
+      new Date(b.uploadedAt).getTime() -
+      new Date(a.uploadedAt).getTime()
+  )[0]
+
+  const url = latest.downloadUrl || latest.url
+
   if (!url) return null
 
   return fetchBlobJson(url, token)
@@ -123,13 +132,13 @@ async function writeBlob(snapshot) {
   }
 
   try {
-    await put(BLOB_PATHNAME, body, {
-      access: 'private',
-      addRandomSuffix: false,
-      allowOverwrite: true,
-      contentType: 'application/json',
-      token,
-    })
+    const pathname = `${BLOB_PREFIX}/catalog-${Date.now()}.json`
+
+await put(pathname, body, {
+  access: 'private',
+  contentType: 'application/json',
+  token,
+})
     return true
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
