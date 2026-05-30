@@ -90,6 +90,12 @@ async function readBlob() {
   return fetchBlobJson(url, token)
 }
 
+console.log('VERCEL:', process.env.VERCEL)
+console.log(
+  'TOKEN EXISTS:',
+  !!process.env.BLOB_READ_WRITE_TOKEN
+)
+
 async function writeBlob(snapshot) {
   const token = blobToken()
   if (!token) {
