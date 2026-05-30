@@ -95,6 +95,9 @@ console.log(
   'TOKEN EXISTS:',
   !!process.env.BLOB_READ_WRITE_TOKEN
 )
+console.log("=== NEW DEPLOY TEST ===");
+console.log("ACCESS MODE:", "private");
+console.log("BLOB SDK VERSION TEST");
 
 async function writeBlob(snapshot) {
   const token = blobToken()
