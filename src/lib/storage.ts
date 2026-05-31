@@ -17,5 +17,4 @@ export function writeJson(key: string, value: unknown) {
 export const KEYS = {
   cart: 'pv_cart_v2',
   wishlist: 'pv_wishlist_v2',
-  theme: 'pv_theme_v2',
 } as const

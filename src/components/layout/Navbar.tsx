@@ -2,12 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom'
 import { BrandMark } from '@/components/BrandMark'
 import { useCart } from '@/context/CartProvider'
-import { useTheme } from '@/context/ThemeProvider'
 import { useCatalog } from '@/hooks/useCatalog'
 
 export function Navbar() {
   const { totalItems } = useCart()
-  const { toggleTheme } = useTheme()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { categories } = useCatalog()
@@ -114,15 +112,6 @@ export function Navbar() {
             About Us
           </NavLink>
         </nav>
-          <button
-            type="button"
-            aria-label="Toggle theme"
-            onClick={toggleTheme}
-            className="rounded-full p-2 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            <span className="hidden dark:inline">☀</span>
-            <span className="dark:hidden">🌙</span>
-          </button>
           <Link
             to="/cart"
             className="relative rounded-full p-2 text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"

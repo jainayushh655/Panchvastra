@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* Match ThemeProvider: `dark` class on <html> — default v4 dark: uses prefers-color-scheme only. */
+/* Light theme only — dark: utilities require `.dark` on <html> (never applied). */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
@@ -22,29 +22,14 @@
 @layer base {
   html {
     @apply scroll-smooth antialiased;
+    color-scheme: light;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
-  html.dark {
-    color-scheme: dark;
-  }
-
-  html:not(.dark) {
-    color-scheme: light;
-  }
-
   body {
-    @apply font-sans text-[15px] leading-relaxed antialiased transition-colors duration-200 sm:text-base;
-  }
-
-  html.dark body {
-    @apply bg-zinc-950 text-zinc-100;
-  }
-
-  html:not(.dark) body {
-    @apply bg-zinc-50 text-zinc-950;
+    @apply bg-zinc-50 font-sans text-[15px] leading-relaxed text-zinc-950 antialiased sm:text-base;
   }
 
   h1,

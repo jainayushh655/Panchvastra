@@ -1,4 +1,4 @@
-import type { CartItem, CategorySlug, Product, SortKey } from '@/types'
+import type { CartItem, CategorySlug, Product, ShowcaseHighlight, SortKey } from '@/types'
 import { getCategoriesSnapshot, getProductsSnapshot } from '@/lib/catalogStore'
 import { getSiblingVariants } from '@/lib/productVariants'
 import axios from 'axios'
@@ -99,50 +99,36 @@ export const catalogApi = {
     return { products: items }
   },
 
-  /** Home showcase row: admin-tagged products first, then legacy rules to fill up to three. */
-  async getHomeShowcase(filter: 'trending' | 'bestseller' | 'newarrival' | 'hotdeals', limit = 3) {
+  /** Home showcase row: only products assigned to the selected tab (admin tag or legacy flags). */
+  async getHomeShowcase(filter: ShowcaseHighlight, limit = 3) {
     const list = [...getProductsSnapshot()]
-    const byPop = () => [...list].sort((a, b) => b.popularity - a.popularity)
 
     const isDeal = (p: Product) =>
       (p.salePct != null && p.salePct > 0) ||
       (p.compareAtPrice != null && p.compareAtPrice > p.price)
 
-    const fallbackOrdered = (): Product[] => {
+    const matches = (p: Product): boolean => {
+      if (p.showcaseHighlight) return p.showcaseHighlight === filter
       switch (filter) {
         case 'trending':
-          return list.filter((p) => p.trending).sort((a, b) => b.popularity - a.popularity)
-        case 'bestseller':
-          return [...list].sort((a, b) => b.reviewCount - a.reviewCount)
+          return Boolean(p.trending)
         case 'newarrival':
-          return list.filter((p) => p.isNew).sort((a, b) => b.popularity - a.popularity)
+          return Boolean(p.isNew)
         case 'hotdeals':
-          return list.filter(isDeal).sort((a, b) => (b.salePct ?? 0) - (a.salePct ?? 0))
-        default:
-          return byPop()
+          return isDeal(p)
+        case 'bestseller':
+          return false
       }
     }
 
-    const tagged = list.filter((p) => p.showcaseHighlight === filter).sort((a, b) => b.popularity - a.popularity)
-    const seen = new Set(tagged.map((p) => p.id))
-    const out = [...tagged]
-    for (const p of fallbackOrdered()) {
-      if (out.length >= limit) break
-      if (!seen.has(p.id)) {
-        out.push(p)
-        seen.add(p.id)
-      }
+    const sortKey = (a: Product, b: Product) => {
+      if (filter === 'bestseller') return b.reviewCount - a.reviewCount
+      if (filter === 'hotdeals') return (b.salePct ?? 0) - (a.salePct ?? 0)
+      return b.popularity - a.popularity
     }
-    if (out.length < limit) {
-      for (const p of byPop()) {
-        if (out.length >= limit) break
-        if (!seen.has(p.id)) {
-          out.push(p)
-          seen.add(p.id)
-        }
-      }
-    }
-    return { products: out.slice(0, limit) }
+
+    const products = list.filter(matches).sort(sortKey).slice(0, limit)
+    return { products }
   },
 
   async getBySlug(slug: string): Promise<Product | null> {

@@ -52,7 +52,7 @@ export interface Product {
   trending?: boolean
   isNew?: boolean
   salePct?: number
-  /** Admin: appears first on the matching home tab; falls back to rules if fewer than three are tagged. */
+  /** Admin: appears on the matching home tab only. */
   showcaseHighlight?: ShowcaseHighlight
 }
 
