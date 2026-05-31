@@ -9,17 +9,39 @@ export const http = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '',
 })
 
-function filterSort(
-  list: Product[],
-  opts: {
-    category?: CategorySlug | 'all'
-    q?: string
-    sizes?: string[]
-    minPrice?: number
-    maxPrice?: number
-    sort?: SortKey
-  },
-) {
+export type CatalogFilterParams = {
+  category?: CategorySlug | 'all'
+  q?: string
+  sizes?: string[]
+  minPrice?: number
+  maxPrice?: number
+  sort?: SortKey
+}
+
+function isDealProduct(p: Product) {
+  return (
+    (p.salePct != null && p.salePct > 0) ||
+    (p.compareAtPrice != null && p.compareAtPrice > p.price)
+  )
+}
+
+/** Admin showcase tag first; legacy flags when no tag is set (same rules as home tabs). */
+export function matchesShowcaseHighlight(p: Product, highlight: ShowcaseHighlight): boolean {
+  if (p.showcaseHighlight) return p.showcaseHighlight === highlight
+  switch (highlight) {
+    case 'trending':
+      return Boolean(p.trending)
+    case 'newarrival':
+      return Boolean(p.isNew)
+    case 'hotdeals':
+      return isDealProduct(p)
+    case 'bestseller':
+      return false
+  }
+}
+
+/** Filter + sort catalog products (used by shop page; keep in sync with getProducts). */
+export function filterCatalogProducts(list: Product[], opts: CatalogFilterParams = {}) {
   let out = [...list]
 
   if (opts.category && opts.category !== 'all') {
@@ -55,14 +77,11 @@ function filterSort(
       out.sort((a, b) => b.price - a.price)
       break
     case 'new-arrival':
-      out.sort((a, b) => {
-        const an = a.isNew ? 1 : 0
-        const bn = b.isNew ? 1 : 0
-        if (bn !== an) return bn - an
-        return b.popularity - a.popularity
-      })
+      out = out.filter((p) => matchesShowcaseHighlight(p, 'newarrival'))
+      out.sort((a, b) => b.popularity - a.popularity)
       break
     case 'bestseller':
+      out = out.filter((p) => matchesShowcaseHighlight(p, 'bestseller'))
       out.sort((a, b) => b.reviewCount - a.reviewCount)
       break
     default:
@@ -84,7 +103,7 @@ export const catalogApi = {
   }) {
     const products = getProductsSnapshot()
     const categories = getCategoriesSnapshot()
-    const data = filterSort(products, params ?? {})
+    const data = filterCatalogProducts(products, params ?? {})
     return {
       products: data,
       categories,
@@ -103,31 +122,13 @@ export const catalogApi = {
   async getHomeShowcase(filter: ShowcaseHighlight, limit = 3) {
     const list = [...getProductsSnapshot()]
 
-    const isDeal = (p: Product) =>
-      (p.salePct != null && p.salePct > 0) ||
-      (p.compareAtPrice != null && p.compareAtPrice > p.price)
-
-    const matches = (p: Product): boolean => {
-      if (p.showcaseHighlight) return p.showcaseHighlight === filter
-      switch (filter) {
-        case 'trending':
-          return Boolean(p.trending)
-        case 'newarrival':
-          return Boolean(p.isNew)
-        case 'hotdeals':
-          return isDeal(p)
-        case 'bestseller':
-          return false
-      }
-    }
-
     const sortKey = (a: Product, b: Product) => {
       if (filter === 'bestseller') return b.reviewCount - a.reviewCount
       if (filter === 'hotdeals') return (b.salePct ?? 0) - (a.salePct ?? 0)
       return b.popularity - a.popularity
     }
 
-    const products = list.filter(matches).sort(sortKey).slice(0, limit)
+    const products = list.filter((p) => matchesShowcaseHighlight(p, filter)).sort(sortKey).slice(0, limit)
     return { products }
   },
 

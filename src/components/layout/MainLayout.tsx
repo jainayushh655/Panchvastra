@@ -13,7 +13,7 @@ export function MainLayout() {
   return (
     <div className="flex min-h-svh flex-col">
       <Navbar />
-      <main key={`${pathname}${search}`} className="flex-1">
+      <main className="flex-1">
         <Outlet />
       </main>
       <Footer />

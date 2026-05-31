@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ProductCard } from '@/components/ProductCard'
 import { IconFilterPeek } from '@/components/shop/IconFilterPeek'
@@ -10,10 +10,9 @@ import { shopToolbarButtonClass, shopToolbarLabelClass } from '@/components/shop
 import { Button } from '@/components/ui/Button'
 import { useCatalog } from '@/hooks/useCatalog'
 import { useCatalogHydrated } from '@/hooks/useCatalogHydrated'
-import { catalogApi } from '@/lib/api'
+import { filterCatalogProducts } from '@/lib/api'
 import { getProductsSnapshot } from '@/lib/catalogStore'
 import type { CategorySlug } from '@/types'
-import type { Product } from '@/types'
 import type { SortKey } from '@/types'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
@@ -76,9 +75,31 @@ export function ShopPage() {
   const apiMaxPrice =
     maxFromUrl != null && maxFromUrl < boundMax ? maxFromUrl : undefined
 
-  const [list, setList] = useState<Product[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
+
+  const showProductLoading = !catalogHydrated && products.length === 0
+
+  const list = useMemo(() => {
+    if (showProductLoading) return []
+    return filterCatalogProducts(getProductsSnapshot(), {
+      category,
+      q,
+      sort,
+      minPrice: apiMinPrice,
+      maxPrice: apiMaxPrice,
+      sizes: sizesParam.length ? sizesParam : undefined,
+    })
+  }, [
+    showProductLoading,
+    category,
+    q,
+    sort,
+    apiMinPrice,
+    apiMaxPrice,
+    sizesParam,
+    revision,
+  ])
 
   const categoryHeading = useMemo(() => {
     if (category === 'all') return 'All products'
@@ -88,33 +109,15 @@ export function ShopPage() {
 
   const setSort = useCallback(
     (key: SortKey) => {
-      const n = new URLSearchParams(searchParams)
-      if (key === 'popular') n.delete('sort')
-      else n.set('sort', key)
-      setSearchParams(n)
-    },
-    [searchParams, setSearchParams],
-  )
-
-  const refresh = useCallback(() => {
-    catalogApi
-      .getProducts({
-        category,
-        q,
-        sort: sort ?? 'popular',
-        minPrice: apiMinPrice,
-        maxPrice: apiMaxPrice,
-        sizes: sizesParam.length ? sizesParam : undefined,
+      setSearchParams((prev) => {
+        const n = new URLSearchParams(prev)
+        if (key === 'popular') n.delete('sort')
+        else n.set('sort', key)
+        return n
       })
-      .then((r) => setList(r.products))
-  }, [category, q, sort, apiMinPrice, apiMaxPrice, sizesParam, revision])
-
-  const showProductLoading = !catalogHydrated && products.length === 0
-
-  useEffect(() => {
-    if (showProductLoading) return
-    refresh()
-  }, [refresh, showProductLoading])
+    },
+    [setSearchParams],
+  )
 
   const hasUrlFilters =
     Boolean(q.trim()) ||
@@ -178,10 +181,12 @@ export function ShopPage() {
           <SizeFilterDropdown
             selected={sizesParam}
             onChange={(sizes) => {
-              const n = new URLSearchParams(searchParams)
-              if (sizes.length) n.set('sizes', sizes.join(','))
-              else n.delete('sizes')
-              setSearchParams(n)
+              setSearchParams((prev) => {
+                const n = new URLSearchParams(prev)
+                if (sizes.length) n.set('sizes', sizes.join(','))
+                else n.delete('sizes')
+                return n
+              })
             }}
           />
           <PriceFilterSection
@@ -190,12 +195,14 @@ export function ShopPage() {
             minUrl={minFromUrl}
             maxUrl={maxFromUrl}
             onCommit={(min, max) => {
-              const n = new URLSearchParams(searchParams)
-              if (min == null) n.delete('min')
-              else n.set('min', String(min))
-              if (max == null) n.delete('max')
-              else n.set('max', String(max))
-              setSearchParams(n)
+              setSearchParams((prev) => {
+                const n = new URLSearchParams(prev)
+                if (min == null) n.delete('min')
+                else n.set('min', String(min))
+                if (max == null) n.delete('max')
+                else n.set('max', String(max))
+                return n
+              })
             }}
           />
           <div className="pt-2 pb-3">
@@ -205,12 +212,13 @@ export function ShopPage() {
               size="sm"
               className="w-full dark:!border-zinc-600 dark:!text-zinc-200"
               onClick={() => {
-                const n = new URLSearchParams(searchParams)
-                n.delete('min')
-                n.delete('max')
-                n.delete('sizes')
-                n.delete('sort')
-                setSearchParams(n)
+                setSearchParams((prev) => {
+                  const n = new URLSearchParams(prev)
+                  n.delete('min')
+                  n.delete('max')
+                  n.delete('sizes')
+                  return n
+                })
               }}
             >
               Reset filters
