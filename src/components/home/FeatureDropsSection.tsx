@@ -16,10 +16,9 @@ function DropBox({ to, imageUrl, name, ariaLabel }: DropBoxProps) {
     <Link
       to={to}
       aria-label={ariaLabel}
-      className="group relative block min-h-0 w-1/2 overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white"
+      className="group relative block min-h-0 min-w-0 w-full overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white"
     >
-      {/* Taller tiles: ~4:3 plus floor heights so photos stay readable on wide screens */}
-      <div className="relative aspect-[4/3] w-full min-h-[220px] bg-zinc-300 dark:bg-zinc-800 sm:min-h-[260px] md:min-h-[300px] lg:min-h-[380px] xl:min-h-[440px]">
+      <div className="relative aspect-[4/3] w-full bg-zinc-300 dark:bg-zinc-800 lg:aspect-[3/2]">
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-500 ease-out motion-reduce:transition-none group-hover:scale-[1.04] motion-reduce:group-hover:scale-100"
           style={{ backgroundImage: `url('${imageUrl}')` }}
@@ -40,14 +39,14 @@ function DropBox({ to, imageUrl, name, ariaLabel }: DropBoxProps) {
 
 export function FeatureDropsSection() {
   return (
-    <section className="w-full border-b border-zinc-200 bg-white dark:border-zinc-800">
+    <section className="w-full overflow-x-hidden border-b border-zinc-200 bg-white dark:border-zinc-800">
       <div className="mx-auto max-w-6xl px-4 pt-10 pb-6 text-center md:pt-8 md:pb-8">
         <h2 className="type-section-title">
           Feature drops
         </h2>
       </div>
 
-      <div className="flex w-full flex-row">
+      <div className="grid w-full grid-cols-1 sm:grid-cols-2">
         <DropBox
           to="/shop?category=regular-tee"
           imageUrl={BOX_BG_TEE}
