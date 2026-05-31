@@ -5,6 +5,7 @@ import { IconFilterPeek } from '@/components/shop/IconFilterPeek'
 import { PriceFilterSection } from '@/components/shop/PriceFilterSection'
 import { SizeFilterDropdown } from '@/components/shop/SizeFilterDropdown'
 import { ShopSortPicker } from '@/components/shop/ShopSortPicker'
+import { ProductGridSkeleton } from '@/components/shop/ProductGridSkeleton'
 import { shopToolbarButtonClass, shopToolbarLabelClass } from '@/components/shop/shopToolbar'
 import { Button } from '@/components/ui/Button'
 import { useCatalog } from '@/hooks/useCatalog'
@@ -33,25 +34,11 @@ function validCategory(
   return allowedSlugs.has(c) ? c : 'all'
 }
 
-function ProductGridSkeleton({ count = 8 }: { count?: number }) {
-  return (
-    <>
-      {Array.from({ length: count }, (_, i) => (
-        <div
-          key={i}
-          className="aspect-[3/4] animate-pulse rounded-2xl bg-zinc-200 dark:bg-zinc-800"
-          aria-hidden
-        />
-      ))}
-    </>
-  )
-}
-
 export function ShopPage() {
   useDocumentTitle('Shop')
   const [searchParams, setSearchParams] = useSearchParams()
   const catalogHydrated = useCatalogHydrated()
-  const { categories, revision } = useCatalog()
+  const { categories, revision, products } = useCatalog()
   const allowedSlugs = useMemo(
     () => new Set(categories.map((c) => c.slug)),
     [categories],
@@ -122,10 +109,12 @@ export function ShopPage() {
       .then((r) => setList(r.products))
   }, [category, q, sort, apiMinPrice, apiMaxPrice, sizesParam, revision])
 
+  const showProductLoading = !catalogHydrated && products.length === 0
+
   useEffect(() => {
-    if (!catalogHydrated) return
+    if (showProductLoading) return
     refresh()
-  }, [refresh, catalogHydrated])
+  }, [refresh, showProductLoading])
 
   const hasUrlFilters =
     Boolean(q.trim()) ||
@@ -230,7 +219,7 @@ export function ShopPage() {
         </aside>
 
         <div className={`min-w-0 ${productGridClass}`}>
-          {!catalogHydrated ? (
+          {showProductLoading ? (
             <ProductGridSkeleton count={filtersOpen ? 6 : 8} />
           ) : list.length === 0 ? (
             <div className="col-span-full rounded-2xl border border-zinc-200 bg-zinc-50 px-6 py-14 text-center dark:border-zinc-800 dark:bg-zinc-950/50">

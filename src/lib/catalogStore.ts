@@ -61,9 +61,11 @@ function readCatalogLs(): CatalogSnapshot | null {
   }
 }
 
-/** Offline cache only — API/Blob is the source of truth on startup. */
+/** Use localStorage cache for instant first paint; API replaces it when ready. */
 function loadSnapshot(): CatalogSnapshot {
   if (typeof window === 'undefined') return seedSnapshot()
+  const cached = readCatalogLs()
+  if (cached?.products?.length) return cached
   const seed = seedSnapshot()
   return { ...seed, products: [], revision: 0 }
 }

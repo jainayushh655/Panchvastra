@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from 'framer-motion'
 import { useLayoutEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Footer } from '@/components/layout/Footer'
@@ -14,18 +13,9 @@ export function MainLayout() {
   return (
     <div className="flex min-h-svh flex-col">
       <Navbar />
-      <AnimatePresence mode="wait">
-        <motion.main
-          key={pathname}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.22, ease: 'easeOut' }}
-          className="flex-1"
-        >
-          <Outlet />
-        </motion.main>
-      </AnimatePresence>
+      <main key={`${pathname}${search}`} className="flex-1">
+        <Outlet />
+      </main>
       <Footer />
     </div>
   )

@@ -7,6 +7,7 @@ import { useCatalog } from '@/hooks/useCatalog'
 import { useCatalogHydrated } from '@/hooks/useCatalogHydrated'
 import { catalogApi } from '@/lib/api'
 import type { Product } from '@/types'
+import { ProductGridSkeleton } from '@/components/shop/ProductGridSkeleton'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 type ShowcaseTab = 'trending' | 'bestseller' | 'newarrival' | 'hotdeals'
@@ -21,14 +22,15 @@ const SHOWCASE_TABS: { id: ShowcaseTab; label: string }[] = [
 export function HomePage() {
   useDocumentTitle('Home')
   const catalogHydrated = useCatalogHydrated()
-  const { revision, homepage } = useCatalog()
+  const { revision, homepage, products } = useCatalog()
   const [showcase, setShowcase] = useState<Product[]>([])
   const [tab, setTab] = useState<ShowcaseTab>('trending')
+  const showShowcaseLoading = !catalogHydrated && products.length === 0
 
   useEffect(() => {
-    if (!catalogHydrated) return
+    if (showShowcaseLoading) return
     catalogApi.getHomeShowcase(tab, 3).then((r) => setShowcase(r.products))
-  }, [revision, tab, catalogHydrated])
+  }, [revision, tab, showShowcaseLoading])
 
   return (
     <div>
@@ -81,9 +83,11 @@ export function HomePage() {
           </div>
 
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {showcase.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
+            {showShowcaseLoading ? (
+              <ProductGridSkeleton count={3} />
+            ) : (
+              showcase.map((p) => <ProductCard key={p.id} product={p} />)
+            )}
           </div>
         </div>
       </section>
