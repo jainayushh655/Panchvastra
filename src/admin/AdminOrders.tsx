@@ -1,9 +1,12 @@
 import { useAdminOrders } from '@/hooks/useAdminOrders'
+import { downloadOrdersCsv } from '@/lib/ordersApi'
 import { formatInr } from '@/lib/format'
 import type { Order } from '@/types'
+import { useState } from 'react'
 
 export function AdminOrders() {
   const { orders, loading, error, refresh, setStatus } = useAdminOrders()
+  const [csvBusy, setCsvBusy] = useState(false)
 
   const setStat = (id: string, status: Order['status']) => {
     void setStatus(id, status)
@@ -14,8 +17,29 @@ export function AdminOrders() {
       <h1 className="type-page-title text-white">Orders</h1>
       <p className="mt-2 text-sm text-zinc-400">
         All orders from every device — stored centrally via{' '}
-        <code className="text-orange-300">/api/orders</code> (Vercel Blob in production).
+        <code className="text-orange-300">/api/orders</code> (Vercel Blob). Excel log:{' '}
+        <code className="text-orange-300">orders/orders.csv</code> in Blob.
       </p>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          type="button"
+          disabled={csvBusy || loading}
+          className="rounded-full border border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+          onClick={() => {
+            setCsvBusy(true)
+            void downloadOrdersCsv().finally(() => setCsvBusy(false))
+          }}
+        >
+          {csvBusy ? 'Preparing…' : 'Download Excel (CSV)'}
+        </button>
+        <button
+          type="button"
+          className="rounded-full border border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-800"
+          onClick={() => void refresh()}
+        >
+          Refresh
+        </button>
+      </div>
       {error ? (
         <p className="mt-4 rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
           {error}{' '}

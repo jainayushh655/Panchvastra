@@ -1,4 +1,5 @@
 const { appendOrder, readOrders, sortOrders, updateOrderStatus } = require('./orderStorage')
+const { appendOrderCsvEntry, exportOrdersCsv } = require('./orderCsvStorage')
 const { adminTokenOk } = require('./catalogStorage')
 
 const VALID_STATUS = new Set(['processing', 'shipped', 'delivered'])
@@ -83,6 +84,11 @@ async function postOrder(body) {
 
   try {
     await appendOrder(built.entry)
+    try {
+      await appendOrderCsvEntry(built.entry)
+    } catch (csvErr) {
+      console.error('[panchvastra-api] orders csv append', csvErr)
+    }
     return { ok: true, status: 201, orderId: built.entry.order.id }
   } catch (err) {
     console.error('[panchvastra-api] orders append', err)
@@ -101,6 +107,11 @@ async function getOrdersForAdmin() {
     address: row.address,
     receivedAt: row.receivedAt,
   }))
+}
+
+async function getOrdersCsvForAdmin() {
+  const store = await readOrders()
+  return exportOrdersCsv(sortOrders(store.orders))
 }
 
 async function patchOrderStatus(body) {
@@ -122,6 +133,7 @@ async function patchOrderStatus(body) {
 module.exports = {
   postOrder,
   getOrdersForAdmin,
+  getOrdersCsvForAdmin,
   patchOrderStatus,
   parseBody,
   adminTokenOk,

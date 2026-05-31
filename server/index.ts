@@ -33,6 +33,14 @@ app.get('/api/orders', async (req, res) => {
     return
   }
   try {
+    if (req.query.format === 'csv') {
+      const csv = await orders.getOrdersCsvForAdmin()
+      res.setHeader('Cache-Control', 'no-store')
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+      res.setHeader('Content-Disposition', 'attachment; filename="panchvastra-orders.csv"')
+      res.send(csv)
+      return
+    }
     const rows = await orders.getOrdersForAdmin()
     res.setHeader('Cache-Control', 'no-store')
     res.json({ ok: true, orders: rows })

@@ -1,6 +1,7 @@
 const {
   postOrder,
   getOrdersForAdmin,
+  getOrdersCsvForAdmin,
   patchOrderStatus,
   parseBody,
   adminTokenOk,
@@ -10,6 +11,11 @@ function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token')
+}
+
+function wantsCsv(req) {
+  const raw = req.url || ''
+  return raw.includes('format=csv')
 }
 
 async function handler(req, res) {
@@ -34,6 +40,14 @@ async function handler(req, res) {
     if (req.method === 'GET') {
       if (!adminTokenOk(req)) {
         res.status(401).json({ ok: false, error: 'UNAUTHORIZED' })
+        return
+      }
+      if (wantsCsv(req)) {
+        const csv = await getOrdersCsvForAdmin()
+        res.setHeader('Cache-Control', 'no-store')
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+        res.setHeader('Content-Disposition', 'attachment; filename="panchvastra-orders.csv"')
+        res.status(200).send(csv)
         return
       }
       const orders = await getOrdersForAdmin()

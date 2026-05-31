@@ -31,6 +31,32 @@ export async function fetchOrdersFromApi(): Promise<AdminOrderRow[]> {
   }
 }
 
+export async function downloadOrdersCsv(): Promise<boolean> {
+  const token = getAdminApiToken()
+  const url = `${storefrontApiPath('/api/orders')}?format=csv`
+  try {
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) {
+      console.error(`${LOG_PREFIX} CSV download failed`, { status: res.status })
+      return false
+    }
+    const blob = await res.blob()
+    const stamp = new Date().toISOString().slice(0, 10)
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `panchvastra-orders-${stamp}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+    return true
+  } catch (err) {
+    console.error(`${LOG_PREFIX} CSV download error`, err)
+    return false
+  }
+}
+
 export async function updateOrderStatusOnApi(
   orderId: string,
   status: Order['status'],
