@@ -37,17 +37,46 @@ export function HomePage() {
       <HeroCarousel slides={homepage.heroSlides} />
 
       <FeatureDropsSection />
-      <FeatureToProductsConnector />
+      {/* <FeatureToProductsConnector /> */}
 
-      <section className="bg-white px-4 pb-16 pt-8">
+      <section className="bg-white px-4 py-6">
         <div className="mx-auto max-w-6xl">
+
+          {/* Section Header */}
+          <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#8a7355]">
+                Featured Collection
+              </p>
+
+              <h2 className="mt-2 text-3xl font-bold tracking-tight text-zinc-900 md:text-4xl">
+                Discover Our Best Pieces
+              </h2>
+
+              <p className="mt-3 max-w-xl text-sm text-zinc-500 md:text-base">
+                Curated styles crafted for everyday comfort, premium quality,
+                and timeless aesthetics.
+              </p>
+            </div>
+
+            <Link
+              to="/shop"
+              className="group inline-flex items-center gap-2 text-sm font-semibold text-[#8a7355] transition-all duration-200 hover:gap-3 hover:text-[#6f5c44]"
+            >
+              View All Products
+              <span aria-hidden>→</span>
+            </Link>
+          </div>
+
+          {/* Tabs */}
           <div
             role="tablist"
             aria-label="Product collections"
-            className="flex flex-wrap justify-start gap-2"
+            className="flex flex-wrap gap-3"
           >
             {SHOWCASE_TABS.map((t) => {
               const selected = tab === t.id
+
               return (
                 <button
                   key={t.id}
@@ -55,11 +84,10 @@ export function HomePage() {
                   role="tab"
                   aria-selected={selected}
                   onClick={() => setTab(t.id)}
-                  className={`rounded-full px-3 py-1 text-sm font-medium leading-none shadow-[0_2px_6px_rgba(0,0,0,0.1)] transition-colors duration-150 ${
-                    selected
-                      ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-950'
-                      : 'bg-white text-zinc-500 hover:text-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
-                  } focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-white`}
+                  className={`rounded-full border px-5 py-2 text-sm font-medium transition-all duration-200 ${selected
+                      ? 'border-black bg-black text-white shadow-lg'
+                      : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-400 hover:text-zinc-900'
+                    }`}
                 >
                   {t.label}
                 </button>
@@ -67,26 +95,14 @@ export function HomePage() {
             })}
           </div>
 
-          <div className="mt-4 flex justify-end">
-            <Link
-              to="/shop"
-              className="group inline-flex items-center gap-1 text-sm font-medium text-[#8a7355] transition-colors hover:text-[#6f5c44] dark:text-[#c4a882] dark:hover:text-[#dcc9a8]"
-            >
-              View all products
-              <span
-                aria-hidden
-                className="inline-block transition-transform duration-200 group-hover:translate-x-0.5"
-              >
-                →
-              </span>
-            </Link>
-          </div>
-
-          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Products */}
+          <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {showShowcaseLoading ? (
               <ProductGridSkeleton count={3} />
             ) : (
-              showcase.map((p) => <ProductCard key={p.id} product={p} />)
+              showcase.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))
             )}
           </div>
         </div>
