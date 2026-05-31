@@ -1,15 +1,14 @@
 /**
- * Local API: order logging (CSV for Excel) + admin. Started with `npm run dev`.
+ * Local API: order logging + admin. Started with `npm run dev`.
  */
 import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
 import { createRequire } from 'node:module'
-import { handlePostOrder } from './_lib/handlePostOrder'
-import { ordersCsvPath } from './_lib/ordersCsvPath'
 
 const require = createRequire(import.meta.url)
 const catalog = require('../api/_lib/catalogStorage.js') as typeof import('../api/_lib/catalogStorage.js')
+const orders = require('../api/_lib/ordersHandler.js') as typeof import('../api/_lib/ordersHandler.js')
 
 const app = express()
 app.use(cors({ origin: true }))
@@ -20,12 +19,40 @@ app.get('/api/health', (_req, res) => {
 })
 
 app.post('/api/orders', async (req, res) => {
-  const result = await handlePostOrder(req.body ?? {})
+  const result = await orders.postOrder(req.body ?? {})
   if (!result.ok) {
     res.status(result.status).json({ ok: false, error: result.error })
     return
   }
   res.status(201).json({ ok: true, orderId: result.orderId })
+})
+
+app.get('/api/orders', async (req, res) => {
+  if (!orders.adminTokenOk(req)) {
+    res.status(401).json({ ok: false, error: 'UNAUTHORIZED' })
+    return
+  }
+  try {
+    const rows = await orders.getOrdersForAdmin()
+    res.setHeader('Cache-Control', 'no-store')
+    res.json({ ok: true, orders: rows })
+  } catch (err) {
+    console.error('[panchvastra-api] GET orders', err)
+    res.status(500).json({ ok: false, error: 'INTERNAL_ERROR' })
+  }
+})
+
+app.patch('/api/orders', async (req, res) => {
+  if (!orders.adminTokenOk(req)) {
+    res.status(401).json({ ok: false, error: 'UNAUTHORIZED' })
+    return
+  }
+  const result = await orders.patchOrderStatus(req.body ?? {})
+  if (!result.ok) {
+    res.status(result.status).json({ ok: false, error: result.error })
+    return
+  }
+  res.json({ ok: true, orderId: result.orderId, status: result.status })
 })
 
 app.get('/api/catalog', async (_req, res) => {
@@ -61,7 +88,7 @@ app.put('/api/catalog', async (req, res) => {
 const port = Number(process.env.EMAIL_API_PORT ?? 8787)
 app.listen(port, '127.0.0.1', () => {
   console.log(`[panchvastra-api] http://127.0.0.1:${port}`)
-  console.log(`[panchvastra-api] Orders CSV: ${ordersCsvPath()}`)
-  console.log(`[panchvastra-api] POST /api/orders`)
+  console.log(`[panchvastra-api] Orders store: server/data/orders.json (local) / Vercel Blob (production)`)
+  console.log(`[panchvastra-api] GET/POST/PATCH /api/orders`)
   console.log(`[panchvastra-api] GET/PUT /api/catalog`)
 })

@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 server/data/users.json
 server/data/orders.csv
+server/data/orders.json
 server/data/catalog.json
 .env
 .env.*.local

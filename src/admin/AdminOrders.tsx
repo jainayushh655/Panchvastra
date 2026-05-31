@@ -1,30 +1,36 @@
-import { useMemo } from 'react'
-import { useCatalog } from '@/hooks/useCatalog'
-import { getOrderLog, updateOrderStatus } from '@/lib/catalogStore'
+import { useAdminOrders } from '@/hooks/useAdminOrders'
 import { formatInr } from '@/lib/format'
 import type { Order } from '@/types'
 
 export function AdminOrders() {
-  const { revision } = useCatalog()
-
-  const rows = useMemo(() => getOrderLog(), [revision])
+  const { orders, loading, error, refresh, setStatus } = useAdminOrders()
 
   const setStat = (id: string, status: Order['status']) => {
-    updateOrderStatus(id, status)
+    void setStatus(id, status)
   }
 
   return (
     <div>
       <h1 className="type-page-title text-white">Orders</h1>
       <p className="mt-2 text-sm text-zinc-400">
-        Orders from this browser after checkout. Rows are also appended on the server to{' '}
-        <code className="text-zinc-600">server/data/orders.csv</code> (open in Excel).
+        All orders from every device — stored centrally via{' '}
+        <code className="text-orange-300">/api/orders</code> (Vercel Blob in production).
       </p>
+      {error ? (
+        <p className="mt-4 rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+          {error}{' '}
+          <button type="button" className="underline" onClick={() => void refresh()}>
+            Retry
+          </button>
+        </p>
+      ) : null}
       <div className="mt-8 space-y-6">
-        {rows.length === 0 ? (
-          <p className="text-zinc-500">No orders logged yet.</p>
+        {loading ? (
+          <p className="text-zinc-500">Loading orders…</p>
+        ) : orders.length === 0 ? (
+          <p className="text-zinc-500">No orders yet.</p>
         ) : (
-          rows.map(({ order, customerEmail, customerName }) => (
+          orders.map(({ order, customerEmail, customerName, payment }) => (
             <article
               key={order.id + order.date}
               className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 text-zinc-200"
@@ -37,6 +43,7 @@ export function AdminOrders() {
                     <p className="mt-2 text-xs text-zinc-400">
                       {customerName}
                       {customerEmail ? ` · ${customerEmail}` : ''}
+                      {payment ? ` · ${payment.toUpperCase()}` : ''}
                     </p>
                   ) : null}
                 </div>

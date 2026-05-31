@@ -1,12 +1,11 @@
 import { Link } from 'react-router-dom'
-import { CMS_STORAGE_KEYS } from '@/cms/registry'
 import { useCatalog } from '@/hooks/useCatalog'
-import { useMemo } from 'react'
-import { defaultHomepage, getOrderLog, resetCatalogToSeed } from '@/lib/catalogStore'
+import { useAdminOrders } from '@/hooks/useAdminOrders'
+import { defaultHomepage, resetCatalogToSeed } from '@/lib/catalogStore'
 
 export function AdminDashboard() {
   const { products, categories, homepage, revision } = useCatalog()
-  const orders = useMemo(() => getOrderLog(), [revision])
+  const { orders, loading: ordersLoading } = useAdminOrders()
 
   const nuke = () => {
     if (!confirm('Reset catalog + homepage + orders to seed? Cannot undo.')) return
@@ -18,8 +17,8 @@ export function AdminDashboard() {
       <h1 className="type-page-title text-white">Dashboard</h1>
       <p className="mt-2 text-sm text-zinc-400">
         Catalog revision <strong className="text-orange-400">#{revision}</strong> · source of truth{' '}
-        <code className="text-xs text-orange-300">/api/catalog</code> (Vercel Blob in production) · orders local key{' '}
-        <code className="text-xs text-orange-300">{CMS_STORAGE_KEYS.orderLog}</code>
+        <code className="text-xs text-orange-300">/api/catalog</code> · orders via{' '}
+        <code className="text-xs text-orange-300">/api/orders</code>
       </p>
       <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
@@ -34,8 +33,8 @@ export function AdminDashboard() {
           to="/admin/orders"
           className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 transition-colors hover:border-orange-500/40"
         >
-          <p className="text-3xl font-bold text-orange-400">{orders.length}</p>
-          <p className="type-label">Orders (this browser)</p>
+          <p className="text-3xl font-bold text-orange-400">{ordersLoading ? '…' : orders.length}</p>
+          <p className="type-label">Orders (all devices)</p>
         </Link>
       </div>
       <div className="mt-12 space-y-2 text-sm text-zinc-400">

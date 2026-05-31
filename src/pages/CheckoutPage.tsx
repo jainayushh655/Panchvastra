@@ -2,7 +2,6 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { useCart } from '@/context/CartProvider'
-import { appendOrderLog } from '@/lib/catalogStore'
 import {
   hasAddressErrors,
   validateCheckoutAddress,
@@ -129,11 +128,6 @@ export function CheckoutPage() {
       return
     }
 
-    appendOrderLog({
-      order,
-      customerEmail: normalized.email,
-      customerName: normalized.fullName,
-    })
     clear()
     setBusy(false)
 
