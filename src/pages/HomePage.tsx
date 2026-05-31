@@ -4,6 +4,7 @@ import { HeroCarousel } from '@/components/HeroCarousel'
 import { FeatureDropsSection, FeatureToProductsConnector } from '@/components/home/FeatureDropsSection'
 import { ProductCard } from '@/components/ProductCard'
 import { useCatalog } from '@/hooks/useCatalog'
+import { useCatalogHydrated } from '@/hooks/useCatalogHydrated'
 import { catalogApi } from '@/lib/api'
 import type { Product } from '@/types'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -19,13 +20,15 @@ const SHOWCASE_TABS: { id: ShowcaseTab; label: string }[] = [
 
 export function HomePage() {
   useDocumentTitle('Home')
+  const catalogHydrated = useCatalogHydrated()
   const { revision, homepage } = useCatalog()
   const [showcase, setShowcase] = useState<Product[]>([])
   const [tab, setTab] = useState<ShowcaseTab>('trending')
 
   useEffect(() => {
+    if (!catalogHydrated) return
     catalogApi.getHomeShowcase(tab, 3).then((r) => setShowcase(r.products))
-  }, [revision, tab])
+  }, [revision, tab, catalogHydrated])
 
   return (
     <div>

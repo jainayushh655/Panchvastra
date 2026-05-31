@@ -9,11 +9,6 @@ export const http = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '',
 })
 
-const delay = (ms = 220) =>
-  new Promise<void>((resolve) => {
-    setTimeout(resolve, ms)
-  })
-
 function filterSort(
   list: Product[],
   opts: {
@@ -39,7 +34,7 @@ function filterSort(
       const tags = p.tags ?? []
       return (
         nameLow.includes(q) ||
-        tags.some((t) => (String(t ?? '')).toLowerCase().includes(q)) ||
+        tags.some((t) => String(t ?? '').toLowerCase().includes(q)) ||
         slugLow.includes(q.replace(/\s+/g, '-'))
       )
     })
@@ -87,7 +82,6 @@ export const catalogApi = {
     maxPrice?: number
     sort?: SortKey
   }) {
-    await delay()
     const products = getProductsSnapshot()
     const categories = getCategoriesSnapshot()
     const data = filterSort(products, params ?? {})
@@ -99,7 +93,6 @@ export const catalogApi = {
   },
 
   async getTrending(limit = 6) {
-    await delay()
     const items = [...getProductsSnapshot()]
       .sort((a, b) => b.popularity - a.popularity)
       .slice(0, limit)
@@ -108,7 +101,6 @@ export const catalogApi = {
 
   /** Home showcase row: admin-tagged products first, then legacy rules to fill up to three. */
   async getHomeShowcase(filter: 'trending' | 'bestseller' | 'newarrival' | 'hotdeals', limit = 3) {
-    await delay()
     const list = [...getProductsSnapshot()]
     const byPop = () => [...list].sort((a, b) => b.popularity - a.popularity)
 
@@ -154,19 +146,16 @@ export const catalogApi = {
   },
 
   async getBySlug(slug: string): Promise<Product | null> {
-    await delay()
     return getProductsSnapshot().find((p) => p.slug === slug) ?? null
   },
 
   async getSiblingVariants(slug: string): Promise<Product[]> {
-    await delay()
     const product = getProductsSnapshot().find((p) => p.slug === slug)
     if (!product) return []
     return getSiblingVariants(product, getProductsSnapshot())
   },
 
   async getSuggested(productId: string, limit = 4) {
-    await delay()
     const list = getProductsSnapshot()
     const self = list.find((p) => p.id === productId)
     if (!self) return []

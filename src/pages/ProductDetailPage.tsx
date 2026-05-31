@@ -6,6 +6,7 @@ import { ProductImageGallery } from '@/components/product/ProductImageGallery'
 import { ProductVariantPicker } from '@/components/product/ProductVariantPicker'
 import { useCart } from '@/context/CartProvider'
 import { useCatalog } from '@/hooks/useCatalog'
+import { useCatalogHydrated } from '@/hooks/useCatalogHydrated'
 import { catalogApi } from '@/lib/api'
 import { formatInr } from '@/lib/format'
 import type { Product } from '@/types'
@@ -14,6 +15,7 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 export function ProductDetailPage() {
   const { slug } = useParams()
   const navigate = useNavigate()
+  const catalogHydrated = useCatalogHydrated()
   const { revision } = useCatalog()
   const { addItem } = useCart()
   const [product, setProduct] = useState<Product | null>(null)
@@ -25,7 +27,7 @@ export function ProductDetailPage() {
   const hasVariantPicker = variants.length >= 2
 
   useEffect(() => {
-    if (!slug) return
+    if (!slug || !catalogHydrated) return
     let cancelled = false
     Promise.all([catalogApi.getBySlug(slug), catalogApi.getSiblingVariants(slug)]).then(([p, sibs]) => {
       if (cancelled) return
@@ -47,7 +49,7 @@ export function ProductDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [slug, revision, navigate])
+  }, [slug, revision, navigate, catalogHydrated])
 
   useDocumentTitle(product?.name ?? 'Product')
 

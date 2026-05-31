@@ -8,6 +8,7 @@ import { ShopSortPicker } from '@/components/shop/ShopSortPicker'
 import { shopToolbarButtonClass, shopToolbarLabelClass } from '@/components/shop/shopToolbar'
 import { Button } from '@/components/ui/Button'
 import { useCatalog } from '@/hooks/useCatalog'
+import { useCatalogHydrated } from '@/hooks/useCatalogHydrated'
 import { catalogApi } from '@/lib/api'
 import { getProductsSnapshot } from '@/lib/catalogStore'
 import type { CategorySlug } from '@/types'
@@ -32,9 +33,24 @@ function validCategory(
   return allowedSlugs.has(c) ? c : 'all'
 }
 
+function ProductGridSkeleton({ count = 8 }: { count?: number }) {
+  return (
+    <>
+      {Array.from({ length: count }, (_, i) => (
+        <div
+          key={i}
+          className="aspect-[3/4] animate-pulse rounded-2xl bg-zinc-200 dark:bg-zinc-800"
+          aria-hidden
+        />
+      ))}
+    </>
+  )
+}
+
 export function ShopPage() {
   useDocumentTitle('Shop')
   const [searchParams, setSearchParams] = useSearchParams()
+  const catalogHydrated = useCatalogHydrated()
   const { categories, revision } = useCatalog()
   const allowedSlugs = useMemo(
     () => new Set(categories.map((c) => c.slug)),
@@ -107,8 +123,9 @@ export function ShopPage() {
   }, [category, q, sort, apiMinPrice, apiMaxPrice, sizesParam, revision])
 
   useEffect(() => {
+    if (!catalogHydrated) return
     refresh()
-  }, [refresh])
+  }, [refresh, catalogHydrated])
 
   const hasUrlFilters =
     Boolean(q.trim()) ||
@@ -213,7 +230,9 @@ export function ShopPage() {
         </aside>
 
         <div className={`min-w-0 ${productGridClass}`}>
-          {list.length === 0 ? (
+          {!catalogHydrated ? (
+            <ProductGridSkeleton count={filtersOpen ? 6 : 8} />
+          ) : list.length === 0 ? (
             <div className="col-span-full rounded-2xl border border-zinc-200 bg-zinc-50 px-6 py-14 text-center dark:border-zinc-800 dark:bg-zinc-950/50">
               <p className="font-medium text-zinc-900 dark:text-zinc-100">No products to show.</p>
               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">

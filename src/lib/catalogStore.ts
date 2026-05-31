@@ -63,13 +63,19 @@ function readCatalogLs(): CatalogSnapshot | null {
 
 /** Offline cache only — API/Blob is the source of truth on startup. */
 function loadSnapshot(): CatalogSnapshot {
-  return seedSnapshot()
+  if (typeof window === 'undefined') return seedSnapshot()
+  const seed = seedSnapshot()
+  return { ...seed, products: [], revision: 0 }
 }
 
 let snapshot: CatalogSnapshot = loadSnapshot()
 let orderLogCached: OrderLogEntry[] | null = null
 let hasHydratedFromApi = false
 let lastApiPushFailed = false
+
+export function isCatalogHydrated(): boolean {
+  return hasHydratedFromApi
+}
 
 const listeners = new Set<() => void>()
 
@@ -157,6 +163,8 @@ export async function hydrateCatalogFromApi(): Promise<void> {
         error: result.error,
       })
     } else {
+      snapshot = seedSnapshot()
+      emit()
       console.warn(`${LOG_PREFIX} API unavailable — using built-in seed`, { error: result.error })
     }
     hasHydratedFromApi = true
@@ -213,6 +221,7 @@ function persistCatalog() {
 }
 
 if (typeof window !== 'undefined') {
+  void hydrateCatalogFromApi()
   window.addEventListener('storage', (e) => {
     if (e.key !== CMS_STORAGE_KEYS.catalog || !e.newValue || !hasHydratedFromApi) return
     try {
