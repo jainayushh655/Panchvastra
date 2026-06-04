@@ -1,12 +1,6 @@
 /**
  * Local API: order logging + admin. Started with `npm run dev`.
  */
-import multer from 'multer'
-import { put } from '@vercel/blob'
-console.log(
-  "TOKEN EXISTS:",
-  !!process.env.BLOB_READ_WRITE_TOKEN
-)
 import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
@@ -17,44 +11,9 @@ const catalog = require('../api/_lib/catalogStorage.js') as typeof import('../ap
 const orders = require('../api/_lib/ordersHandler.js') as typeof import('../api/_lib/ordersHandler.js')
 
 const app = express()
-const upload = multer({
-  storage: multer.memoryStorage(),
-})
 app.use(cors({ origin: true }))
 app.use(express.json({ limit: '10mb' }))
-app.post(
-  '/api/upload-image',
-  upload.single('file'),
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({
-          error: 'No file uploaded',
-        })
-      }
 
-      const blob = await put(
-        `products/${Date.now()}-${req.file.originalname}`,
-        req.file.buffer,
-        {
-          access: 'public',
-          token: process.env.BLOB_READ_WRITE_TOKEN,
-        }
-      )
-
-      return res.json({
-        ok: true,
-        url: blob.url,
-      })
-    } catch (err) {
-      console.error('UPLOAD ERROR:', err)
-
-      return res.status(500).json({
-        error: 'Upload failed',
-      })
-    }
-  }
-)
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'panchvastra-api' })
 })
