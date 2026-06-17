@@ -51,22 +51,22 @@ export function Footer() {
   const tel = phoneCallUrl()
 
   return (
-    <footer className="mt-auto border-t border-zinc-800 bg-zinc-900 px-4 py-12">
-  <div className="mx-auto max-w-6xl">
+    <footer className="mt-auto border-t border-zinc-800 bg-[radial-gradient(circle_at_top,rgba(214,179,109,0.12),transparent_34%),linear-gradient(180deg,#191611,#0e0d0b)] px-4 py-12 text-white">
+      <div className="mx-auto max-w-6xl">
 
-    {/* HEADING */}
-    <h2 className="text-center font-display text-sm font-bold uppercase tracking-[0.28em] text-white">
-      Stay connected
-    </h2>
+        {/* HEADING */}
+        <h2 className="text-center font-display text-sm font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
+          Stay connected
+        </h2>
 
-    <div
-      className="mx-auto mt-3 h-px max-w-xs bg-zinc-700"
-      aria-hidden
-    />
+        <div
+          className="mx-auto mt-3 h-px max-w-xs bg-gradient-to-r from-transparent via-[#c7a56a] to-transparent"
+          aria-hidden
+        />
 
-    {/* SOCIAL BUTTONS */}
-    <div className="mt-8 overflow-hidden rounded-full border border-zinc-700 bg-zinc-800 shadow-sm">
-      <div className="grid grid-cols-3 divide-x divide-zinc-700">
+        {/* SOCIAL BUTTONS */}
+        <div className="mt-8 overflow-hidden rounded-full border border-[#6f5c44] bg-white/5 shadow-[0_18px_60px_-28px_rgba(0,0,0,0.65)] backdrop-blur-sm">
+          <div className="grid grid-cols-3 divide-x divide-[#6f5c44]">
 
         {connectChannels.map(({ label, href, icon: Icon, external }) => (
           <a
@@ -78,22 +78,22 @@ export function Footer() {
                   rel: 'noopener noreferrer',
                 }
               : {})}
-            className="flex items-center justify-center gap-2 px-2 py-3.5 text-[10px] font-bold uppercase tracking-wider text-zinc-100 transition-colors hover:bg-zinc-700 sm:gap-3 sm:px-4 sm:py-4 sm:text-xs"
+            className="flex items-center justify-center gap-2 px-2 py-3.5 text-[10px] font-bold uppercase tracking-wider text-[#f1e4c8] transition-colors hover:bg-white/10 sm:gap-3 sm:px-4 sm:py-4 sm:text-xs"
           >
             <Icon className="size-4 shrink-0 sm:size-5" />
             <span>{label}</span>
           </a>
         ))}
 
-      </div>
-    </div>
+          </div>
+        </div>
 
-    {/* FOOTER LINKS */}
-    <div className="mt-12 grid gap-10 sm:grid-cols-3">
+        {/* FOOTER LINKS */}
+        <div className="mt-12 grid gap-10 sm:grid-cols-3">
 
       {/* EXPLORE */}
       <div>
-        <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-white">
+        <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
           Explore
         </p>
 
@@ -113,7 +113,7 @@ export function Footer() {
 
       {/* COMPANY */}
       <div>
-        <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-white">
+        <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
           Company
         </p>
 
@@ -131,7 +131,7 @@ export function Footer() {
 
       {/* CONTACT */}
       <div>
-        <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-white">
+        <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
           Reach us
         </p>
 
@@ -175,11 +175,11 @@ export function Footer() {
     </div>
 
     {/* COPYRIGHT */}
-    <p className="mt-12 text-center text-[11px] text-zinc-500">
-      © {new Date().getFullYear()} PANCHVASTRA
-    </p>
+        <p className="mt-12 text-center text-[11px] text-zinc-500">
+          © {new Date().getFullYear()} PANCHVASTRA
+        </p>
 
-  </div>
-</footer>
+      </div>
+    </footer>
   )
 }

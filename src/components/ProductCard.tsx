@@ -16,10 +16,10 @@ export function ProductCard({ product }: { product: Product }) {
   const mainSrc = product.images[0]
 
   return (
-    <motion.article layout whileHover={{ y: -4 }} className="group">
+    <motion.article layout whileHover={{ y: -6 }} className="group">
       <Link
         to={`/product/${product.slug}`}
-        className="relative block overflow-hidden rounded-none border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/80"
+        className="relative block overflow-hidden rounded-[1.5rem] border border-zinc-200/80 bg-white shadow-[0_18px_50px_-34px_rgba(0,0,0,0.55)] transition-all duration-300 hover:border-zinc-300 hover:shadow-[0_24px_60px_-34px_rgba(0,0,0,0.65)] dark:border-zinc-800 dark:bg-zinc-900/80"
       >
         <div className="relative aspect-[4/5] overflow-hidden bg-zinc-100 dark:bg-zinc-800">
           <img
@@ -41,13 +41,16 @@ export function ProductCard({ product }: { product: Product }) {
               className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-300 group-hover:opacity-100"
             />
           ) : null}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/55 to-transparent" aria-hidden />
+          {off != null && off > 0 ? (
+            <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-900 shadow-sm backdrop-blur-sm">
+              {off}% off
+            </span>
+          ) : null}
         </div>
-        <div className="p-4">
-          <h3 className="type-product-title">{product.name}</h3>
-          <div
-            className="mt-3 border-t border-zinc-300 dark:border-zinc-600"
-            aria-hidden
-          />
+        <div className="p-4 sm:p-5">
+          <h3 className="type-product-title line-clamp-2">{product.name}</h3>
+          <div className="mt-3 h-px w-full bg-gradient-to-r from-zinc-200 via-zinc-300 to-transparent dark:from-zinc-700 dark:via-zinc-600" aria-hidden />
           <div className="mt-3 flex items-end justify-between gap-3">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <span className="type-price text-lg">
@@ -59,11 +62,9 @@ export function ProductCard({ product }: { product: Product }) {
                 </span>
               ) : null}
             </div>
-            {off != null && off > 0 ? (
-              <span className="shrink-0 text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                {off}% off
-              </span>
-            ) : null}
+            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a7355]">
+              View
+            </span>
           </div>
         </div>
       </Link>

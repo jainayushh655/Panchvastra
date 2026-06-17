@@ -33,23 +33,24 @@ export function HomePage() {
   }, [revision, tab, showShowcaseLoading])
 
   return (
-    <div>
+    <div className="relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[28rem] bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.16),transparent_42%),linear-gradient(180deg,rgba(255,248,235,0.96),rgba(255,255,255,0))]" />
       <HeroCarousel slides={homepage.heroSlides} />
 
       <FeatureDropsSection />
-      {/* <FeatureToProductsConnector /> */}
+      <FeatureToProductsConnector />
 
-      <section className="bg-white px-4 py-6">
+      <section className="px-4 py-10 sm:py-14">
         <div className="mx-auto max-w-6xl">
 
           {/* Section Header */}
           <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-            <div>
+            <div className="max-w-2xl">
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#8a7355]">
                 Featured Collection
               </p>
 
-              <h2 className="mt-2 text-3xl font-bold tracking-tight text-zinc-900 md:text-4xl">
+              <h2 className="mt-2 text-3xl font-bold tracking-tight text-[#d6b36d] md:text-4xl">
                 Discover Our Best Pieces
               </h2>
 
@@ -61,7 +62,7 @@ export function HomePage() {
 
             <Link
               to="/shop"
-              className="group inline-flex items-center gap-2 text-sm font-semibold text-[#8a7355] transition-all duration-200 hover:gap-3 hover:text-[#6f5c44]"
+              className="group inline-flex items-center gap-2 rounded-full border border-[#d8c7a5] bg-white/80 px-4 py-2 text-sm font-semibold text-[#8a7355] shadow-sm backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:gap-3 hover:border-[#bda87f] hover:text-[#6f5c44]"
             >
               View All Products
               <span aria-hidden>→</span>
@@ -85,9 +86,9 @@ export function HomePage() {
                   aria-selected={selected}
                   onClick={() => setTab(t.id)}
                   className={`rounded-full border px-5 py-2 text-sm font-medium transition-all duration-200 ${selected
-                      ? 'border-black bg-black text-white shadow-lg'
-                      : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-400 hover:text-zinc-900'
-                    }`}
+                    ? 'border-zinc-950 bg-zinc-950 text-white shadow-[0_18px_35px_-22px_rgba(0,0,0,0.75)]'
+                    : 'border-zinc-200 bg-white/90 text-zinc-600 shadow-sm hover:border-zinc-400 hover:text-zinc-900'
+                  }`}
                 >
                   {t.label}
                 </button>
