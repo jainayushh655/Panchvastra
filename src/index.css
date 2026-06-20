@@ -73,12 +73,44 @@
     @apply text-zinc-400 dark:text-zinc-500;
   }
 
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
   label {
     @apply font-sans text-sm font-medium text-zinc-700 dark:text-zinc-300;
   }
 }
 
 @layer components {
+  /* --- Yeh naya code add karein --- */
+  .btn-equal-size {
+    width: 220px;                 /* Dono buttons ki width fix ho jayegi */
+    height: 48px;                 /* Dono buttons ki height same ho jayegi */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;                     /* Icon aur text ke beech ka gap */
+    border: 1px solid #e4e4e7;    /* Zinc-200 border color */
+    border-radius: 0.75rem;       /* Rounded corners */
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    background-color: #f4f4f5;    /* Light grey background */
+    transition: all 0.2s ease;
+  }
+
+  .btn-equal-size:hover {
+    background-color: #e4e4e7;    /* Hover effect */
+  }
+  /* --------------------------------- */
+
   /* Shop dual price slider: transparent track (custom track drawn in React), visible thumbs */
   .shop-range {
     -webkit-appearance: none;

@@ -52,7 +52,7 @@ export function Footer() {
 
   return (
     <footer className="mt-auto border-t border-zinc-800 bg-[radial-gradient(circle_at_top,rgba(214,179,109,0.12),transparent_34%),linear-gradient(180deg,#191611,#0e0d0b)] px-4 py-12 text-white">
-      <div className="mx-auto max-w-6xl">
+      <div className="max-w-7xl mx-auto px-6 lg:px-20">
 
         {/* HEADING */}
         <h2 className="text-center font-display text-sm font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
@@ -65,116 +65,116 @@ export function Footer() {
         />
 
         {/* SOCIAL BUTTONS */}
-        <div className="mt-8 overflow-hidden rounded-full border border-[#6f5c44] bg-white/5 shadow-[0_18px_60px_-28px_rgba(0,0,0,0.65)] backdrop-blur-sm">
-          <div className="grid grid-cols-3 divide-x divide-[#6f5c44]">
-
-        {connectChannels.map(({ label, href, icon: Icon, external }) => (
-          <a
-            key={label}
-            href={href}
-            {...(external
-              ? {
-                  target: '_blank',
-                  rel: 'noopener noreferrer',
-                }
-              : {})}
-            className="flex items-center justify-center gap-2 px-2 py-3.5 text-[10px] font-bold uppercase tracking-wider text-[#f1e4c8] transition-colors hover:bg-white/10 sm:gap-3 sm:px-4 sm:py-4 sm:text-xs"
-          >
-            <Icon className="size-4 shrink-0 sm:size-5" />
-            <span>{label}</span>
-          </a>
-        ))}
-
-          </div>
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 overflow-hidden rounded-full border border-[#6f5c44] bg-white/5 shadow-[0_18px_60px_-28px_rgba(0,0,0,0.65)] backdrop-blur-sm">
+          {connectChannels.map(({ label, href, icon: Icon, external }) => (
+            <a
+              key={label}
+              href={href}
+              {...(external
+                ? {
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                  }
+                : {})}
+              className="flex items-center justify-center gap-2 border-b border-zinc-800 px-4 py-3.5 text-[10px] font-bold uppercase tracking-wider text-[#f1e4c8] transition-colors hover:bg-white/10 sm:gap-3 sm:px-6 sm:py-4 sm:text-xs md:border-b-0 md:border-r first:border-none md:last:border-none"
+            >
+              <Icon className="size-4 shrink-0 sm:size-5" />
+              <span>{label}</span>
+            </a>
+          ))}
         </div>
 
-        {/* FOOTER LINKS */}
-        <div className="mt-12 grid gap-10 sm:grid-cols-3">
+        {/* CONNECTING LINES */}
+        <div className="mt-8 grid grid-cols-3 gap-12 justify-items-center">
+          <div className="h-6 w-px rounded-full bg-gradient-to-b from-[#c7a56a] to-transparent" />
+          <div className="h-6 w-px rounded-full bg-gradient-to-b from-[#c7a56a] to-transparent" />
+          <div className="h-6 w-px rounded-full bg-gradient-to-b from-[#c7a56a] to-transparent" />
+        </div>
 
-      {/* EXPLORE */}
-      <div>
-        <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
-          Explore
-        </p>
+        {/* FOOTER LINKS - FIXED FOR PERFECT 3-COLUMN CENTERED LAYOUT */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-12 justify-items-center">
 
-        <ul className="mt-4 space-y-2.5 text-sm font-medium uppercase tracking-wide text-zinc-300">
-          {exploreLinks.map((l) => (
-            <li key={l.to}>
-              <Link
-                to={l.to}
-                className="transition-colors hover:text-white"
-              >
-                {l.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
+          {/* EXPLORE */}
+          <div className="w-full text-center">
+            <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
+              Explore
+            </p>
 
-      {/* COMPANY */}
-      <div>
-        <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
-          Company
-        </p>
+            <ul className="mt-6 space-y-2.5 text-sm font-medium uppercase tracking-wide text-zinc-300">
+              {exploreLinks.map((l) => (
+                <li key={l.to}>
+                  <Link
+                    to={l.to}
+                    className="transition-colors hover:text-white"
+                  >
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-        <ul className="mt-4 space-y-2.5 text-sm font-medium uppercase tracking-wide text-zinc-300">
-          <li>
-            <Link
-              to="/about"
-              className="transition-colors hover:text-white"
-            >
-              Our story 
-            </Link>
-          </li>
-        </ul>
-      </div>
+          {/* COMPANY */}
+          <div className="w-full text-center">
+            <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
+              Company
+            </p>
 
-      {/* CONTACT */}
-      <div>
-        <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
-          Reach us
-        </p>
+            <ul className="mt-6 space-y-2.5 text-sm font-medium uppercase tracking-wide text-zinc-300">
+              <li>
+                <Link
+                  to="/about"
+                  className="transition-colors hover:text-white"
+                >
+                  Our story
+                </Link>
+              </li>
+            </ul>
+          </div>
 
-        <ul className="mt-4 space-y-2.5 text-sm font-medium uppercase tracking-wide text-zinc-300">
+          {/* REACH US */}
+          <div className="w-full text-center">
+            <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
+              Reach us
+            </p>
 
+            <ul className="mt-6 space-y-2.5 text-sm font-medium uppercase tracking-wide text-zinc-300">
+              <li>
+                <a
+                  href={wa}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="transition-colors hover:text-white"
+                >
+                  WhatsApp
+                </a>
+              </li>
 
-          <li>
-            <a
-              href={wa}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="transition-colors hover:text-white"
-            >
-              WhatsApp
-            </a>
-          </li>
+              <li>
+                <a
+                  href={ig}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="transition-colors hover:text-white"
+                >
+                  Instagram
+                </a>
+              </li>
 
-          <li>
-            <a
-              href={ig}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="transition-colors hover:text-white"
-            >
-              Instagram
-            </a>
-          </li>
+              <li>
+                <a
+                  href={tel}
+                  className="transition-colors hover:text-white"
+                >
+                  Call
+                </a>
+              </li>
+            </ul>
+          </div>
 
-          <li>
-            <a
-              href={tel}
-              className="transition-colors hover:text-white"
-            >
-              Call
-            </a>
-          </li>
+        </div>
 
-        </ul>
-      </div>
-
-    </div>
-
-    {/* COPYRIGHT */}
+        {/* COPYRIGHT */}
         <p className="mt-12 text-center text-[11px] text-zinc-500">
           © {new Date().getFullYear()} PANCHVASTRA
         </p>

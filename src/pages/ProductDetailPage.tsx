@@ -36,7 +36,14 @@ export function ProductDetailPage() {
         return
       }
       setProduct(p)
-      setVariants(sibs)
+
+      // Sort sibling variants deterministically (by name) so their order
+      // remains stable across renders and when switching variants.
+      const staticOrderedVariants = Array.isArray(sibs)
+        ? [...sibs].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
+        : []
+      setVariants(staticOrderedVariants)
+
       setSize(p.sizes.includes('M') ? 'M' : p.sizes[0])
       if (sibs.length < 2) {
         const cols = (p.colors ?? []).filter(Boolean)

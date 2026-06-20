@@ -34,6 +34,9 @@ export function CheckoutPage() {
     phone: '',
   })
 
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [loggedInEmail, setLoggedInEmail] = useState('')
+
   const [pay, setPay] = useState<'upi' | 'cod'>('upi')
   const [busy, setBusy] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -152,14 +155,9 @@ export function CheckoutPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="type-page-title">
-        Checkout
-      </h1>
+      <h1 className="type-page-title">Checkout</h1>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-        Fill in your details and submit — you will be taken to WhatsApp to confirm with us. Each order is saved on the
-        server as a spreadsheet row (
-        <code className="rounded bg-zinc-100 px-1 text-xs dark:bg-zinc-800">server/data/orders.csv</code>
-        ).
+        Review your order and shipping details. We will open WhatsApp to confirm and submit your order.
       </p>
       <form onSubmit={submit} className="mt-10 grid gap-10 lg:grid-cols-[1fr_380px]" noValidate>
         <div className="space-y-8">
@@ -167,20 +165,31 @@ export function CheckoutPage() {
             <h2 className="type-label">Contact &amp; shipping</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="space-y-1 sm:col-span-2">
-                <input
-                  type="email"
-                  autoComplete="email"
-                  className={`${fieldClass('email')} w-full`}
-                  placeholder="Email"
-                  value={address.email}
-                  onChange={(e) => {
-                    setAddress({ ...address, email: e.target.value })
-                    clearAddrErr('email')
-                  }}
-                />
-                {addressErrors.email ? (
-                  <p className="text-xs text-red-600 dark:text-red-400">{addressErrors.email}</p>
-                ) : null}
+                {isLoggedIn ? (
+                  <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white">
+                    <div className="font-semibold">Logged in as</div>
+                    <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                      {loggedInEmail || 'your email'}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      className={`${fieldClass('email')} w-full`}
+                      placeholder="Email"
+                      value={address.email}
+                      onChange={(e) => {
+                        setAddress({ ...address, email: e.target.value })
+                        clearAddrErr('email')
+                      }}
+                    />
+                    {addressErrors.email ? (
+                      <p className="text-xs text-red-600 dark:text-red-400">{addressErrors.email}</p>
+                    ) : null}
+                  </>
+                )}
               </div>
               <div className="space-y-1 sm:col-span-2">
                 <input

@@ -48,17 +48,32 @@ export function CartPage() {
                   </p>
                   <p className="mt-1 text-sm font-bold">{formatInr(line.price)}</p>
                   <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-                      Qty
+                    <div className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900">
+                      <button
+                        type="button"
+                        onClick={() => setQty(line.key, Math.max(1, line.quantity - 1))}
+                        disabled={line.quantity <= 1}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-lg font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                      >
+                        −
+                      </button>
                       <input
                         type="number"
                         min={1}
                         max={99}
                         value={line.quantity}
                         onChange={(e) => setQty(line.key, Number(e.target.value) || 1)}
-                        className="w-16 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+                        className="w-16 border-none bg-transparent text-center text-sm font-semibold text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
-                    </label>
+                      <button
+                        type="button"
+                        onClick={() => setQty(line.key, Math.min(99, line.quantity + 1))}
+                        disabled={line.quantity >= 99}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-lg font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                      >
+                        +
+                      </button>
+                    </div>
                     <button
                       type="button"
                       className="text-xs font-semibold text-red-500 hover:underline"
