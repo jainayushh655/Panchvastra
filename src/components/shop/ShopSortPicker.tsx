@@ -108,7 +108,7 @@ export function ShopSortPicker({ sort, open, onOpenChange, onSelect }: ShopSortP
                     <span
                       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
                         selected
-                          ? 'border-violet-600 bg-violet-600 text-white dark:border-violet-500 dark:bg-violet-500'
+                          ? 'border-[#b07f2e] bg-[#b07f2e] text-white dark:border-[#d6b36d] dark:bg-[#d6b36d]'
                           : 'border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900'
                       }`}
                     >

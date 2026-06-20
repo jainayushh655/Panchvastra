@@ -37,14 +37,11 @@ export function HomePage() {
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[28rem] bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.16),transparent_42%),linear-gradient(180deg,rgba(255,248,235,0.96),rgba(255,255,255,0))]" />
       <HeroCarousel slides={homepage.heroSlides} />
 
-      <FeatureDropsSection />
-      <FeatureToProductsConnector />
-
       <section className="px-4 py-10 sm:py-14">
         <div className="mx-auto max-w-6xl">
 
           {/* Section Header */}
-          <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div className="max-w-2xl">
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#8a7355]">
                 Featured Collection
@@ -108,6 +105,9 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      <FeatureDropsSection />
+      <FeatureToProductsConnector />
     </div>
   )
 }

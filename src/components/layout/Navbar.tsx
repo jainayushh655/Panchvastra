@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, NavLink, useSearchParams } from 'react-router-dom'
 import { BrandMark } from '@/components/BrandMark'
 import { useCart } from '@/context/CartProvider'
 import { useCatalog } from '@/hooks/useCatalog'
 
 export function Navbar() {
   const { totalItems } = useCart()
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { categories } = useCatalog()
 
-  const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const [categoryOpen, setCategoryOpen] = useState(false)
   const [mobileCategoriesOpen, setMobileCategoriesOpen] = useState(false)
@@ -41,12 +39,6 @@ export function Navbar() {
     return () => window.removeEventListener('keydown', onKey)
   }, [categoryOpen])
 
-  const submitSearch = () => {
-    const query = q.trim()
-    navigate(query ? `/shop?q=${encodeURIComponent(query)}` : '/shop')
-    setOpen(false)
-  }
-
   const chevron = (
     <svg
       className={`size-4 shrink-0 transition-transform ${categoryOpen ? 'rotate-180' : ''}`}
@@ -75,29 +67,13 @@ export function Navbar() {
 
         <BrandMark className="shrink-0" />
 
-        <div className="hidden flex-1 justify-center sm:flex">
-          <div className="flex w-full max-w-[280px] items-center rounded-full border border-[#dcc8a8] bg-white/90 px-3 py-1.5 shadow-sm">
-            <svg className="size-4 shrink-0 text-[#8a7355]" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.3-4.3m1.8-5.2a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z" />
-            </svg>
-            <input
-              placeholder="Search"
-              value={q}
-              aria-label="Search products"
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && submitSearch()}
-              className="w-full bg-transparent px-2 text-sm text-zinc-900 outline-none placeholder:text-zinc-400"
-            />
-          </div>
-        </div>
-
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
           <nav className="ml-4 hidden gap-8 font-sans text-sm font-medium tracking-wide text-zinc-700 md:flex">
             <NavLink
               to="/shop"
               className={({ isActive }) =>
-                `transition-colors hover:text-[#8a7355] ${
-                  isActive && !categoryFilterActive ? 'text-[#8a7355]' : ''
+                `transition-colors hover:text-[#b07f2e] ${
+                  isActive && !categoryFilterActive ? 'text-[#b07f2e]' : ''
                 }`
               }
               end
@@ -108,8 +84,8 @@ export function Navbar() {
             <NavLink
               to="/about"
               className={({ isActive }) =>
-                `transition-colors hover:text-[#8a7355] ${
-                  isActive ? 'text-[#8a7355]' : ''
+                `transition-colors hover:text-[#b07f2e] ${
+                  isActive ? 'text-[#b07f2e]' : ''
                 }`
               }
             >
@@ -118,7 +94,7 @@ export function Navbar() {
           </nav>
           <Link
             to="/cart"
-            className="relative rounded-full border border-[#e3d6be] bg-white/80 p-2 text-zinc-700 shadow-sm hover:bg-white"
+            className="relative rounded-full border border-[#e0c99f] bg-white/85 p-2 text-[#8a7355] shadow-sm hover:bg-white"
             aria-label="Cart"
           >
             <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
@@ -137,32 +113,24 @@ export function Navbar() {
       {/* Mobile drawers */}
       {open ? (
         <div className="border-t border-[#e6d7bb] px-4 py-4 md:hidden">
-          <input
-            placeholder="Search"
-            value={q}
-            aria-label="Search products"
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submitSearch()}
-            className="mb-3 w-full rounded-full border border-[#dcc8a8] bg-white px-4 py-2 text-sm outline-none"
-          />
           <nav className="flex flex-col gap-1">
             <Link
               to="/shop"
-              className="rounded-lg px-3 py-2 text-zinc-800 hover:bg-[#f4ead7]"
+              className="rounded-lg px-3 py-2 text-zinc-800 hover:bg-[#f4ead7] hover:text-[#8a7355]"
               onClick={() => setOpen(false)}
             >
               Shop
             </Link>
             <Link
               to="/about"
-              className="rounded-lg px-3 py-2 text-zinc-800 hover:bg-[#f4ead7]"
+              className="rounded-lg px-3 py-2 text-zinc-800 hover:bg-[#f4ead7] hover:text-[#8a7355]"
               onClick={() => setOpen(false)}
             >
               About Us
             </Link>
             <Link
               to="/contact"
-              className="rounded-lg px-3 py-2 font-semibold text-zinc-800 hover:bg-[#f4ead7]"
+              className="rounded-lg px-3 py-2 font-semibold text-zinc-800 hover:bg-[#f4ead7] hover:text-[#8a7355]"
               onClick={() => setOpen(false)}
             >
               Contact

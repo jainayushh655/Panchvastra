@@ -7,6 +7,16 @@ import type {
 
 /** Fixed homepage carousel size (matches original storefront). */
 export const HERO_SLIDE_COUNT = 3
+const HERO_TEAM_BG = '/images/team-bg.jpeg'
+
+function normalizeHeroBgPath(raw: string | undefined): string | undefined {
+  const value = raw?.trim()
+  if (!value) return undefined
+  if (value === '/images/feature-drops-bg.jpg' || value === '/images/team-bg.jpg') {
+    return HERO_TEAM_BG
+  }
+  return value
+}
 
 export function defaultHeroSlides(): HomepageHeroSlide[] {
   return [
@@ -16,6 +26,7 @@ export function defaultHeroSlides(): HomepageHeroSlide[] {
       title: 'New Arrivals',
       sub: 'Fresh cuts, dye stories, and hardware details — built for the feed and for everyday rotation.',
       tone: 'light',
+      backgroundImage: HERO_TEAM_BG,
       sectionClassName:
         'border-zinc-200 bg-gradient-to-br from-orange-50 via-white to-zinc-100 dark:border-zinc-800 dark:from-orange-950/30 dark:via-zinc-950 dark:to-zinc-900',
       primaryCta: { label: 'Shop new', to: '/shop?sort=popular' },
@@ -27,6 +38,7 @@ export function defaultHeroSlides(): HomepageHeroSlide[] {
       title: 'Combo',
       sub: 'Pair tees with shorts and stack silhouettes — curated bundles for better value on full looks.',
       tone: 'dark',
+      backgroundImage: HERO_TEAM_BG,
       sectionClassName:
         'border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-black',
       primaryCta: { label: 'Shop combos', to: '/shop' },
@@ -38,6 +50,7 @@ export function defaultHeroSlides(): HomepageHeroSlide[] {
       title: 'Exhibitions',
       sub: 'Pop-ups, art walls, and community drops. See where PANCHVASTRA lands next and join the line.',
       tone: 'light',
+      backgroundImage: HERO_TEAM_BG,
       sectionClassName:
         'border-zinc-200 bg-gradient-to-b from-zinc-100 to-white dark:border-zinc-800 dark:from-zinc-950 dark:to-zinc-900',
       primaryCta: { label: 'Get updates', to: '/contact' },
@@ -57,7 +70,10 @@ function mergeSlide(saved: HomepageHeroSlide | undefined, fallback: HomepageHero
     sub: saved.sub ?? fallback.sub,
     tone: saved.tone ?? fallback.tone,
     sectionClassName: saved.sectionClassName?.trim() || fallback.sectionClassName,
-    backgroundImage: saved.backgroundImage?.trim() || undefined,
+    backgroundImage:
+      normalizeHeroBgPath(saved.backgroundImage) ||
+      normalizeHeroBgPath(fallback.backgroundImage) ||
+      undefined,
     primaryCta: {
       label: saved.primaryCta?.label?.trim() || fallback.primaryCta.label,
       to: saved.primaryCta?.to?.trim() || fallback.primaryCta.to,
@@ -88,7 +104,7 @@ export function sanitizeHeroSlides(slides: HomepageHeroSlide[]): HomepageHeroSli
       eyebrow: s.eyebrow.trim(),
       title: s.title.trim(),
       sub: s.sub.trim(),
-      backgroundImage: s.backgroundImage?.trim() || undefined,
+      backgroundImage: normalizeHeroBgPath(s.backgroundImage),
       sectionClassName: s.sectionClassName.trim(),
       primaryCta: {
         label: s.primaryCta.label.trim(),

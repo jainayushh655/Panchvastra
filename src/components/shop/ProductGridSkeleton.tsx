@@ -6,7 +6,7 @@ export function ProductGridSkeleton({ count = 8 }: { count?: number }) {
         {Array.from({ length: count }, (_, i) => (
           <div
             key={i}
-            className="aspect-[3/4] animate-pulse rounded-2xl border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/80"
+            className="aspect-[5/4] animate-pulse rounded-2xl border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/80"
             aria-hidden
           />
         ))}

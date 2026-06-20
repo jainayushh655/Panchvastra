@@ -16,13 +16,13 @@ function DropBox({ to, imageUrl, name, ariaLabel }: DropBoxProps) {
     <Link
       to={to}
       aria-label={ariaLabel}
-      className="group relative block min-w-0 max-w-full overflow-hidden rounded-[1.75rem] border border-white/40 bg-white shadow-[0_18px_50px_-28px_rgba(0,0,0,0.45)] ring-1 ring-zinc-200/60 transition-transform duration-300 hover:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white"
+      className="group relative block min-w-0 max-w-full overflow-hidden rounded-[1.5rem] border border-white/40 bg-white shadow-[0_18px_50px_-28px_rgba(0,0,0,0.45)] ring-1 ring-zinc-200/60 transition-transform duration-300 hover:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white"
     >
       {/*
         Padding-bottom aspect ratio scales with container width (works at every breakpoint).
         Mobile: 4:3 (75%). Tablet+: 16:10 (62.5%).
       */}
-      <div className="relative w-full max-w-full overflow-hidden bg-zinc-300 pb-[75%] sm:pb-[62.5%]">
+      <div className="relative w-full max-w-full overflow-hidden bg-zinc-300 pb-[66%] sm:pb-[56%]">
         <img
           src={imageUrl}
           alt=""
@@ -36,7 +36,7 @@ function DropBox({ to, imageUrl, name, ariaLabel }: DropBoxProps) {
           className="pointer-events-none absolute inset-x-0 bottom-0 h-[60%] bg-gradient-to-t from-black/75 via-black/25 to-transparent"
           aria-hidden
         />
-        <p className="absolute bottom-0 left-0 z-[1] p-4 font-display text-lg font-bold tracking-tight text-white drop-shadow-sm sm:p-5 sm:text-xl md:text-2xl">
+        <p className="absolute bottom-0 left-0 z-[1] p-4 font-display text-base font-bold tracking-tight text-white drop-shadow-sm sm:p-5 sm:text-lg md:text-xl">
           {name}
         </p>
       </div>
@@ -46,7 +46,7 @@ function DropBox({ to, imageUrl, name, ariaLabel }: DropBoxProps) {
 
 export function FeatureDropsSection() {
   return (
-    <section className="overflow-x-hidden border-b border-zinc-200/80 bg-[linear-gradient(180deg,rgba(255,251,240,0.96),rgba(255,255,255,0.92))] px-4 pb-10 pt-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border-zinc-800 md:pt-10">
+    <section className="overflow-x-hidden border-b border-zinc-200/80 bg-[linear-gradient(180deg,rgba(255,251,240,0.96),rgba(255,255,255,0.92))] px-4 pb-9 pt-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border-zinc-800 md:pt-9">
       <div className="mx-auto w-full max-w-6xl min-w-0">
         <div className="mx-auto max-w-2xl text-center">
           <p className="type-eyebrow text-[#8a7355]">Feature drops</p>
@@ -55,7 +55,7 @@ export function FeatureDropsSection() {
           </h2>
         </div>
 
-        <div className="mt-8 grid w-full min-w-0 grid-cols-1 gap-4 sm:mt-10 sm:grid-cols-2 sm:gap-5 lg:gap-6 [&>*]:min-w-0">
+        <div className="mt-7 grid w-full min-w-0 grid-cols-1 gap-4 sm:mt-8 sm:grid-cols-2 sm:gap-5 lg:gap-5 [&>*]:min-w-0">
           <DropBox
             to="/shop?category=regular-tee"
             imageUrl={BOX_BG_TEE}

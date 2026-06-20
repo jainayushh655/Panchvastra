@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import type { HomepageHeroSlide } from '@/types/homepage'
@@ -15,6 +15,7 @@ type Props = {
 export function HeroCarousel({ slides, autoMs = 6400 }: Props) {
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(false)
+  const lastWheelTsRef = useRef(0)
   const n = slides.length
 
   const go = useCallback(
@@ -46,13 +47,27 @@ export function HeroCarousel({ slides, autoMs = 6400 }: Props) {
     : 'inline-flex items-center gap-2 rounded-full border border-[#d8c39a] bg-[#e9dfc6] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5f4210]'
   const ghostBtn = onDark ? '!text-white hover:!bg-white/10' : 'dark:!text-white'
 
+  const onWheelNavigate = (e: React.WheelEvent<HTMLElement>) => {
+    if (n <= 1) return
+    const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX
+    if (Math.abs(delta) < 16) return
+
+    const now = Date.now()
+    if (now - lastWheelTsRef.current < 550) return
+
+    lastWheelTsRef.current = now
+    setPaused(true)
+    go(i + (delta > 0 ? 1 : -1))
+  }
+
   return (
     <section
       className={`relative overflow-hidden border-b border-zinc-200/70 px-4 py-16 transition-colors duration-500 md:py-24 ${
-        bgImage ? 'border-zinc-800 bg-zinc-950' : slide.sectionClassName
+        bgImage ? 'border-[#dfc89b] bg-[#f7ecd7]' : slide.sectionClassName
       }`}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
+      onWheel={onWheelNavigate}
     >
       <AnimatePresence mode="wait" initial={false}>
         {bgImage ? (
@@ -71,7 +86,9 @@ export function HeroCarousel({ slides, autoMs = 6400 }: Props) {
       {bgImage ? (
         <div
           className={`pointer-events-none absolute inset-0 ${
-            onDark ? 'bg-gradient-to-r from-black/75 via-black/50 to-black/30' : 'bg-gradient-to-r from-white/90 via-white/70 to-white/40'
+            onDark
+              ? 'bg-gradient-to-r from-black/72 via-black/48 to-black/24'
+              : 'bg-gradient-to-r from-[#fffaf0]/88 via-[#fff4de]/62 to-[#f8e5bc]/22'
           }`}
           aria-hidden
         />
@@ -92,7 +109,7 @@ export function HeroCarousel({ slides, autoMs = 6400 }: Props) {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -28 }}
             transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-            className="min-h-[250px] md:min-h-[320px]"
+            className="min-h-[230px] md:min-h-[300px]"
           >
             <div className={pillCls}>
               PANCHVASTRA EDIT
@@ -104,7 +121,12 @@ export function HeroCarousel({ slides, autoMs = 6400 }: Props) {
             <p className={`mt-5 max-w-xl text-base leading-7 md:text-lg ${subCls}`}>{slide.sub}</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link to={slide.primaryCta.to}>
-                <Button size="lg">{slide.primaryCta.label}</Button>
+                <Button
+                  size="lg"
+                  className="!border-[#b07f2e] !bg-[#b07f2e] !text-white hover:!bg-[#99661f]"
+                >
+                  {slide.primaryCta.label}
+                </Button>
               </Link>
               {slide.secondaryCta ? (
                 <Link to={slide.secondaryCta.to}>
@@ -114,6 +136,11 @@ export function HeroCarousel({ slides, autoMs = 6400 }: Props) {
                 </Link>
               ) : null}
             </div>
+            {n > 1 ? (
+              <p className={`mt-4 text-xs font-medium ${onDark ? 'text-zinc-300' : 'text-[#7a5f33]'}`}>
+                Scroll to switch slides
+              </p>
+            ) : null}
           </motion.div>
         </AnimatePresence>
 
@@ -145,46 +172,9 @@ export function HeroCarousel({ slides, autoMs = 6400 }: Props) {
               </div>
             </div>
 
-            <button
-              type="button"
-              aria-label="Previous slide"
-              onClick={() => go(i - 1)}
-              className={`absolute left-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-full border p-2.5 shadow-sm transition-colors md:flex ${
-                onDark
-                  ? 'border-[#d6b36d]/25 bg-black/30 text-white hover:bg-black/45'
-                  : 'border-zinc-200 bg-white/90 text-zinc-800 hover:bg-white dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-white dark:hover:bg-zinc-800'
-              }`}
-            >
-              <Chevron dir="left" />
-            </button>
-            <button
-              type="button"
-              aria-label="Next slide"
-              onClick={() => go(i + 1)}
-              className={`absolute right-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-full border p-2.5 shadow-sm transition-colors md:flex ${
-                onDark
-                  ? 'border-[#d6b36d]/25 bg-black/30 text-white hover:bg-black/45'
-                  : 'border-zinc-200 bg-white/90 text-zinc-800 hover:bg-white dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-white dark:hover:bg-zinc-800'
-              }`}
-            >
-              <Chevron dir="right" />
-            </button>
           </>
         ) : null}
       </div>
     </section>
-  )
-}
-
-function Chevron({ dir }: { dir: 'left' | 'right' }) {
-  return (
-    <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d={dir === 'left' ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'}
-      />
-    </svg>
   )
 }

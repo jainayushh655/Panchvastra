@@ -21,7 +21,7 @@ export function ProductCard({ product }: { product: Product }) {
         to={`/product/${product.slug}`}
         className="relative block overflow-hidden rounded-[1.5rem] border border-zinc-200/80 bg-white shadow-[0_18px_50px_-34px_rgba(0,0,0,0.55)] transition-all duration-300 hover:border-zinc-300 hover:shadow-[0_24px_60px_-34px_rgba(0,0,0,0.65)] dark:border-zinc-800 dark:bg-zinc-900/80"
       >
-        <div className="relative aspect-[4/5] overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+        <div className="relative aspect-[5/4] overflow-hidden bg-zinc-100 dark:bg-zinc-800">
           <img
             src={mainSrc}
             alt={product.name}
@@ -41,7 +41,7 @@ export function ProductCard({ product }: { product: Product }) {
               className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-300 group-hover:opacity-100"
             />
           ) : null}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/55 to-transparent" aria-hidden />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" aria-hidden />
           {off != null && off > 0 ? (
             <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-900 shadow-sm backdrop-blur-sm">
               {off}% off
@@ -52,17 +52,17 @@ export function ProductCard({ product }: { product: Product }) {
           <h3 className="type-product-title line-clamp-2">{product.name}</h3>
           <div className="mt-3 h-px w-full bg-gradient-to-r from-zinc-200 via-zinc-300 to-transparent dark:from-zinc-700 dark:via-zinc-600" aria-hidden />
           <div className="mt-3 flex items-end justify-between gap-3">
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <span className="type-price text-lg">
+            <div className="flex flex-col items-start gap-1">
+              <span className="type-price text-lg leading-none">
                 {formatInr(product.price)}
               </span>
               {product.compareAtPrice != null && product.compareAtPrice > product.price ? (
-                <span className="text-sm text-zinc-400 line-through">
+                <span className="text-xs text-zinc-400 line-through">
                   {formatInr(product.compareAtPrice)}
                 </span>
               ) : null}
             </div>
-            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a7355]">
+            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b07f2e]">
               View
             </span>
           </div>

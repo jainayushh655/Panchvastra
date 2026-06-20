@@ -9,6 +9,7 @@ import { AdminLoginPage } from '@/admin/AdminLoginPage'
 import { AdminOrders } from '@/admin/AdminOrders'
 import { AdminProductEdit } from '@/admin/AdminProductEdit'
 import { AdminProducts } from '@/admin/AdminProducts'
+import { RequireUser } from '@/components/auth/RequireUser'
 import { RequireAdmin } from '@/admin/RequireAdmin'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { AboutPage } from '@/pages/AboutPage'
@@ -16,8 +17,10 @@ import { CartPage } from '@/pages/CartPage'
 import { CheckoutPage } from '@/pages/CheckoutPage'
 import { ContactPage } from '@/pages/ContactPage'
 import { HomePage } from '@/pages/HomePage'
+import { LoginPage } from '@/pages/LoginPage'
 import { ProductDetailPage } from '@/pages/ProductDetailPage'
 import { ShopPage } from '@/pages/ShopPage'
+import { SignupPage } from '@/pages/SignupPage'
 function CatalogBootstrap() {
   useEffect(() => {
     syncCatalogFromLocalStorage()
@@ -32,6 +35,8 @@ export default function App() {
       <CatalogBootstrap />
       <Routes>
       <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignupPage />} />
       <Route element={<RequireAdmin />}>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
@@ -43,16 +48,19 @@ export default function App() {
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Route>
-      <Route element={<MainLayout />}>
-        <Route index element={<HomePage />} />
-        <Route path="shop" element={<ShopPage />} />
-        <Route path="product/:slug" element={<ProductDetailPage />} />
-        <Route path="cart" element={<CartPage />} />
-        <Route path="checkout" element={<CheckoutPage />} />
-        <Route path="about" element={<AboutPage />} />
-        <Route path="contact" element={<ContactPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+      <Route element={<RequireUser />}>
+        <Route element={<MainLayout />}>
+          <Route index element={<HomePage />} />
+          <Route path="shop" element={<ShopPage />} />
+          <Route path="product/:slug" element={<ProductDetailPage />} />
+          <Route path="cart" element={<CartPage />} />
+          <Route path="checkout" element={<CheckoutPage />} />
+          <Route path="about" element={<AboutPage />} />
+          <Route path="contact" element={<ContactPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
       </Route>
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
     </Fragment>
   )
