@@ -27,7 +27,7 @@ export function AboutPage() {
           </p>
 
           <p>
-            In 2025, in the heart of Indore, four friends — all software
+            In 2025, in the heart of Indore, three friends — all software
             engineers by profession — found themselves questioning the pace and
             purpose of the world they were building for. While technology shaped
             their careers, their roots told a different story — one of
