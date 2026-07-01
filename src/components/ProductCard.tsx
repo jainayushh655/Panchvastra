@@ -51,22 +51,6 @@ export function ProductCard({ product }: { product: Product }) {
         <div className="p-4 sm:p-5">
           <h3 className="type-product-title line-clamp-2">{product.name}</h3>
           <div className="mt-3 h-px w-full bg-gradient-to-r from-zinc-200 via-zinc-300 to-transparent dark:from-zinc-700 dark:via-zinc-600" aria-hidden />
-<<<<<<< HEAD
-          <div className="mt-3 flex items-end justify-between gap-3">
-            <div className="flex flex-col items-start gap-1">
-              <span className="type-price text-lg leading-none">
-                {formatInr(product.price)}
-              </span>
-              {product.compareAtPrice != null && product.compareAtPrice > product.price ? (
-                <span className="text-xs text-zinc-400 line-through">
-                  {formatInr(product.compareAtPrice)}
-                </span>
-              ) : null}
-            </div>
-            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b07f2e]">
-              View
-            </span>
-=======
           <div className="mt-3 flex items-end justify-start gap-3">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <span className="type-price text-lg">{formatInr(product.price)}</span>
@@ -75,7 +59,6 @@ export function ProductCard({ product }: { product: Product }) {
               ) : null}
             </div>
             {/* Removed 'View' label to avoid duplicate CTA — price remains left-aligned */}
->>>>>>> 56e5406 (cartpage update)
           </div>
         </div>
       </Link>
