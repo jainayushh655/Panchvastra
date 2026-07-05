@@ -18,7 +18,7 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <motion.article layout whileHover={{ y: -6 }} className="group">
       <Link
-        to={`/product/${product.slug}`}
+        to={`/product/${product.id}`}
         className="relative block overflow-hidden rounded-[1.5rem] border border-zinc-200/80 bg-white shadow-[0_18px_50px_-34px_rgba(0,0,0,0.55)] transition-all duration-300 hover:border-zinc-300 hover:shadow-[0_24px_60px_-34px_rgba(0,0,0,0.65)] dark:border-zinc-800 dark:bg-zinc-900/80"
       >
         <div className="relative aspect-[5/4] overflow-hidden bg-zinc-100 dark:bg-zinc-800">

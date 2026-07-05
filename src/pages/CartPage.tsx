@@ -1,14 +1,60 @@
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
-import { useCart } from '@/context/CartProvider'
 import { formatInr } from '@/lib/format'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { useEffect, useState } from "react";
+import { getCart } from "@/api/cart";
+import type { CartDto } from "@/types/api/CartDto";
+import {
+  updateCartItem,
+  removeCartItem,
+} from "@/api/cart";
 
 export function CartPage() {
   useDocumentTitle('Cart')
-  const { items, setQty, removeItem, subtotal } = useCart()
+  const [cart, setCart] = useState<CartDto | null>(null);
 
-  const shipping = subtotal > 0 ? (subtotal >= 499 ? 0 : 99) : 0
+  const subtotal = cart?.summary.subtotal ?? 0;
+
+  const shipping =
+    subtotal > 0
+      ? subtotal >= 499
+        ? 0
+        : 99
+      : 0;
+  async function loadCart() {
+  try {
+    const data = await getCart();
+    setCart(data);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+const handleUpdateQuantity = async (
+  cartItemId: number,
+  quantity: number
+) => {
+  try {
+    await updateCartItem(cartItemId, quantity);
+    await loadCart();
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const handleRemoveItem = async (cartItemId: number) => {
+  try {
+    await removeCartItem(cartItemId);
+    await loadCart();
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+useEffect(() => {
+  loadCart();
+}, []);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -16,7 +62,7 @@ export function CartPage() {
         Cart
       </h1>
 
-      {items.length === 0 ? (
+      {(cart?.items.length ?? 0) === 0 ? (
         <p className="mt-8 text-zinc-600 dark:text-zinc-400">
           Your cart is quiet.{' '}
           <Link to="/shop" className="font-semibold text-orange-600 dark:text-orange-400">
@@ -26,32 +72,37 @@ export function CartPage() {
       ) : (
         <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_360px]">
           <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-            {items.map((line) => (
-              <li key={line.key} className="flex gap-4 py-6">
-                <Link to={`/product/${line.slug}`} className="shrink-0">
+            {cart?.items.map((line) => (
+              <li key={line.cart_item_id} className="flex gap-4 py-6">
+                <Link to={`/product/${line.product_id}`} className="shrink-0">
                   <img
-                    src={line.image}
+                    src={line.primary_image}
                     alt=""
                     className="h-28 w-24 rounded-2xl object-cover"
                   />
                 </Link>
                 <div className="min-w-0 flex-1">
                   <Link
-                    to={`/product/${line.slug}`}
+                    to={`/product/${line.product_id}`}
                     className="font-semibold text-zinc-900 dark:text-white"
                   >
-                    {line.name}
+                    {line.product_name}
                   </Link>
                   <p className="text-sm text-zinc-500">
                     Size {line.size}
                     {line.color ? ` · ${line.color}` : ''}
                   </p>
-                  <p className="mt-1 text-sm font-bold">{formatInr(line.price)}</p>
+                  <p className="mt-1 text-sm font-bold">{formatInr(line.selling_price)}</p>
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900">
                       <button
                         type="button"
-                        onClick={() => setQty(line.key, Math.max(1, line.quantity - 1))}
+                        onClick={() =>
+  handleUpdateQuantity(
+    line.cart_item_id,
+    Math.max(1, line.quantity - 1)
+  )
+}
                         disabled={line.quantity <= 1}
                         className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-lg font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
                       >
@@ -62,12 +113,22 @@ export function CartPage() {
                         min={1}
                         max={99}
                         value={line.quantity}
-                        onChange={(e) => setQty(line.key, Number(e.target.value) || 1)}
+                        onChange={(e) =>
+  handleUpdateQuantity(
+    line.cart_item_id,
+    Number(e.target.value) || 1
+  )
+}
                         className="w-16 border-none bg-transparent text-center text-sm font-semibold text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                       <button
                         type="button"
-                        onClick={() => setQty(line.key, Math.min(99, line.quantity + 1))}
+                        onClick={() =>
+  handleUpdateQuantity(
+    line.cart_item_id,
+    Math.min(99, line.quantity + 1)
+  )
+}
                         disabled={line.quantity >= 99}
                         className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-lg font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
                       >
@@ -77,7 +138,7 @@ export function CartPage() {
                     <button
                       type="button"
                       className="text-xs font-semibold text-red-500 hover:underline"
-                      onClick={() => removeItem(line.key)}
+                      onClick={() => handleRemoveItem(line.cart_item_id)}
                     >
                       Remove
                     </button>

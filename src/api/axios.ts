@@ -1,10 +1,11 @@
-import axios from 'axios'
+import axios from "axios";
 
 const api = axios.create({
-  baseURL: 'https://web-production-7de49.up.railway.app/v1',
+  baseURL: "/v1",
+  timeout: 15000,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
-})
+});
 
-export default api
+export default api;

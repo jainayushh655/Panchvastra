@@ -1,6 +1,7 @@
 import type { CartItem, CategorySlug, Product, ShowcaseHighlight, SortKey } from '@/types'
 import { getCategoriesSnapshot, getProductsSnapshot } from '@/lib/catalogStore'
 import { getSiblingVariants } from '@/lib/productVariants'
+import { loadCatalog } from "@/services/catalogService";
 import axios from 'axios'
 
 /** Wired for prod: `http.get(import.meta.env.VITE_API_URL + '/catalog')` */
@@ -120,17 +121,36 @@ export const catalogApi = {
 
   /** Home showcase row: only products assigned to the selected tab (admin tag or legacy flags). */
   async getHomeShowcase(filter: ShowcaseHighlight, limit = 3) {
-    const list = [...getProductsSnapshot()]
 
-    const sortKey = (a: Product, b: Product) => {
-      if (filter === 'bestseller') return b.reviewCount - a.reviewCount
-      if (filter === 'hotdeals') return (b.salePct ?? 0) - (a.salePct ?? 0)
-      return b.popularity - a.popularity
-    }
+  const catalog = await loadCatalog();
 
-    const products = list.filter((p) => matchesShowcaseHighlight(p, filter)).sort(sortKey).slice(0, limit)
-    return { products }
-  },
+  let products = catalog.products;
+
+  switch (filter) {
+
+    case "trending":
+      products = products.filter(p => p.trending);
+      break;
+
+    case "newarrival":
+      products = products.filter(p => p.isNew);
+      break;
+
+    case "hotdeals":
+      products = products.filter(p => (p.salePct ?? 0) > 0);
+      break;
+
+    case "bestseller":
+      products = [...products].sort(
+        (a, b) => b.reviewCount - a.reviewCount
+      );
+      break;
+  }
+
+  return {
+    products: products.slice(0, limit),
+  };
+},
 
   async getBySlug(slug: string): Promise<Product | null> {
     return getProductsSnapshot().find((p) => p.slug === slug) ?? null

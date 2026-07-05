@@ -1,4 +1,9 @@
-import { useCallback, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useSearchParams } from 'react-router-dom'
 import { ProductCard } from '@/components/ProductCard'
 import { IconFilterPeek } from '@/components/shop/IconFilterPeek'
@@ -8,11 +13,12 @@ import { ShopSortPicker } from '@/components/shop/ShopSortPicker'
 import { ProductGridSkeleton } from '@/components/shop/ProductGridSkeleton'
 import { shopToolbarButtonClass, shopToolbarLabelClass } from '@/components/shop/shopToolbar'
 import { Button } from '@/components/ui/Button'
-import { useCatalog } from '@/hooks/useCatalog'
-import { useCatalogHydrated } from '@/hooks/useCatalogHydrated'
-import { filterCatalogProducts } from '@/lib/api'
-import { getProductsSnapshot } from '@/lib/catalogStore'
-import type { CategorySlug } from '@/types'
+
+import { getProducts } from '@/api/product'
+import { getCategories } from '@/api/category'
+import type { Product } from "@/types";
+import { mapProduct } from "@/mappers/productMapper";
+import type { CategoryDto } from '@/types/api/CategoryDto'
 import type { SortKey } from '@/types'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
@@ -28,23 +34,48 @@ function parseSort(raw: string | null): SortKey {
 function validCategory(
   c: string | null,
   allowedSlugs: Set<string>,
-): CategorySlug | 'all' {
-  if (!c || c === 'all') return 'all'
-  return allowedSlugs.has(c) ? c : 'all'
+): string | "all" {
+  if (!c || c === "all") return "all";
+  return allowedSlugs.has(c) ? c : "all";
 }
+
 
 export function ShopPage() {
   useDocumentTitle('Shop')
   const [searchParams, setSearchParams] = useSearchParams()
-  const catalogHydrated = useCatalogHydrated()
-  const { categories, revision, products } = useCatalog()
+const [products, setProducts] =
+  useState<Product[]>([]);
+
+const [categories, setCategories] =
+  useState<CategoryDto[]>([])
+
+const [loading, setLoading] =
+  useState(true)
   const allowedSlugs = useMemo(
-    () => new Set(categories.map((c) => c.slug)),
-    [categories],
-  )
+  () =>
+    new Set(
+      categories.map((c) => {
+        switch (c.name.toLowerCase()) {
+          case "t-shirts":
+            return "regular-tee";
+
+          case "shorts":
+            return "shorts";
+
+          default:
+            return c.name.toLowerCase();
+        }
+      })
+    ),
+  [categories]
+);
 
   const q = searchParams.get('q') ?? ''
-  const category = validCategory(searchParams.get('category'), allowedSlugs)
+  const category = validCategory(searchParams.get('category'), allowedSlugs);
+  const categoryHeading =
+  category === "all"
+    ? "All Products"
+    : category;
   const sort = parseSort(searchParams.get('sort'))
   const minP = searchParams.get('min')
   const maxP = searchParams.get('max')
@@ -54,13 +85,24 @@ export function ShopPage() {
     [sizesRaw],
   )
 
-  const priceBounds = useMemo(() => {
-    const products = getProductsSnapshot()
-    if (!products.length) return { max: 2000 }
-    const maxPrice = Math.max(...products.map((p) => p.price))
-    const rounded = Math.max(500, Math.ceil(maxPrice / 100) * 100)
-    return { max: rounded }
-  }, [revision])
+const priceBounds = useMemo(() => {
+  if (!products.length) {
+    return {
+      max: 2000,
+    };
+  }
+
+  const maxPrice = Math.max(
+    ...products.map((p) => p.price)
+  );
+
+  return {
+    max: Math.max(
+      500,
+      Math.ceil(maxPrice / 100) * 100
+    ),
+  };
+}, [products]);
 
   const boundMin = PRICE_FLOOR
   const boundMax = priceBounds.max
@@ -78,34 +120,113 @@ export function ShopPage() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
 
-  const showProductLoading = !catalogHydrated && products.length === 0
+  async function loadData() {
+  try {
+    setLoading(true);
 
-  const list = useMemo(() => {
-    if (showProductLoading) return []
-    return filterCatalogProducts(getProductsSnapshot(), {
-      category,
-      q,
-      sort,
-      minPrice: apiMinPrice,
-      maxPrice: apiMaxPrice,
-      sizes: sizesParam.length ? sizesParam : undefined,
-    })
-  }, [
-    showProductLoading,
-    category,
-    q,
-    sort,
-    apiMinPrice,
-    apiMaxPrice,
-    sizesParam,
-    revision,
-  ])
+    const [productResponse, categoryResponse] =
+      await Promise.all([
+        getProducts(),
+        getCategories(),
+      ]);
+    setProducts(
+  productResponse.map(mapProduct)
+);
 
-  const categoryHeading = useMemo(() => {
-    if (category === 'all') return 'All products'
-    const def = categories.find((c) => c.slug === category)
-    return def?.label ?? def?.shortLabel ?? 'Shop'
-  }, [category, categories])
+    setCategories(categoryResponse);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+}
+
+useEffect(() => {
+  loadData();
+}, []);
+
+  const showProductLoading =
+  loading;
+
+const list = useMemo(() => {
+  let filtered = [...products];
+
+  // Search
+  if (q.trim()) {
+    const keyword = q.toLowerCase();
+
+    filtered = filtered.filter((p) =>
+      p.name.toLowerCase().includes(keyword)
+    );
+  }
+
+  // Category
+  if (category !== "all") {
+    filtered = filtered.filter(
+      (p) => p.categorySlug === category
+    );
+  }
+
+  // Price
+  if (apiMinPrice != null) {
+    filtered = filtered.filter(
+      (p) => p.price >= apiMinPrice
+    );
+  }
+
+  if (apiMaxPrice != null) {
+    filtered = filtered.filter(
+      (p) => p.price <= apiMaxPrice
+    );
+  }
+
+  // Size (temporary)
+  if (sizesParam.length) {
+    filtered = filtered.filter((p) =>
+      p.sizes.some((s) =>
+        sizesParam.includes(s)
+      )
+    );
+  }
+
+  // Sorting
+  switch (sort) {
+    case "price-asc":
+      filtered.sort((a, b) => a.price - b.price);
+      break;
+
+    case "price-desc":
+      filtered.sort((a, b) => b.price - a.price);
+      break;
+
+    case "new-arrival":
+      filtered.sort((a, b) =>
+        Number(b.isNew) - Number(a.isNew)
+      );
+      break;
+
+    case "bestseller":
+      filtered.sort(
+        (a, b) => b.reviewCount - a.reviewCount
+      );
+      break;
+
+    default:
+      filtered.sort(
+        (a, b) => b.popularity - a.popularity
+      );
+  }
+
+  return filtered;
+}, [
+  products,
+  q,
+  category,
+  sort,
+  apiMinPrice,
+  apiMaxPrice,
+  sizesParam,
+]);
 
   const setSort = useCallback(
     (key: SortKey) => {
@@ -235,7 +356,7 @@ export function ShopPage() {
               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
                 {hasUrlFilters
                   ? 'Try clearing filters — size, price range, search, or category can hide everything.'
-                  : 'Add products from Admin → Products or reset the catalog seed from the CMS dashboard.'}
+                  : 'No products found for the selected filters.'}
               </p>
               {hasUrlFilters ? (
                 <Button

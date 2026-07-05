@@ -20,6 +20,12 @@ export default defineConfig(({ mode }) => {
           target: `http://127.0.0.1:${emailApiPort}`,
           changeOrigin: true,
         },
+
+      '/v1': {
+      target: 'https://web-production-7de49.up.railway.app',
+      changeOrigin: true,
+      secure: true,
+        },  
       },
     },
   }
