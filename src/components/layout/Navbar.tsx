@@ -3,21 +3,25 @@ import { Link, NavLink, useSearchParams } from 'react-router-dom'
 import { BrandMark } from '@/components/BrandMark'
 import { ProfileMenu } from '@/components/layout/ProfileMenu'
 import { useCart } from '@/context/CartProvider'
-import { useCatalog } from '@/hooks/useCatalog'
+import { getCategories } from '@/api/category'
+import type { CategoryDto } from '@/types/api/CategoryDto'
 
 export function Navbar() {
   const { totalItems } = useCart()
   const [searchParams] = useSearchParams()
-  const { categories } = useCatalog()
+  const [categories, setCategories] = useState<CategoryDto[]>([])
 
   const [open, setOpen] = useState(false)
   const [categoryOpen, setCategoryOpen] = useState(false)
-  const [mobileCategoriesOpen, setMobileCategoriesOpen] = useState(false)
   const categoryRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    void getCategories().then((data) => setCategories(data))
+  }, [])
 
   const activeCategorySlug = searchParams.get('category')
   const categoryFilterActive = Boolean(
-    activeCategorySlug && categories.some((c) => c.slug === activeCategorySlug),
+    activeCategorySlug && categories.some((c) => c.name.toLowerCase() === activeCategorySlug),
   )
 
   useEffect(() => {
@@ -39,18 +43,6 @@ export function Navbar() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [categoryOpen])
-
-  const chevron = (
-    <svg
-      className={`size-4 shrink-0 transition-transform ${categoryOpen ? 'rotate-180' : ''}`}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      aria-hidden
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-    </svg>
-  )
 
   return (
     <header className="sticky top-0 z-50 border-b border-[#e6d7bb] bg-[rgba(255,248,236,0.92)] backdrop-blur-xl shadow-[0_1px_0_rgba(255,255,255,0.7)]">

@@ -34,9 +34,6 @@ export function CheckoutPage() {
     phone: '',
   })
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [loggedInEmail, setLoggedInEmail] = useState('')
-
   const [pay, setPay] = useState<'upi' | 'cod'>('upi')
   const [busy, setBusy] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)

@@ -3,12 +3,12 @@ import { useEffect, useState } from 'react'
 import { HeroCarousel } from '@/components/HeroCarousel'
 import { FeatureDropsSection, FeatureToProductsConnector } from '@/components/home/FeatureDropsSection'
 import { ProductCard } from '@/components/ProductCard'
-import { useCatalog } from '@/hooks/useCatalog'
-import { useCatalogHydrated } from '@/hooks/useCatalogHydrated'
-import { catalogApi } from '@/lib/api'
+import { getProducts } from '@/api/product'
 import type { Product } from '@/types'
 import { ProductGridSkeleton } from '@/components/shop/ProductGridSkeleton'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { mapProduct } from '@/mappers/productMapper'
+import { defaultHomepage } from '@/lib/defaultHomepage'
 
 type ShowcaseTab = 'trending' | 'bestseller' | 'newarrival' | 'hotdeals'
 
@@ -21,16 +21,43 @@ const SHOWCASE_TABS: { id: ShowcaseTab; label: string }[] = [
 
 export function HomePage() {
   useDocumentTitle('Home')
-  const catalogHydrated = useCatalogHydrated()
-  const { revision, homepage, products } = useCatalog()
   const [showcase, setShowcase] = useState<Product[]>([])
   const [tab, setTab] = useState<ShowcaseTab>('trending')
-  const showShowcaseLoading = !catalogHydrated && products.length === 0
+  const [loading, setLoading] = useState(true)
+  const homepage = defaultHomepage()
 
   useEffect(() => {
-    if (showShowcaseLoading) return
-    catalogApi.getHomeShowcase(tab, 3).then((r) => setShowcase(r.products))
-  }, [revision, tab, showShowcaseLoading])
+    let active = true
+    setLoading(true)
+
+    getProducts()
+      .then((products) => {
+        if (!active) return
+        const mapped = products.map(mapProduct)
+        const filtered = mapped.filter((product) => {
+          switch (tab) {
+            case 'trending':
+              return Boolean(product.trending)
+            case 'bestseller':
+              return product.reviewCount >= 400
+            case 'newarrival':
+              return Boolean(product.isNew)
+            case 'hotdeals':
+              return Boolean(product.salePct && product.salePct > 0)
+            default:
+              return false
+          }
+        })
+        setShowcase(filtered.slice(0, 3))
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [tab])
 
   return (
     <div className="relative overflow-hidden">
@@ -95,7 +122,7 @@ export function HomePage() {
 
           {/* Products */}
           <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {showShowcaseLoading ? (
+            {loading ? (
               <ProductGridSkeleton count={3} />
             ) : (
               showcase.map((p) => (

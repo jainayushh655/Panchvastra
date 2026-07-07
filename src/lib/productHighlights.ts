@@ -1,4 +1,3 @@
-import { categoryLabel } from '@/data/categories'
 import type { Product, ProductHighlightRef } from '@/types'
 
 /** Always appended on PDP unless already present in product data */
@@ -69,7 +68,7 @@ function inferHighlightKeys(product: Product): string[] {
 function baseSpecs(product: Product): ResolvedProductHighlight[] {
   const isShorts = product.categorySlug === 'shorts'
   const isOversized = product.categorySlug.includes('oversized')
-  const typeName = categoryLabel(product.categorySlug)
+  const typeName = product.categorySlug || 'Product'
 
   return [
     {

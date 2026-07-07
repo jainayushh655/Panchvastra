@@ -87,7 +87,7 @@ export function ProductDetailPage() {
           behavior: "smooth",
         });
 
-      } catch (err) {
+      } catch {
         navigate("/shop", {
           replace: true,
         });
