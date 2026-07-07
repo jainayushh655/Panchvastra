@@ -9,7 +9,7 @@ import { AdminLoginPage } from '@/admin/AdminLoginPage'
 import { AdminOrders } from '@/admin/AdminOrders'
 import { AdminProductEdit } from '@/admin/AdminProductEdit'
 import { AdminProducts } from '@/admin/AdminProducts'
-import { RequireUser } from '@/components/auth/RequireUser'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { RequireAdmin } from '@/admin/RequireAdmin'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { AboutPage } from '@/pages/AboutPage'
@@ -19,8 +19,10 @@ import { ContactPage } from '@/pages/ContactPage'
 import { HomePage } from '@/pages/HomePage'
 import { LoginPage } from '@/pages/LoginPage'
 import { ProductDetailPage } from '@/pages/ProductDetailPage'
+import { ProfilePage } from '@/pages/ProfilePage'
 import { ShopPage } from '@/pages/ShopPage'
 import { SignupPage } from '@/pages/SignupPage'
+import { OrdersPage } from '@/pages/OrdersPage'
 function CatalogBootstrap() {
   useEffect(() => {
     syncCatalogFromLocalStorage()
@@ -48,15 +50,19 @@ export default function App() {
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Route>
-      <Route element={<RequireUser />}>
+      <Route element={<MainLayout />}>
+        <Route index element={<HomePage />} />
+        <Route path="shop" element={<ShopPage />} />
+        <Route path="product/:id" element={<ProductDetailPage />} />
+        <Route path="about" element={<AboutPage />} />
+        <Route path="contact" element={<ContactPage />} />
+      </Route>
+      <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
-          <Route index element={<HomePage />} />
-          <Route path="shop" element={<ShopPage />} />
-          <Route path="product/:id" element={<ProductDetailPage />} />
           <Route path="cart" element={<CartPage />} />
           <Route path="checkout" element={<CheckoutPage />} />
-          <Route path="about" element={<AboutPage />} />
-          <Route path="contact" element={<ContactPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="orders" element={<OrdersPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Route>

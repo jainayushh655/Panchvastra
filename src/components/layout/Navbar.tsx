@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useSearchParams } from 'react-router-dom'
 import { BrandMark } from '@/components/BrandMark'
+import { ProfileMenu } from '@/components/layout/ProfileMenu'
 import { useCart } from '@/context/CartProvider'
 import { useCatalog } from '@/hooks/useCatalog'
 
@@ -101,12 +102,12 @@ export function Navbar() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l-1 12H6L5 9z" />
             </svg>
             {totalItems > 0 ? (
-                <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#d6b36d] px-1 text-[10px] font-bold text-zinc-950">
+              <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#d6b36d] px-1 text-[10px] font-bold text-zinc-950">
                 {totalItems}
               </span>
             ) : null}
           </Link>
-          
+          <ProfileMenu />
         </div>
       </div>
 

@@ -1,10 +1,10 @@
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
-import { validateEmail, validatePasswordLogin } from '@/lib/formValidation'
-import { loginUser } from '@/lib/userAuth'
+import { validateEmail } from '@/lib/formValidation'
+import { sendOtpForEmail, verifyOtpAndLogin } from '@/lib/userAuth'
 
 export function LoginPage() {
   useDocumentTitle('Login')
@@ -16,27 +16,90 @@ export function LoginPage() {
       : '/'
 
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [otp, setOtp] = useState('')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [isSending, setIsSending] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [otpSent, setOtpSent] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+  const [emailTouched, setEmailTouched] = useState(false)
 
   const inputClass =
     'w-full rounded-xl border border-[#dcc59b] bg-white/95 px-3 py-2.5 text-sm text-zinc-900 outline-none transition-colors focus:border-[#b07f2e]'
+  const emailError = emailTouched ? validateEmail(email) : null
+  const canSendOtp = !emailError && !isSending && countdown === 0
+  const canVerifyOtp = otp.trim().length === 6 && !isVerifying
+  const sendButtonLabel = otpSent && countdown > 0 ? 'Send OTP' : otpSent ? 'Resend OTP' : 'Send OTP'
 
-  const onSubmit = (e: FormEvent) => {
+  useEffect(() => {
+    if (countdown <= 0) return
+
+    const timer = window.setInterval(() => {
+      setCountdown((value) => value - 1)
+    }, 1000)
+
+    return () => window.clearInterval(timer)
+  }, [countdown])
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value)
+    setEmailTouched(true)
+    setError('')
+    setSuccess('')
+    if (otpSent) {
+      setOtpSent(false)
+      setOtp('')
+      setCountdown(0)
+    }
+  }
+
+  const onSendOtp = async (e: FormEvent) => {
     e.preventDefault()
+
     const emailErr = validateEmail(email)
+    setEmailTouched(true)
     if (emailErr) {
       setError(emailErr)
+      setSuccess('')
       return
     }
 
-    const passwordErr = validatePasswordLogin(password)
-    if (passwordErr) {
-      setError(passwordErr)
+    setError('')
+    setSuccess('')
+    setIsSending(true)
+
+    const result = await sendOtpForEmail({ email })
+    setIsSending(false)
+
+    if (!result.ok) {
+      setError(result.error)
       return
     }
 
-    const result = loginUser({ email, password })
+    setSuccess('OTP has been sent to your email.')
+    setOtpSent(true)
+    setOtp('')
+    setCountdown(60)
+  }
+
+  const onVerifyOtp = async (e: FormEvent) => {
+    e.preventDefault()
+
+    const otpValue = otp.trim()
+    if (otpValue.length !== 6) {
+      setError('Enter the 6-digit OTP.')
+      setSuccess('')
+      return
+    }
+
+    setError('')
+    setSuccess('')
+    setIsVerifying(true)
+
+    const result = await verifyOtpAndLogin({ email, otp: otpValue })
+    setIsVerifying(false)
+
     if (!result.ok) {
       setError(result.error)
       return
@@ -52,7 +115,7 @@ export function LoginPage() {
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#b07f2e]">Login</h1>
         <p className="mt-2 text-sm text-zinc-600">Sign in to continue shopping your saved picks.</p>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+        <form onSubmit={otpSent ? onVerifyOtp : onSendOtp} className="mt-6 space-y-4" noValidate>
           <div>
             <label htmlFor="login-email" className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a7355]">
               Email
@@ -64,40 +127,73 @@ export function LoginPage() {
               className={`${inputClass} mt-1`}
               placeholder="you@example.com"
               value={email}
-              onChange={(e) => {
-                setEmail(e.target.value)
-                setError('')
-              }}
+              onChange={(e) => handleEmailChange(e.target.value)}
             />
           </div>
 
-          <div>
-            <label htmlFor="login-password" className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a7355]">
-              Password
-            </label>
-            <input
-              id="login-password"
-              type="password"
-              autoComplete="current-password"
-              className={`${inputClass} mt-1`}
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value)
-                setError('')
-              }}
-            />
-          </div>
+          {emailError ? <p className="text-sm text-red-600">{emailError}</p> : null}
+
+          {otpSent ? (
+            <div>
+              <label htmlFor="login-otp" className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a7355]">
+                OTP
+              </label>
+              <input
+                id="login-otp"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                className={`${inputClass} mt-1`}
+                placeholder="Enter 6-digit OTP"
+                maxLength={6}
+                value={otp}
+                onChange={(e) => {
+                  setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
+                  setError('')
+                  setSuccess('')
+                }}
+              />
+            </div>
+          ) : null}
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {success ? <p className="text-sm text-emerald-600">{success}</p> : null}
 
-          <Button
-            type="submit"
-            size="lg"
-            className="w-full !border-[#b07f2e] !bg-[#b07f2e] !text-white hover:!bg-[#99661f]"
-          >
-            Login
-          </Button>
+          {otpSent ? (
+            <div className="space-y-3">
+              {countdown > 0 ? (
+                <p className="text-sm text-zinc-600">Resend available in 00:{String(countdown).padStart(2, '0')}.</p>
+              ) : null}
+
+              <Button
+                type="button"
+                size="lg"
+                className="w-full !border-[#b07f2e] !bg-[#b07f2e] !text-white hover:!bg-[#99661f]"
+                onClick={onSendOtp}
+                disabled={!canSendOtp || countdown > 0 || isSending}
+              >
+                {isSending ? 'Sending...' : sendButtonLabel}
+              </Button>
+
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full !border-[#b07f2e] !bg-[#b07f2e] !text-white hover:!bg-[#99661f]"
+                disabled={!canVerifyOtp || isVerifying}
+              >
+                {isVerifying ? 'Verifying...' : 'Verify OTP'}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full !border-[#b07f2e] !bg-[#b07f2e] !text-white hover:!bg-[#99661f]"
+              disabled={!canSendOtp}
+            >
+              {isSending ? 'Sending...' : 'Send OTP'}
+            </Button>
+          )}
         </form>
 
         <p className="mt-6 text-sm text-zinc-600">

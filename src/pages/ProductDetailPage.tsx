@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { KeyHighlightsSection } from '@/components/product/KeyHighlightsSection'
 import { ProductDetailAccordions } from '@/components/product/ProductDetailAccordions'
 import { ProductImageGallery } from '@/components/product/ProductImageGallery'
@@ -12,10 +12,12 @@ import type { Product } from '@/types'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import type { ProductDetailDto } from "@/types/api/ProductDetailDto";
 import { addToCart } from "@/api/cart";
+import { isAuthenticated } from '@/lib/userAuth'
 
 export function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { addItem } = useCart();
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -113,6 +115,11 @@ export function ProductDetailPage() {
   const add = async () => {
   if (!product || !selectedVariantSizeId) return;
 
+  if (!isAuthenticated()) {
+    navigate('/login', { replace: false, state: { from: `${location.pathname}${location.search}` } })
+    return
+  }
+
   try {
     await addToCart(selectedVariantSizeId, 1);
 
@@ -127,6 +134,10 @@ export function ProductDetailPage() {
 
   const handleAddToCart = async () => {
   await add();
+
+  if (!isAuthenticated()) {
+    return
+  }
 
   setShowCartPopup(true);
 
