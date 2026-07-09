@@ -19,4 +19,5 @@ export const KEYS = {
   wishlist: 'pv_wishlist_v2',
   users: 'pv_users_v1',
   currentUser: 'pv_current_user_v1',
+  authToken: 'pv_auth_token_v1',
 } as const

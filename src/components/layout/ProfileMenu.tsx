@@ -1,22 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { getAuthEventName, getCurrentUser, logoutUser } from '@/lib/userAuth'
+import { useAuth } from '@/context/AuthProvider'
 
 export function ProfileMenu() {
   const [open, setOpen] = useState(false)
-  const [user, setUser] = useState(() => getCurrentUser())
   const menuRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
-
-  useEffect(() => {
-    const syncUser = () => setUser(getCurrentUser())
-    syncUser()
-
-    const authEventName = getAuthEventName()
-    window.addEventListener(authEventName, syncUser)
-    return () => window.removeEventListener(authEventName, syncUser)
-  }, [])
+  const { user, logout } = useAuth()
 
   useEffect(() => {
     setOpen(false)
@@ -47,7 +38,7 @@ export function ProfileMenu() {
   }, [open])
 
   const handleLogout = () => {
-    logoutUser()
+    logout()
     setOpen(false)
     navigate('/login', { replace: true })
   }

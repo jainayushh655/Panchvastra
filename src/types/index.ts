@@ -54,6 +54,8 @@ export interface Product {
   salePct?: number
   /** Admin: appears on the matching home tab only. */
   showcaseHighlight?: ShowcaseHighlight
+  /** Optional size-to-variant map used by some product mappers. */
+  sizeVariantMap?: Record<string, string | number>
 }
 
 export interface CartItem {

@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
+import { useAuth } from '@/context/AuthProvider'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
-import { getCurrentUser } from '@/lib/userAuth'
 
 export function ProfilePage() {
   useDocumentTitle('My Profile')
-  const user = getCurrentUser()
+  const { user } = useAuth()
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-5xl flex-col gap-6 px-4 py-10">

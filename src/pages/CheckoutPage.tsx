@@ -13,12 +13,14 @@ import { storefrontApiPath } from '@/lib/storefrontApi'
 import { buildWhatsAppOrderUrl } from '@/lib/whatsappOrder'
 import type { Address, Order, OrderItem } from '@/types'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { useAuth } from '@/context/AuthProvider'
 import { Link, useNavigate } from 'react-router-dom'
 
 export function CheckoutPage() {
   useDocumentTitle('Checkout')
   const navigate = useNavigate()
   const { items, subtotal, clear } = useCart()
+  const { user, isAuthenticated } = useAuth()
 
   const shipping = subtotal > 0 ? (subtotal >= 1999 ? 0 : 99) : 0
   const total = subtotal + shipping
@@ -162,11 +164,11 @@ export function CheckoutPage() {
             <h2 className="type-label">Contact &amp; shipping</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="space-y-1 sm:col-span-2">
-                {isLoggedIn ? (
+                {isAuthenticated ? (
                   <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white">
                     <div className="font-semibold">Logged in as</div>
                     <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                      {loggedInEmail || 'your email'}
+                      {user?.email || 'your email'}
                     </div>
                   </div>
                 ) : (

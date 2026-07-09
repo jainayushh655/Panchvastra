@@ -2,14 +2,15 @@ import type { FormEvent } from 'react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
+import { useAuth } from '@/context/AuthProvider'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { validateEmail } from '@/lib/formValidation'
-import { sendOtpForEmail, verifyOtpAndLogin } from '@/lib/userAuth'
 
 export function LoginPage() {
   useDocumentTitle('Login')
   const navigate = useNavigate()
   const location = useLocation()
+  const { sendOtpForEmail, verifyOtpAndLogin } = useAuth()
   const nextPath =
     typeof (location.state as { from?: unknown } | null)?.from === 'string'
       ? ((location.state as { from: string }).from || '/')

@@ -10,15 +10,16 @@ import { mapProductDetail, } from '@/mappers/productDetailMapper'
 import { formatInr } from '@/lib/format'
 import type { Product } from '@/types'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
-import type { ProductDetailDto } from "@/types/api/ProductDetailDto";
-import { addToCart } from "@/api/cart";
-import { isAuthenticated } from '@/lib/userAuth'
+import type { ProductDetailDto } from '@/types/api/ProductDetailDto'
+import { addToCart } from '@/api/cart'
+import { useAuth } from '@/context/AuthProvider'
 
 export function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { addItem } = useCart();
+  const { isAuthenticated } = useAuth();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [productDto, setProductDto] =
@@ -53,7 +54,7 @@ export function ProductDetailPage() {
 
     async function loadProduct() {
       try {
-        const dto = await getProductById(id);
+        const dto = await getProductById(id ?? '');
 
         if (cancelled) return;
 
@@ -115,7 +116,7 @@ export function ProductDetailPage() {
   const add = async () => {
   if (!product || !selectedVariantSizeId) return;
 
-  if (!isAuthenticated()) {
+  if (!isAuthenticated) {
     navigate('/login', { replace: false, state: { from: `${location.pathname}${location.search}` } })
     return
   }
@@ -135,7 +136,7 @@ export function ProductDetailPage() {
   const handleAddToCart = async () => {
   await add();
 
-  if (!isAuthenticated()) {
+  if (!isAuthenticated) {
     return
   }
 
