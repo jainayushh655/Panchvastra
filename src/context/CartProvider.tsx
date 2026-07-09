@@ -1,6 +1,7 @@
-import { productToCartItem } from '@/lib/api'
-import { KEYS, readJson, writeJson } from '@/lib/storage'
-import type { CartItem, Product } from '@/types'
+import type { CartItemDto } from "@/types/api/CartDto";
+import { getCart } from "@/api/cart";
+import { useAuth } from "@/context/AuthProvider";
+import type { CartItem } from '@/types'
 import {
   createContext,
   useCallback,
@@ -12,54 +13,62 @@ import {
 
 type CartCtx = {
   items: CartItem[]
-  addItem: (product: Product, size: string, quantity?: number, color?: string) => void
-  removeItem: (key: string) => void
-  setQty: (key: string, quantity: number) => void
   clear: () => void
+  refreshCart: () => Promise<void>
   subtotal: number
   totalItems: number
 }
 
 const Ctx = createContext<CartCtx | null>(null)
 
-function mergeItems(prev: CartItem[], next: CartItem): CartItem[] {
-  const idx = prev.findIndex((x) => x.key === next.key)
-  if (idx === -1) return [...prev, next]
-  const copy = [...prev]
-  copy[idx] = {
-    ...copy[idx],
-    quantity: Math.min(99, copy[idx].quantity + next.quantity),
-  }
-  return copy
+
+function mapCartItem(item: CartItemDto): CartItem {
+  return {
+    key: item.cart_item_id.toString(),
+
+    cartItemId: item.cart_item_id,
+
+    productId: item.product_id.toString(),
+
+    slug: item.product_id.toString(),
+
+    name: item.product_name,
+
+    image: item.primary_image,
+
+    price: item.selling_price,
+
+    quantity: item.quantity,
+
+    size: item.size,
+
+    color: item.color,
+};
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>(() => readJson(KEYS.cart, []))
+  const [items, setItems] = useState<CartItem[]>([]);
 
-  useEffect(() => {
-    writeJson(KEYS.cart, items)
-  }, [items])
+  const { isAuthenticated } = useAuth();
 
-  const addItem = useCallback((product: Product, size: string, quantity = 1, color?: string) => {
-    const next = productToCartItem(product, size, quantity, color)
-    setItems((prev) => mergeItems(prev, next))
-  }, [])
+  const loadCart = useCallback(async () => {
+  if (!isAuthenticated) {
+    setItems([]);
+    return;
+  }
 
-  const removeItem = useCallback((key: string) => {
-    setItems((prev) => prev.filter((i) => i.key !== key))
-  }, [])
+  try {
+    const cart = await getCart();
+    setItems(cart.items.map(mapCartItem));
+  } catch (error) {
+    console.error(error);
+  }
+}, [isAuthenticated]);
 
-  const setQty = useCallback((key: string, quantity: number) => {
-    if (quantity < 1) {
-      removeItem(key)
-      return
-    }
-    setItems((prev) =>
-      prev.map((i) =>
-        i.key === key ? { ...i, quantity: Math.min(99, quantity) } : i,
-      ),
-    )
-  }, [removeItem])
+useEffect(() => {
+  loadCart();
+}, [loadCart]);
+
 
   const clear = useCallback(() => setItems([]), [])
 
@@ -73,17 +82,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return { subtotal, totalItems }
   }, [items])
 
-  const value = useMemo(
-    () => ({
-      items,
-      addItem,
-      removeItem,
-      setQty,
-      clear,
-      subtotal,
-      totalItems,
-    }),
-    [items, addItem, removeItem, setQty, clear, subtotal, totalItems],
+const value = useMemo(
+  () => ({
+    items,
+    clear,
+    refreshCart: loadCart,
+    subtotal,
+    totalItems,
+  }),
+    [
+  items,
+  clear,
+  loadCart,
+  subtotal,
+  totalItems,
+],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

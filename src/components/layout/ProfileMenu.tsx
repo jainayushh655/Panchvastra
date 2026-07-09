@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthProvider'
+import { useCart } from '@/context/CartProvider'
 
 export function ProfileMenu() {
   const [open, setOpen] = useState(false)
@@ -8,6 +9,7 @@ export function ProfileMenu() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const { clear } = useCart()
 
   useEffect(() => {
     setOpen(false)
@@ -37,11 +39,12 @@ export function ProfileMenu() {
     }
   }, [open])
 
-  const handleLogout = () => {
-    logout()
-    setOpen(false)
-    navigate('/login', { replace: true })
-  }
+ const handleLogout = () => {
+  clear()
+  logout()
+  setOpen(false)
+  navigate('/login', { replace: true })
+}
 
   const menuItems = user
     ? [

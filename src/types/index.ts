@@ -60,13 +60,23 @@ export interface Product {
 
 export interface CartItem {
   readonly key: string
+
+  cartItemId: number
+
   productId: string
+
   slug: string
+
   name: string
+
   image: string
+
   size: string
+
   color?: string
+
   price: number
+
   quantity: number
 }
 

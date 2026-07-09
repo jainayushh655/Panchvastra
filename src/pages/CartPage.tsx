@@ -5,14 +5,17 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useEffect, useState } from "react";
 import { getCart } from "@/api/cart";
 import type { CartDto } from "@/types/api/CartDto";
+import { useCart } from "@/context/CartProvider";
 import {
   updateCartItem,
   removeCartItem,
 } from "@/api/cart";
 
+
 export function CartPage() {
   useDocumentTitle('Cart')
   const [cart, setCart] = useState<CartDto | null>(null);
+  const { refreshCart } = useCart();
 
   const subtotal = cart?.summary.subtotal ?? 0;
 
@@ -36,8 +39,9 @@ const handleUpdateQuantity = async (
   quantity: number
 ) => {
   try {
-    await updateCartItem(cartItemId, quantity);
-    await loadCart();
+await updateCartItem(cartItemId, quantity);
+await loadCart();
+await refreshCart();
   } catch (err) {
     console.error(err);
   }
@@ -45,8 +49,9 @@ const handleUpdateQuantity = async (
 
 const handleRemoveItem = async (cartItemId: number) => {
   try {
-    await removeCartItem(cartItemId);
-    await loadCart();
+await removeCartItem(cartItemId);
+await loadCart();
+await refreshCart();
   } catch (err) {
     console.error(err);
   }

@@ -18,8 +18,8 @@ export function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { addItem } = useCart();
   const { isAuthenticated } = useAuth();
+  const { refreshCart } = useCart();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [productDto, setProductDto] =
@@ -123,9 +123,9 @@ export function ProductDetailPage() {
 
   try {
     await addToCart(selectedVariantSizeId, 1);
+    await refreshCart();
 
     // Keep local cart temporarily so the cart UI still works
-    addItem(product, size, 1);
 
     console.log("Product added successfully");
   } catch (error) {
