@@ -1,6 +1,29 @@
+// {
+//   "rewrites": [
+//     { "source": "/((?!api/).*)", "destination": "/index.html" }
+//   ],
+//   "functions": {
+//     "api/orders.js": {
+//       "maxDuration": 10
+//     },
+//     "api/catalog.js": {
+//       "maxDuration": 10,
+//       "includeFiles": "data/catalog.seed.json"
+//     }
+//   }
+// }
+
+
 {
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/v1/:path*",
+      "destination": "https://web-production-7de49.up.railway.app/v1/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
   ],
   "functions": {
     "api/orders.js": {
