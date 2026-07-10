@@ -43,7 +43,7 @@ export function ProfileMenu() {
   clear()
   logout()
   setOpen(false)
-  navigate('/login', { replace: true })
+  navigate('/', { replace: true })
 }
 
   const menuItems = user

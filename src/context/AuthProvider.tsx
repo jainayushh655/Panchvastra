@@ -1,6 +1,10 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { loginUser as requestLoginOtp, verifyEmail as requestVerifyOtp } from '@/api/auth'
-import { KEYS, readJson, writeJson } from '@/lib/storage'
+
+const AUTH_TOKEN_STORAGE_KEY = 'pv_auth_token_v1'
+const CURRENT_USER_STORAGE_KEY = 'pv_current_user_v1'
+const AUTH_EVENT = 'pv_auth_changed'
+const JWT_PATTERN = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/
 
 export type AuthUser = {
   id?: string
@@ -23,10 +27,43 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 
+function isValidJwt(token: string | null | undefined): token is string {
+  return typeof token === 'string' && JWT_PATTERN.test(token.trim())
+}
+
 function readStoredSession() {
-  const user = readJson<AuthUser | null>(KEYS.currentUser, null)
-  const token = readJson<string | null>(KEYS.authToken, null)
-  return { user, token }
+  if (typeof window === 'undefined') {
+    return { user: null as AuthUser | null, token: null as string | null }
+  }
+
+  try {
+    const rawUser = window.localStorage.getItem(CURRENT_USER_STORAGE_KEY)
+    const rawToken = window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY)
+    const token = typeof rawToken === 'string' ? rawToken.trim() : null
+
+    if (!isValidJwt(token)) {
+      clearStoredSession()
+      return { user: null as AuthUser | null, token: null as string | null }
+    }
+
+    const parsedUser = rawUser ? (JSON.parse(rawUser) as Partial<AuthUser> | null) : null
+    const user = parsedUser && typeof parsedUser.email === 'string' && parsedUser.email.trim()
+      ? ({ id: parsedUser.id, name: parsedUser.name, email: parsedUser.email.trim().toLowerCase() } as AuthUser)
+      : null
+
+    return { user, token }
+  } catch {
+    clearStoredSession()
+    return { user: null as AuthUser | null, token: null as string | null }
+  }
+}
+
+function clearStoredSession() {
+  if (typeof window === 'undefined') return
+
+  window.localStorage.removeItem(CURRENT_USER_STORAGE_KEY)
+  window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
+  window.dispatchEvent(new Event(AUTH_EVENT))
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -34,17 +71,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(() => readStoredSession().token)
 
   const persistSession = useCallback((nextUser: AuthUser, nextToken: string | null) => {
-    setUser(nextUser)
-    setToken(nextToken)
-    writeJson(KEYS.currentUser, nextUser)
-    writeJson(KEYS.authToken, nextToken)
+    const normalizedToken = typeof nextToken === 'string' ? nextToken.trim() : null
+
+    if (!nextUser?.email || !isValidJwt(normalizedToken)) {
+      clearStoredSession()
+      setUser(null)
+      setToken(null)
+      return
+    }
+
+    const normalizedUser: AuthUser = {
+      id: nextUser.id,
+      name: nextUser.name,
+      email: nextUser.email.trim().toLowerCase(),
+    }
+
+    setUser(normalizedUser)
+    setToken(normalizedToken)
+
+    if (typeof window === 'undefined') return
+
+    try {
+      window.localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(normalizedUser))
+      window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, normalizedToken)
+      window.dispatchEvent(new Event(AUTH_EVENT))
+    } catch {
+      // Ignore storage errors and rely on in-memory auth state.
+    }
   }, [])
 
   const logout = useCallback(() => {
     setUser(null)
     setToken(null)
-    writeJson(KEYS.currentUser, null)
-    writeJson(KEYS.authToken, null)
+    clearStoredSession()
   }, [])
 
   const sendOtpForEmail = useCallback(async (input: { email: string }) => {

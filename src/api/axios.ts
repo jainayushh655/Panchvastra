@@ -1,5 +1,17 @@
 import axios from "axios";
-import { KEYS, readJson } from "@/lib/storage";
+
+const AUTH_TOKEN_STORAGE_KEY = "pv_auth_token_v1";
+
+function readStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const token = window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+    return typeof token === "string" && token.trim() ? token.trim() : null;
+  } catch {
+    return null;
+  }
+}
 
 const api = axios.create({
   baseURL: "/v1",
@@ -10,7 +22,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = readJson<string | null>(KEYS.authToken, null);
+  const token = readStoredToken();
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

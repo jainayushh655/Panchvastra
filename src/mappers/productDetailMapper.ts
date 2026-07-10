@@ -21,10 +21,9 @@ function getCategorySlug(category: string): string {
   }
 }
 
-function safeImage(url: string) {
-  return url.includes("cdn.yourbrand.com")
-    ? "/images/no-image.png"
-    : url;
+function safeImage(url?: string) {
+  const trimmed = url?.trim();
+  return trimmed ? trimmed : "/images/no-image.png";
 }
 
 export function mapProductDetail(dto: ProductDetailDto): Product {

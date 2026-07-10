@@ -124,10 +124,6 @@ export function ProductDetailPage() {
   try {
     await addToCart(selectedVariantSizeId, 1);
     await refreshCart();
-
-    // Keep local cart temporarily so the cart UI still works
-
-    console.log("Product added successfully");
   } catch (error) {
     console.error("Failed to add product to cart", error);
   }
@@ -157,9 +153,7 @@ export function ProductDetailPage() {
         <ProductImageGallery
           images={
             currentVariant?.images.map((img) =>
-              img.image_url.includes("cdn.yourbrand.com")
-                ? "/images/no-image.png"
-                : img.image_url
+              img.image_url?.trim() ? img.image_url : "/images/no-image.png"
             ) ?? product.images
           }
         />

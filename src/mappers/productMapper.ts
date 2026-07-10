@@ -8,12 +8,9 @@ function slugify(text: string) {
     .replace(/^-|-$/g, "");
 }
 
-function safeImage(url: string) {
-  if (!url) return "/images/no-image.png";
-
-  return url.includes("cdn.yourbrand.com")
-    ? "/images/no-image.png"
-    : url;
+function safeImage(url?: string) {
+  const trimmed = url?.trim();
+  return trimmed ? trimmed : "/images/no-image.png";
 }
 
 function getCategorySlug(category: string) {
