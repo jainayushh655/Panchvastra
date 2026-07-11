@@ -1,10 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/v1/:path*",
-      "destination": "https://web-production-7de49.up.railway.app/v1/:path*"
-    },
-    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

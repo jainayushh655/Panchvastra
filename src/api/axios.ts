@@ -14,7 +14,7 @@ function readStoredToken(): string | null {
 }
 
 const api = axios.create({
-  baseURL: "/v1",
+  baseURL: import.meta.env.VITE_API_URL,
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
