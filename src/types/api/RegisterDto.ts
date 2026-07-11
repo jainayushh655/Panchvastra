@@ -6,7 +6,6 @@ export interface RegisterRequestDto {
 }
 
 export interface RegisterResponseDto {
-  status: boolean;
+  success: boolean;
   message: string;
-  data: string;
 }

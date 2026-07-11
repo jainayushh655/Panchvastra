@@ -222,22 +222,6 @@ export function ProductDetailPage() {
               ))}
             </div>
           </div>
-          <div className="mb-4 rounded-lg bg-zinc-100 p-3 text-sm dark:bg-zinc-800">
-            <p>
-              <strong>Selected Color:</strong>{" "}
-              {currentVariant?.color}
-            </p>
-
-            <p>
-              <strong>Variant ID:</strong>{" "}
-              {currentVariant?.id}
-            </p>
-
-            <p>
-              <strong>Variant Size ID:</strong>{" "}
-              {selectedVariantSizeId}
-            </p>
-          </div>
           <div className="mt-10">
             <button
               type="button"

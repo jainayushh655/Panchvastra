@@ -1,74 +1,107 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { registerUser } from '@/api/auth'
+import { OtpVerificationModal } from '@/components/auth/OtpVerificationModal'
 import { Button } from '@/components/ui/Button'
+import { useAuth } from '@/context/AuthProvider'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { validateEmail, validateName } from '@/lib/formValidation'
-import { registerUser } from "@/api/auth";
 
 export function SignupPage() {
   useDocumentTitle('Sign up')
   const navigate = useNavigate()
+  const { verifyOtpAndLogin } = useAuth()
 
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false)
+  const [otpError, setOtpError] = useState<string | null>(null)
+  const [isOtpVerifying, setIsOtpVerifying] = useState(false)
 
   const inputClass =
     'w-full rounded-xl border border-[#dcc59b] bg-white/95 px-3 py-2.5 text-sm text-zinc-900 outline-none transition-colors focus:border-[#b07f2e]'
 
   const onSubmit = async (e: FormEvent) => {
-  e.preventDefault();
+    e.preventDefault()
 
-  const firstNameErr = validateName(firstName);
+    const firstNameErr = validateName(firstName)
+    if (firstNameErr) {
+      setError(firstNameErr)
+      return
+    }
 
-  if (firstNameErr) {
-    setError(firstNameErr);
-    return;
+    const lastNameErr = validateName(lastName)
+    if (lastNameErr) {
+      setError(lastNameErr)
+      return
+    }
+
+    const emailErr = validateEmail(email)
+    if (emailErr) {
+      setError(emailErr)
+      return
+    }
+
+    if (phoneNumber.length !== 10) {
+      setError('Phone number must be exactly 10 digits.')
+      return
+    }
+
+    setError('')
+    setIsSubmitting(true)
+
+    try {
+      const response = await registerUser({
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        phone_number: phoneNumber,
+      })
+
+        // if (response?.status ) {
+        //   setOtpError(null)
+        //   setIsOtpModalOpen(true)
+        // } else {
+        //   setError(response?.message ?? 'Registration failed.')
+        // }
+
+      if (response.success) {
+    setOtpError(null);
+    setIsOtpModalOpen(true);
+} else {
+    setError(response.message ?? "Registration failed.");
+}  
+    } catch (error: unknown) {
+      const message =
+        typeof error === 'object' && error && 'response' in error
+          ? ((error as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Registration failed.')
+          : 'Registration failed.'
+      setError(message)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const lastNameErr = validateName(lastName);
+  const handleOtpVerify = async (otp: string) => {
+    setOtpError(null)
+    setIsOtpVerifying(true)
 
-  if (lastNameErr) {
-    setError(lastNameErr);
-    return;
+    const result = await verifyOtpAndLogin({ email, otp })
+    setIsOtpVerifying(false)
+
+    if (!result.ok) {
+      setOtpError(result.error)
+      return
+    }
+
+    setIsOtpModalOpen(false)
+    navigate('/', { replace: true })
   }
-
-  const emailErr = validateEmail(email);
-
-  if (emailErr) {
-    setError(emailErr);
-    return;
-  }
-
-  if (phoneNumber.length !== 10) {
-    setError("Phone number must be exactly 10 digits.");
-    return;
-  }
-
-  try {
-  const response = await registerUser({
-    first_name: firstName,
-    last_name: lastName,
-    email,
-    phone_number: phoneNumber,
-  });
-
-  if (response.status) {
-    alert(response.message);
-    navigate("/login");
-  } else {
-    setError(response.message);
-  }
-} catch (error: any) {
-  setError(
-    error?.response?.data?.message ??
-      "Registration failed."
-  );
-}
-};
 
   return (
     <div className="min-h-svh bg-[radial-gradient(circle_at_top,rgba(214,179,109,0.24),transparent_40%),linear-gradient(180deg,#fff8eb,#fffdf8)] px-4 py-14">
@@ -186,8 +219,9 @@ export function SignupPage() {
             type="submit"
             size="lg"
             className="w-full !border-[#b07f2e] !bg-[#b07f2e] !text-white hover:!bg-[#99661f]"
+            disabled={isSubmitting}
           >
-            Create Account
+            {isSubmitting ? 'Creating...' : 'Create Account'}
           </Button>
 
         </form>
@@ -203,6 +237,18 @@ export function SignupPage() {
         </p>
 
       </div>
+
+      <OtpVerificationModal
+        isOpen={isOtpModalOpen}
+        email={email}
+        title="Verify Your Email"
+        message="Enter the 6-digit OTP sent to your email."
+        error={otpError}
+        isVerifying={isOtpVerifying}
+        submitLabel="Verify OTP"
+        onVerify={handleOtpVerify}
+        onCancel={() => setIsOtpModalOpen(false)}
+      />
     </div>
   )
 }
