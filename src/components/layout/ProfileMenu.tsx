@@ -53,8 +53,7 @@ export function ProfileMenu() {
         { label: 'Logout', onClick: handleLogout },
       ]
     : [
-        { label: 'Login', to: '/login' },
-        { label: 'Register', to: '/signup' },
+        { label: 'Sign In', to: '/login' },
       ]
 
   return (

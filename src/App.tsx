@@ -13,6 +13,7 @@ import { ProfilePage } from '@/pages/ProfilePage'
 import { ShopPage } from '@/pages/ShopPage'
 import { SignupPage } from '@/pages/SignupPage'
 import { OrdersPage } from '@/pages/OrdersPage'
+import { AdminApp } from '@/admin'
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Route>
+        <Route path="/admin/*" element={<AdminApp />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Fragment>
