@@ -1,4 +1,5 @@
 import api from './axios'
+
 import type {
   RegisterRequestDto,
   RegisterResponseDto,
@@ -11,16 +12,25 @@ type AuthApiResponse = {
 }
 
 export async function registerUser(payload: RegisterRequestDto) {
-  const response = await api.post<RegisterResponseDto>('/register_user/', payload)
+  const response = await api.post<RegisterResponseDto>(
+    '/v1/register_user/',
+    payload
+  )
   return response.data
 }
 
 export async function loginUser(payload: { email: string }) {
-  const response = await api.post<AuthApiResponse>('/login_user/', payload)
+  const response = await api.post<AuthApiResponse>(
+    '/v1/login_user/',
+    payload
+  )
   return response.data
 }
 
 export async function verifyEmail(payload: { email: string; otp: string }) {
-  const response = await api.post<AuthApiResponse>('/verify_email/', payload)
+  const response = await api.post<AuthApiResponse>(
+    '/v1/verify_email/',
+    payload
+  )
   return response.data
 }
