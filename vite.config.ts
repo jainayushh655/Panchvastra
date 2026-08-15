@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => {
 
         // Local Django Backend
         '/v1': {
-          target: 'http://127.0.0.1:8001',
+          target: 'https://api.panchvastra.com',
           changeOrigin: true,
           secure: false,
         },
