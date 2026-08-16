@@ -14,10 +14,7 @@ function readStoredToken(): string | null {
 }
 
 const api = axios.create({
-  // Keep requests relative so Vite proxy can route them
-  
-  // to the local Django backend during development.
-  baseURL: "",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "",
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
