@@ -17,7 +17,7 @@ interface ProductDetailResponse {
 
 export async function getProducts() {
   const response = await api.get<ProductListResponse>(
-    "/products_management/"
+    "/v1/products_management/"
   );
 
   return response.data.data;
@@ -25,7 +25,7 @@ export async function getProducts() {
 
 export async function getProductById(id: string | number) {
   const response = await api.get<ProductDetailResponse>(
-    `/products_management/?id=${id}`
+    `/v1/products_management/?id=${id}`
   );
 
   return response.data.data;

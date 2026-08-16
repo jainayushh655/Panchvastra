@@ -7,7 +7,7 @@ import type {
 export async function getCategories() {
   const response =
     await api.get<CategoryListResponse>(
-      "/categories_management/"
+      "/v1/categories_management/"
     );
 
   return response.data.data;
@@ -23,20 +23,20 @@ export async function createCategory(
     | "updated_by"
   >
 ) {
-  return api.post("/categories_management/", data);
+  return api.post("/v1/categories_management/", data);
 }
 
 export async function updateCategory(
   data: Pick<CategoryDto, "id"> &
     Partial<CategoryDto>
 ) {
-  return api.put("/categories_management/", data);
+  return api.put("/v1/categories_management/", data);
 }
 
 export async function deleteCategory(
   id: number
 ) {
   return api.delete(
-    `/categories_management/?id=${id}`
+    `/v1/categories_management/?id=${id}`
   );
 }

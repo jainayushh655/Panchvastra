@@ -23,11 +23,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
 
-        // Local Django Backend
+        // Django Backend
         '/v1': {
           target: 'https://api.panchvastra.com',
           changeOrigin: true,
-          secure: false,
+          secure: true,
         },
       },
     },
