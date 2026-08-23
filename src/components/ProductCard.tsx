@@ -10,10 +10,61 @@ function discountPercent(p: Product): number | null {
   return null
 }
 
-export function ProductCard({ product }: { product: Product }) {
+type ProductCardProps = {
+  product: Product
+  /** 'shop' (default) preserves the existing Shop-page look. 'homepage' applies the monochrome streetwear treatment. */
+  variant?: 'shop' | 'homepage'
+}
+
+export function ProductCard({ product, variant = 'shop' }: ProductCardProps) {
   const off = discountPercent(product)
   const hoverSrc = product.hoverImage?.trim()
   const mainSrc = product.images[0]
+
+  if (variant === 'homepage') {
+    return (
+      <motion.article layout whileHover={{ y: -4 }} className="group">
+        <Link
+          to={`/product/${product.id}`}
+          className="block border border-zinc-200 bg-white transition-colors hover:border-zinc-400"
+        >
+          <div className="relative aspect-[4/5] overflow-hidden bg-[#f5f5f3]">
+            <img
+              src={mainSrc}
+              alt={product.name}
+              loading="lazy"
+              className={`h-full w-full object-cover grayscale contrast-[1.02] transition-all duration-300 ${
+                hoverSrc ? 'group-hover:opacity-0' : 'group-hover:scale-[1.03]'
+              }`}
+            />
+            {hoverSrc ? (
+              <img
+                src={hoverSrc}
+                alt=""
+                aria-hidden
+                loading="lazy"
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover grayscale contrast-[1.02] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+              />
+            ) : null}
+            {off != null && off > 0 ? (
+              <span className="absolute left-2 top-2 border border-black bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-black">
+                {off}% off
+              </span>
+            ) : null}
+          </div>
+          <div className="border-t border-zinc-200 p-3">
+            <h3 className="line-clamp-1 text-xs font-semibold uppercase tracking-wide text-black">{product.name}</h3>
+            <div className="mt-1.5 flex items-baseline gap-2">
+              <span className="text-sm font-bold text-black">{formatInr(product.price)}</span>
+              {product.compareAtPrice != null && product.compareAtPrice > product.price ? (
+                <span className="text-xs text-zinc-400 line-through">{formatInr(product.compareAtPrice)}</span>
+              ) : null}
+            </div>
+          </div>
+        </Link>
+      </motion.article>
+    )
+  }
 
   return (
     <motion.article layout whileHover={{ y: -6 }} className="group">
@@ -58,7 +109,6 @@ export function ProductCard({ product }: { product: Product }) {
                 <span className="text-sm text-zinc-400 line-through">{formatInr(product.compareAtPrice)}</span>
               ) : null}
             </div>
-            {/* Removed 'View' label to avoid duplicate CTA — price remains left-aligned */}
           </div>
         </div>
       </Link>

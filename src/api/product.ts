@@ -15,9 +15,24 @@ interface ProductDetailResponse {
   data: ProductDetailDto;
 }
 
-export async function getProducts() {
+/**
+ * Verified-real server-side filters on `/v1/products_management/` (confirmed
+ * against the live backend — see category_id/sub_category_id SQL error leak,
+ * and empty-vs-nonempty diffing for size/search). Price and sort are NOT
+ * supported server-side (params are silently ignored), so those stay
+ * client-side.
+ */
+export interface ProductQueryParams {
+  category_id?: number;
+  sub_category_id?: number;
+  size?: string;
+  search?: string;
+}
+
+export async function getProducts(params?: ProductQueryParams) {
   const response = await api.get<ProductListResponse>(
-    "/v1/products_management/"
+    "/v1/products_management/",
+    params && Object.keys(params).length ? { params } : undefined
   );
 
   return response.data.data;

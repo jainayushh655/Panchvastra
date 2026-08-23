@@ -3,11 +3,13 @@ import { Link, NavLink, useSearchParams } from 'react-router-dom'
 import { BrandMark } from '@/components/BrandMark'
 import { ProfileMenu } from '@/components/layout/ProfileMenu'
 import { useCart } from '@/context/CartProvider'
+import { useWishlist } from '@/context/WishlistProvider'
 import { getCategories } from '@/api/category'
 import type { CategoryDto } from '@/types/api/CategoryDto'
 
 export function Navbar() {
   const { totalItems } = useCart()
+  const { count: wishlistCount } = useWishlist()
   const [searchParams] = useSearchParams()
   const [categories, setCategories] = useState<CategoryDto[]>([])
 
@@ -44,57 +46,78 @@ export function Navbar() {
     return () => window.removeEventListener('keydown', onKey)
   }, [categoryOpen])
 
+  const navLinkCls = ({ isActive }: { isActive: boolean }) =>
+    `text-xs font-semibold uppercase tracking-[0.14em] transition-colors hover:text-white ${
+      isActive ? 'text-white' : 'text-zinc-400'
+    }`
+
   return (
-    <header className="sticky top-0 z-50 border-b border-[#e6d7bb] bg-[rgba(255,248,236,0.92)] backdrop-blur-xl shadow-[0_1px_0_rgba(255,255,255,0.7)]">
-      <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 md:py-3.5">
-        <button
-          type="button"
-          className="rounded-full border border-[#e3d6be] bg-white/70 p-2 text-zinc-700 shadow-sm md:hidden"
-          aria-label="Open menu"
-          onClick={() => setOpen((x) => !x)}
-        >
-          <svg className="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+    <header className="sticky top-0 z-50 border-b border-zinc-800 bg-black text-white">
+      <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 py-3.5 sm:gap-3 sm:px-4">
+        {/* LEFT */}
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            className="rounded-md border border-zinc-700 p-1.5 text-white sm:p-2 md:hidden"
+            aria-label="Open menu"
+            aria-expanded={open}
+            onClick={() => setOpen((x) => !x)}
+          >
+            <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
 
-        <BrandMark className="shrink-0" />
-
-        <div className="ml-auto flex items-center gap-1 sm:gap-2">
-          <nav className="ml-4 hidden gap-8 font-sans text-sm font-medium tracking-wide text-zinc-700 md:flex">
+          <nav className="hidden items-center gap-7 md:flex" aria-label="Primary">
             <NavLink
               to="/shop"
-              className={({ isActive }) =>
-                `transition-colors hover:text-[#b07f2e] ${
-                  isActive && !categoryFilterActive ? 'text-[#b07f2e]' : ''
-                }`
-              }
+              className={({ isActive }) => navLinkCls({ isActive: isActive && !categoryFilterActive })}
               end
             >
               Shop
             </NavLink>
-
-            <NavLink
-              to="/about"
-              className={({ isActive }) =>
-                `transition-colors hover:text-[#b07f2e] ${
-                  isActive ? 'text-[#b07f2e]' : ''
-                }`
-              }
-            >
+            <NavLink to="/about" className={navLinkCls}>
               About Us
             </NavLink>
           </nav>
+        </div>
+
+        {/* CENTER */}
+        <div className="flex justify-self-center">
+          <BrandMark />
+        </div>
+
+        {/* RIGHT */}
+        <div className="flex items-center justify-self-end gap-0.5 sm:gap-2.5">
+          <Link
+            to="/wishlist"
+            className="relative rounded-md border border-zinc-700 p-1 text-white transition-colors hover:border-zinc-500 sm:p-2"
+            aria-label="Wishlist"
+          >
+            <svg className="size-4 sm:size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.75"
+                d="M12 20.25s-7.5-4.6-9.75-9.1C.75 7.6 2.6 4.5 6 4.5c2 0 3.5 1 6 3.3 2.5-2.3 4-3.3 6-3.3 3.4 0 5.25 3.1 3.75 6.65-2.25 4.5-9.75 9.1-9.75 9.1z"
+              />
+            </svg>
+            {wishlistCount > 0 ? (
+              <span className="absolute -right-1 -top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-white px-1 text-[9px] font-bold text-black sm:h-[18px] sm:min-w-[18px] sm:text-[10px]">
+                {wishlistCount}
+              </span>
+            ) : null}
+          </Link>
           <Link
             to="/cart"
-            className="relative rounded-full border border-[#e0c99f] bg-white/85 p-2 text-[#8a7355] shadow-sm hover:bg-white"
+            className="relative rounded-md border border-zinc-700 p-1 text-white transition-colors hover:border-zinc-500 sm:p-2"
             aria-label="Cart"
           >
-            <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+            <svg className="size-4 sm:size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l-1 12H6L5 9z" />
             </svg>
             {totalItems > 0 ? (
-              <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#d6b36d] px-1 text-[10px] font-bold text-zinc-950">
+              <span className="absolute -right-1 -top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-white px-1 text-[9px] font-bold text-black sm:h-[18px] sm:min-w-[18px] sm:text-[10px]">
                 {totalItems}
               </span>
             ) : null}
@@ -103,27 +126,27 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Mobile drawers */}
+      {/* Mobile drawer */}
       {open ? (
-        <div className="border-t border-[#e6d7bb] px-4 py-4 md:hidden">
+        <div className="border-t border-zinc-800 px-4 py-4 md:hidden">
           <nav className="flex flex-col gap-1">
             <Link
               to="/shop"
-              className="rounded-lg px-3 py-2 text-zinc-800 hover:bg-[#f4ead7] hover:text-[#8a7355]"
+              className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-zinc-200 hover:bg-zinc-900"
               onClick={() => setOpen(false)}
             >
               Shop
             </Link>
             <Link
               to="/about"
-              className="rounded-lg px-3 py-2 text-zinc-800 hover:bg-[#f4ead7] hover:text-[#8a7355]"
+              className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-zinc-200 hover:bg-zinc-900"
               onClick={() => setOpen(false)}
             >
               About Us
             </Link>
             <Link
               to="/contact"
-              className="rounded-lg px-3 py-2 font-semibold text-zinc-800 hover:bg-[#f4ead7] hover:text-[#8a7355]"
+              className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-zinc-200 hover:bg-zinc-900"
               onClick={() => setOpen(false)}
             >
               Contact

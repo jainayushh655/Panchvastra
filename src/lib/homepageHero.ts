@@ -7,13 +7,24 @@ import type {
 
 /** Fixed homepage carousel size (matches original storefront). */
 export const HERO_SLIDE_COUNT = 3
-const HERO_TEAM_BG = '/images/team-bg.jpeg'
+
+/**
+ * Single configurable hero background. Swap this file at the same path to
+ * update the campaign visual everywhere the hero renders — no React changes
+ * needed. Currently a designed monochrome editorial placeholder; replace
+ * with the final AI-generated Panchvastra campaign image when ready.
+ */
+const HERO_CAMPAIGN_BG = '/images/home/panchvastra-hero-editorial.svg'
 
 function normalizeHeroBgPath(raw: string | undefined): string | undefined {
   const value = raw?.trim()
   if (!value) return undefined
-  if (value === '/images/feature-drops-bg.jpg' || value === '/images/team-bg.jpg') {
-    return HERO_TEAM_BG
+  if (
+    value === '/images/feature-drops-bg.jpg' ||
+    value === '/images/team-bg.jpg' ||
+    value === '/images/team-bg.jpeg'
+  ) {
+    return HERO_CAMPAIGN_BG
   }
   return value
 }
@@ -23,13 +34,12 @@ export function defaultHeroSlides(): HomepageHeroSlide[] {
     {
       id: 'new-design',
       eyebrow: 'Spotlight',
-      title: 'New Arrivals',
-      sub: 'Fresh cuts, dye stories, and hardware details — built for the feed and for everyday rotation.',
-      tone: 'light',
-      backgroundImage: HERO_TEAM_BG,
-      sectionClassName:
-        'border-zinc-200 bg-gradient-to-br from-orange-50 via-white to-zinc-100 dark:border-zinc-800 dark:from-orange-950/30 dark:via-zinc-950 dark:to-zinc-900',
-      primaryCta: { label: 'Shop new', to: '/shop?sort=popular' },
+      title: 'New\nArrivals',
+      sub: 'Fresh cuts, raw dye stories, and hardware details — built for the feed and for everyday rotation.',
+      tone: 'dark',
+      backgroundImage: HERO_CAMPAIGN_BG,
+      sectionClassName: 'border-zinc-800 bg-[#050505]',
+      primaryCta: { label: 'Shop new', to: '/shop?sort=new-arrival' },
       secondaryCta: { label: 'Our story', to: '/about' },
     },
     {
@@ -38,7 +48,7 @@ export function defaultHeroSlides(): HomepageHeroSlide[] {
       title: 'Combo',
       sub: 'Pair tees with shorts and stack silhouettes — curated bundles for better value on full looks.',
       tone: 'dark',
-      backgroundImage: HERO_TEAM_BG,
+      backgroundImage: HERO_CAMPAIGN_BG,
       sectionClassName:
         'border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-black',
       primaryCta: { label: 'Shop combos', to: '/shop' },
@@ -49,10 +59,9 @@ export function defaultHeroSlides(): HomepageHeroSlide[] {
       eyebrow: 'In real life',
       title: 'Exhibitions',
       sub: 'Pop-ups, art walls, and community drops. See where PANCHVASTRA lands next and join the line.',
-      tone: 'light',
-      backgroundImage: HERO_TEAM_BG,
-      sectionClassName:
-        'border-zinc-200 bg-gradient-to-b from-zinc-100 to-white dark:border-zinc-800 dark:from-zinc-950 dark:to-zinc-900',
+      tone: 'dark',
+      backgroundImage: HERO_CAMPAIGN_BG,
+      sectionClassName: 'border-zinc-800 bg-[#050505]',
       primaryCta: { label: 'Get updates', to: '/contact' },
       secondaryCta: { label: 'Shop all', to: '/shop' },
     },

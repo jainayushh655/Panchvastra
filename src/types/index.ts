@@ -26,6 +26,10 @@ export interface Product {
   slug: string
   name: string
   categorySlug: CategorySlug
+  /** Real backend subcategory (`product.sub_category`) — slug/id/name, when the API provides one. */
+  subCategorySlug?: string
+  subCategoryId?: number
+  subCategoryName?: string
   price: number
   compareAtPrice?: number
   sizes: string[]

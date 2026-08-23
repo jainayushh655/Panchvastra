@@ -60,13 +60,13 @@ export function ProfileMenu() {
     <div className="relative" ref={menuRef}>
       <button
         type="button"
-        className="rounded-full border border-[#e0c99f] bg-white/85 p-2 text-[#8a7355] shadow-sm hover:bg-white"
+        className="rounded-md border border-zinc-700 p-1 text-white transition-colors hover:border-zinc-500 sm:p-2"
         aria-label={user ? 'Open profile menu' : 'Open account menu'}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
-        <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+        <svg className="size-4 sm:size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -80,7 +80,7 @@ export function ProfileMenu() {
         <div
           id="profile-menu"
           role="menu"
-          className="absolute right-0 top-full mt-2 w-44 rounded-2xl border border-[#e6d7bb] bg-white/95 p-2 shadow-[0_16px_40px_-24px_rgba(0,0,0,0.45)]"
+          className="absolute right-0 top-full mt-2 w-44 rounded-lg border border-zinc-200 bg-white p-2 shadow-[0_16px_40px_-24px_rgba(0,0,0,0.45)]"
         >
           {menuItems.map((item) =>
             item.to ? (
@@ -88,7 +88,7 @@ export function ProfileMenu() {
                 key={item.label}
                 to={item.to}
                 role="menuitem"
-                className="flex items-center rounded-xl px-3 py-2 text-sm text-zinc-700 transition-colors hover:bg-[#f7ebd4] hover:text-[#8a7355]"
+                className="flex items-center rounded-md px-3 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-black"
                 onClick={() => setOpen(false)}
               >
                 {item.label}
@@ -98,7 +98,7 @@ export function ProfileMenu() {
                 key={item.label}
                 type="button"
                 role="menuitem"
-                className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm text-zinc-700 transition-colors hover:bg-[#f7ebd4] hover:text-[#8a7355]"
+                className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-black"
                 onClick={() => {
                   item.onClick?.()
                   setOpen(false)

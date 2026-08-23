@@ -38,7 +38,7 @@ export function CartPage() {
       {items.length === 0 ? (
         <p className="mt-8 text-zinc-600 dark:text-zinc-400">
           Your cart is quiet.{' '}
-          <Link to="/shop" className="font-semibold text-orange-600 dark:text-orange-400">
+          <Link to="/shop" className="font-semibold text-black underline underline-offset-2 dark:text-white">
             Fill it →
           </Link>
         </p>
@@ -51,7 +51,7 @@ export function CartPage() {
                   <img
                     src={line.image}
                     alt=""
-                    className="h-28 w-24 rounded-2xl object-cover"
+                    className="h-28 w-24 rounded-md border border-zinc-200 object-cover grayscale"
                   />
                 </Link>
                 <div className="min-w-0 flex-1">
@@ -129,7 +129,7 @@ export function CartPage() {
             </Link>
             <Link
               to="/shop"
-              className="mt-3 block text-center text-sm font-semibold text-orange-600 dark:text-orange-400"
+              className="mt-3 block text-center text-sm font-semibold text-black underline underline-offset-2 dark:text-white"
             >
               Continue shopping
             </Link>

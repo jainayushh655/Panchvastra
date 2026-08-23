@@ -1,5 +1,6 @@
 import type { Product } from "@/types";
 import type { ProductDto } from "@/types/api/ProductDto";
+import { categoryNameToSlug, subCategoryNameToSlug } from "@/lib/categorySlug";
 
 function slugify(text: string) {
   return text
@@ -13,20 +14,9 @@ function safeImage(url?: string) {
   return trimmed ? trimmed : "/images/no-image.png";
 }
 
-function getCategorySlug(category: string) {
-  switch (category.toLowerCase()) {
-    case "t-shirts":
-      return "regular-tee";
-
-    case "shorts":
-      return "shorts";
-
-    default:
-      return "regular-tee";
-  }
-}
-
 export function mapProduct(dto: ProductDto): Product {
+  const subCategoryName = dto.sub_category?.name ?? "";
+
   return {
     id: dto.id.toString(),
 
@@ -34,7 +24,13 @@ export function mapProduct(dto: ProductDto): Product {
 
     name: dto.name,
 
-    categorySlug: getCategorySlug(dto.category.name),
+    categorySlug: categoryNameToSlug(dto.category?.name ?? ""),
+
+    subCategorySlug: subCategoryName ? subCategoryNameToSlug(subCategoryName) : undefined,
+
+    subCategoryId: dto.sub_category?.id,
+
+    subCategoryName: subCategoryName || undefined,
 
     price: dto.selling_price,
 

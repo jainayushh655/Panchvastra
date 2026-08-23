@@ -24,7 +24,7 @@ export function SignupPage() {
   const [isOtpVerifying, setIsOtpVerifying] = useState(false)
 
   const inputClass =
-    'w-full rounded-xl border border-[#dcc59b] bg-white/95 px-3 py-2.5 text-sm text-zinc-900 outline-none transition-colors focus:border-[#b07f2e]'
+    'w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none transition-colors focus:border-black'
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -104,14 +104,14 @@ export function SignupPage() {
   }
 
   return (
-    <div className="min-h-svh bg-[radial-gradient(circle_at_top,rgba(214,179,109,0.24),transparent_40%),linear-gradient(180deg,#fff8eb,#fffdf8)] px-4 py-14">
-      <div className="mx-auto w-full max-w-md rounded-3xl border border-[#e5cfaa] bg-white/90 p-7 shadow-[0_30px_60px_-36px_rgba(0,0,0,0.4)] backdrop-blur">
+    <div className="min-h-svh bg-[#f7f7f5] px-4 py-14">
+      <div className="mx-auto w-full max-w-md border border-zinc-200 bg-white p-7 shadow-[0_30px_60px_-36px_rgba(0,0,0,0.15)]">
 
-        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#8a7355]">
+        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">
           Create your account
         </p>
 
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#b07f2e]">
+        <h1 className="mt-2 text-3xl font-bold uppercase tracking-tight text-black">
           Sign up
         </h1>
 
@@ -125,7 +125,7 @@ export function SignupPage() {
           <div>
             <label
               htmlFor="signup-firstname"
-              className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a7355]"
+              className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600"
             >
               First Name
             </label>
@@ -146,7 +146,7 @@ export function SignupPage() {
           <div>
             <label
               htmlFor="signup-lastname"
-              className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a7355]"
+              className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600"
             >
               Last Name
             </label>
@@ -167,7 +167,7 @@ export function SignupPage() {
           <div>
             <label
               htmlFor="signup-email"
-              className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a7355]"
+              className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600"
             >
               Email
             </label>
@@ -190,7 +190,7 @@ export function SignupPage() {
           <div>
             <label
               htmlFor="signup-phone"
-              className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a7355]"
+              className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600"
             >
               Phone Number
             </label>
@@ -218,7 +218,7 @@ export function SignupPage() {
           <Button
             type="submit"
             size="lg"
-            className="w-full !border-[#b07f2e] !bg-[#b07f2e] !text-white hover:!bg-[#99661f]"
+            className="w-full !border-black !bg-black !text-white hover:!bg-zinc-800"
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Creating...' : 'Create Account'}
@@ -230,7 +230,7 @@ export function SignupPage() {
           Already have an account?{' '}
           <Link
             to="/login"
-            className="font-semibold text-[#8a7355] hover:text-[#b07f2e]"
+            className="font-semibold text-black underline underline-offset-2 hover:text-zinc-600"
           >
             Login
           </Link>
