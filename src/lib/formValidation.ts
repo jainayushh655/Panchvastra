@@ -68,6 +68,18 @@ export function validateState(value: string): string | null {
   return null
 }
 
+/** Optional field: valid calendar date, not in the future. */
+export function validateDateOfBirth(value: string): string | null {
+  const s = value.trim()
+  if (!s) return null
+  const date = new Date(s)
+  if (Number.isNaN(date.getTime())) return 'Enter a valid date.'
+  const endOfToday = new Date()
+  endOfToday.setHours(23, 59, 59, 999)
+  if (date > endOfToday) return 'Date of birth cannot be in the future.'
+  return null
+}
+
 export function validateIndianPincode(value: string): string | null {
   const d = value.replace(/\D/g, '')
   if (!d) return 'PIN code is required.'

@@ -13,6 +13,7 @@ import { ProfilePage } from '@/pages/ProfilePage'
 import { ShopPage } from '@/pages/ShopPage'
 import { SignupPage } from '@/pages/SignupPage'
 import { OrdersPage } from '@/pages/OrdersPage'
+import { WishlistPage } from '@/pages/WishlistPage'
 import { AdminApp } from '@/admin'
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="checkout" element={<CheckoutPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="orders" element={<OrdersPage />} />
+            <Route path="wishlist" element={<WishlistPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Route>

@@ -28,7 +28,7 @@ export function ProductVariantPicker({
         Select your preferred color.
       </p>
 
-      <div className="mt-4 flex flex-wrap gap-3">
+      <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
         {variants.map((variant, index) => {
           const selected = currentIndex === index;
 
@@ -37,13 +37,13 @@ export function ProductVariantPicker({
               key={variant.id}
               type="button"
               onClick={() => onSelect(index)}
-              className={`overflow-hidden rounded-xl border-2 bg-white transition-all duration-200 dark:bg-zinc-900 ${
+              className={`w-24 shrink-0 overflow-hidden rounded-xl border-2 bg-white transition-all duration-200 dark:bg-zinc-900 ${
                 selected
-                  ? "border-orange-500 shadow-md ring-2 ring-orange-500/20"
+                  ? "border-black shadow-md ring-2 ring-black/15"
                   : "border-zinc-200 hover:border-zinc-400 dark:border-zinc-700"
               }`}
             >
-              <div className="aspect-[4/5] w-20 overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+              <div className="aspect-[4/5] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800">
                 <img
                   src={safeImage(variant.images[0]?.image_url ?? "")}
                   alt={variant.color}
@@ -53,9 +53,9 @@ export function ProductVariantPicker({
               </div>
 
               <div
-                className={`px-2 py-2 text-center text-xs font-semibold ${
+                className={`flex h-9 items-center justify-center px-1.5 text-center text-xs font-semibold leading-tight line-clamp-2 ${
                   selected
-                    ? "text-orange-600 dark:text-orange-400"
+                    ? "text-black dark:text-white"
                     : "text-zinc-700 dark:text-zinc-300"
                 }`}
               >

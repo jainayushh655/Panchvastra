@@ -45,11 +45,11 @@ export function ContactPage() {
           <p>
             <span className="font-bold text-zinc-900 dark:text-white">Social</span>
             <br />
-            <a href="https://instagram.com" className="text-orange-600 dark:text-orange-400">
+            <a href="https://instagram.com" className="text-black underline underline-offset-2 dark:text-white">
               Instagram
             </a>
             {' · '}
-            <a href="https://x.com" className="text-orange-600 dark:text-orange-400">
+            <a href="https://x.com" className="text-black underline underline-offset-2 dark:text-white">
               X
             </a>
           </p>

@@ -27,7 +27,7 @@ export function LoginPage() {
   const [emailTouched, setEmailTouched] = useState(false)
 
   const inputClass =
-    'w-full rounded-xl border border-[#dcc59b] bg-white/95 px-3 py-2.5 text-sm text-zinc-900 outline-none transition-colors focus:border-[#b07f2e]'
+    'w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none transition-colors focus:border-black'
   const emailError = emailTouched ? validateEmail(email) : null
   const canSendOtp = !emailError && !isSending && countdown === 0
   const canVerifyOtp = otp.trim().length === 6 && !isVerifying
@@ -110,15 +110,15 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-svh bg-[radial-gradient(circle_at_top,rgba(214,179,109,0.24),transparent_40%),linear-gradient(180deg,#fff8eb,#fffdf8)] px-4 py-14">
-      <div className="mx-auto w-full max-w-md rounded-3xl border border-[#e5cfaa] bg-white/90 p-7 shadow-[0_30px_60px_-36px_rgba(0,0,0,0.4)] backdrop-blur">
-        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#8a7355]">Welcome back</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#b07f2e]">Login</h1>
+    <div className="min-h-svh bg-[#f7f7f5] px-4 py-14">
+      <div className="mx-auto w-full max-w-md border border-zinc-200 bg-white p-7 shadow-[0_30px_60px_-36px_rgba(0,0,0,0.15)]">
+        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Welcome back</p>
+        <h1 className="mt-2 text-3xl font-bold uppercase tracking-tight text-black">Login</h1>
         <p className="mt-2 text-sm text-zinc-600">Sign in to continue shopping your saved picks.</p>
 
         <form onSubmit={otpSent ? onVerifyOtp : onSendOtp} className="mt-6 space-y-4" noValidate>
           <div>
-            <label htmlFor="login-email" className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a7355]">
+            <label htmlFor="login-email" className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">
               Email
             </label>
             <input
@@ -136,7 +136,7 @@ export function LoginPage() {
 
           {otpSent ? (
             <div>
-              <label htmlFor="login-otp" className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a7355]">
+              <label htmlFor="login-otp" className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">
                 OTP
               </label>
               <input
@@ -169,7 +169,7 @@ export function LoginPage() {
               <Button
                 type="button"
                 size="lg"
-                className="w-full !border-[#b07f2e] !bg-[#b07f2e] !text-white hover:!bg-[#99661f]"
+                className="w-full !border-black !bg-black !text-white hover:!bg-zinc-800"
                 onClick={onSendOtp}
                 disabled={!canSendOtp || countdown > 0 || isSending}
               >
@@ -179,7 +179,7 @@ export function LoginPage() {
               <Button
                 type="submit"
                 size="lg"
-                className="w-full !border-[#b07f2e] !bg-[#b07f2e] !text-white hover:!bg-[#99661f]"
+                className="w-full !border-black !bg-black !text-white hover:!bg-zinc-800"
                 disabled={!canVerifyOtp || isVerifying}
               >
                 {isVerifying ? 'Verifying...' : 'Verify OTP'}
@@ -189,7 +189,7 @@ export function LoginPage() {
             <Button
               type="submit"
               size="lg"
-              className="w-full !border-[#b07f2e] !bg-[#b07f2e] !text-white hover:!bg-[#99661f]"
+              className="w-full !border-black !bg-black !text-white hover:!bg-zinc-800"
               disabled={!canSendOtp}
             >
               {isSending ? 'Sending...' : 'Send OTP'}
@@ -199,7 +199,7 @@ export function LoginPage() {
 
         <p className="mt-6 text-sm text-zinc-600">
           New here?{' '}
-          <Link to="/signup" className="font-semibold text-[#8a7355] hover:text-[#b07f2e]">
+          <Link to="/signup" className="font-semibold text-black underline underline-offset-2 hover:text-zinc-600">
             Create account
           </Link>
         </p>

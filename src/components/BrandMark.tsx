@@ -10,18 +10,11 @@ export function BrandMark({
   return (
     <Link
       to={to}
-      aria-label="PanchVastra home"
-      className={`group relative inline-flex h-10 min-w-[7.5rem] items-center ${className}`}
+      aria-label="PANCHVASTRA home"
+      className={`inline-flex h-10 items-center justify-center ${className}`}
     >
-      <span className="inline-flex flex-col gap-0 font-display tracking-[0.18em]">
-        <span className="whitespace-nowrap text-xl font-bold text-[#d6b36d] md:text-[1.35rem]">
-          PANCHVASTRA
-        </span>
-
-        <span
-          className="h-px max-w-[2.75rem] origin-left rounded-full bg-gradient-to-r from-[#d6b36d] via-[#8a7355] to-transparent opacity-90 transition-[max-width] group-hover:max-w-[4.75rem]"
-          aria-hidden
-        />
+      <span className="whitespace-nowrap font-display text-xs font-bold uppercase tracking-[0.04em] text-white sm:text-lg sm:tracking-[0.18em] md:text-xl md:tracking-[0.22em]">
+        PANCHVASTRA
       </span>
     </Link>
   )

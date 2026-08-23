@@ -13,7 +13,7 @@ export function AboutPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#8a7355]">
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-500">
           Our Story
         </p>
 
@@ -46,12 +46,12 @@ export function AboutPage() {
           </p>
         </div>
 
-        <div className="my-14 rounded-2xl border border-zinc-200 bg-zinc-50 p-8 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white sm:text-3xl">
+        <div className="my-14 border border-zinc-200 bg-[#f7f7f5] p-8 dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-2xl font-bold uppercase tracking-tight text-zinc-900 dark:text-white sm:text-3xl">
             We don't chase trends.
           </p>
 
-          <p className="mt-3 text-2xl font-bold tracking-tight text-[#8a7355] sm:text-3xl">
+          <p className="mt-3 text-2xl font-bold uppercase tracking-tight text-black sm:text-3xl">
             We build identity.
           </p>
         </div>

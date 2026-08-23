@@ -29,11 +29,7 @@
   }
 
   body {
-    @apply bg-zinc-50 font-sans text-[15px] leading-relaxed text-zinc-950 antialiased sm:text-base;
-    background-image:
-      radial-gradient(circle at top left, rgb(251 191 36 / 0.12), transparent 28%),
-      radial-gradient(circle at 85% 12%, rgb(244 114 182 / 0.08), transparent 22%),
-      radial-gradient(circle at 50% 0%, rgb(255 255 255 / 0.75), transparent 42%);
+    @apply bg-white font-sans text-[15px] leading-relaxed text-zinc-950 antialiased sm:text-base;
   }
 
   h1,
@@ -132,7 +128,7 @@
     width: 18px;
     border-radius: 9999px;
     border: 2px solid white;
-    background-color: oklch(0.72 0.19 45);
+    background-color: #000000;
     box-shadow: 0 1px 3px rgb(0 0 0 / 0.22);
   }
 
@@ -146,7 +142,7 @@
     width: 18px;
     border-radius: 9999px;
     border: 2px solid white;
-    background-color: oklch(0.72 0.19 45);
+    background-color: #000000;
     box-shadow: 0 1px 3px rgb(0 0 0 / 0.22);
   }
 }

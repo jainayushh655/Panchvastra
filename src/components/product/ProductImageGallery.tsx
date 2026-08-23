@@ -1,64 +1,49 @@
+import { useState } from 'react'
+
 type Props = {
   images: string[]
 }
 
-function GalleryCell({
-  src,
-  alt,
-  aspectClass,
-}: {
-  src: string
-  alt: string
-  aspectClass: string
-}) {
-  return (
-    <div className={`overflow-hidden rounded-2xl bg-zinc-100 dark:bg-zinc-800 ${aspectClass}`}>
-      <img
-        src={src}
-        alt={alt}
-        className="block size-full object-cover transition duration-300 hover:scale-105"
-      />
-    </div>
-  )
-}
-
-/** PDP collage: tight gutters, no empty grid cells when fewer photos. */
+/** PDP gallery: vertical thumbnail rail + one large main image. Pass a `key` from the
+ * caller (e.g. the selected variant index) to reset the active thumbnail when the
+ * underlying image set changes. */
 export function ProductImageGallery({ images }: Props) {
   const list = images.filter(Boolean)
+  const [activeIndex, setActiveIndex] = useState(0)
+
   if (!list.length) return null
 
-  const top = list.slice(0, 2)
-  const bottom = list.slice(2, 5)
-
-  const topCols =
-    top.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
-  const bottomCols =
-    bottom.length <= 1 ? 'grid-cols-1' : bottom.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
+  const active = list[Math.min(activeIndex, list.length - 1)]
 
   return (
-    <div className="flex flex-col gap-1.5 sm:gap-2">
-      <div className={`grid ${topCols} gap-1.5 sm:gap-2`}>
-        {top.map((src, i) => (
-          <GalleryCell
-            key={`top-${i}`}
-            src={src}
-            alt={i === 0 ? 'Product image 1' : 'Product image 2'}
-            aspectClass="aspect-[4/5]"
-          />
-        ))}
-      </div>
-      {bottom.length > 0 ? (
-        <div className={`grid ${bottomCols} gap-1.5 sm:gap-2`}>
-          {bottom.map((src, i) => (
-            <GalleryCell
-              key={`bottom-${i}`}
-              src={src}
-              alt={`Product image ${i + 3}`}
-              aspectClass="aspect-[4/5]"
-            />
+    <div className="flex flex-col-reverse gap-3 sm:flex-row">
+      {list.length > 1 ? (
+        <div className="flex gap-2 overflow-x-auto sm:w-20 sm:shrink-0 sm:flex-col sm:overflow-x-visible sm:overflow-y-auto">
+          {list.map((src, i) => (
+            <button
+              key={`${i}-${src}`}
+              type="button"
+              onClick={() => setActiveIndex(i)}
+              aria-label={`View product image ${i + 1}`}
+              aria-current={i === activeIndex}
+              className={`aspect-[4/5] w-16 shrink-0 overflow-hidden border-2 bg-zinc-100 transition-colors sm:w-full dark:bg-zinc-800 ${
+                i === activeIndex ? 'border-black' : 'border-transparent hover:border-zinc-300'
+              }`}
+            >
+              <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />
+            </button>
           ))}
         </div>
       ) : null}
+
+      <div className="flex-1 overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+        <img
+          src={active}
+          alt="Product"
+          className="block aspect-[4/5] w-full object-cover"
+          loading="eager"
+        />
+      </div>
     </div>
   )
 }

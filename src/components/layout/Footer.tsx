@@ -1,11 +1,17 @@
 import { Link } from 'react-router-dom'
 import { instagramPageUrl, phoneCallUrl, whatsAppPageUrl } from '@/lib/siteUrls'
 
-const exploreLinks = [
-  { label: 'T-shirts', to: '/shop?category=regular-tee' },
+const shopLinks = [
+  { label: 'T-Shirts', to: '/shop?category=regular-tee' },
   { label: 'Shorts', to: '/shop?category=shorts' },
-  { label: 'New arrivals', to: '/shop?sort=new-arrival' },
-  { label: 'Best sellers', to: '/shop?sort=bestseller' },
+  { label: 'Track Pants', to: '/shop?category=track-pants' },
+  { label: 'Hoodies', to: '/shop?category=hoodies' },
+  { label: 'New Arrivals', to: '/shop?sort=new-arrival' },
+]
+
+const companyLinks = [
+  { label: 'About Us', to: '/about' },
+  { label: 'Contact', to: '/contact' },
 ]
 
 function IconInstagram({ className }: { className?: string }) {
@@ -39,10 +45,9 @@ function IconPhone({ className }: { className?: string }) {
   )
 }
 
-const connectChannels = [
-  { label: 'Instagram', href: instagramPageUrl(), icon: IconInstagram, external: true },
-  { label: 'WhatsApp', href: whatsAppPageUrl(), icon: IconWhatsApp, external: true },
-  { label: 'Call', href: phoneCallUrl(), icon: IconPhone, external: false },
+const socialLinks = [
+  { label: 'Instagram', href: instagramPageUrl, Icon: IconInstagram },
+  { label: 'WhatsApp', href: whatsAppPageUrl, Icon: IconWhatsApp },
 ] as const
 
 export function Footer() {
@@ -51,62 +56,45 @@ export function Footer() {
   const tel = phoneCallUrl()
 
   return (
-    <footer className="mt-auto border-t border-zinc-800 bg-[radial-gradient(circle_at_top,rgba(214,179,109,0.12),transparent_34%),linear-gradient(180deg,#191611,#0e0d0b)] px-4 py-12 text-white">
-      <div className="max-w-7xl mx-auto px-6 lg:px-20">
-
-        {/* HEADING */}
-        <h2 className="text-center font-display text-sm font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
-          Stay connected
-        </h2>
-
-        <div
-          className="mx-auto mt-3 h-px max-w-xs bg-gradient-to-r from-transparent via-[#c7a56a] to-transparent"
-          aria-hidden
-        />
-
-        {/* SOCIAL BUTTONS */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 overflow-hidden rounded-full border border-[#6f5c44] bg-white/5 shadow-[0_18px_60px_-28px_rgba(0,0,0,0.65)] backdrop-blur-sm">
-          {connectChannels.map(({ label, href, icon: Icon, external }) => (
-            <a
-              key={label}
-              href={href}
-              {...(external
-                ? {
-                    target: '_blank',
-                    rel: 'noopener noreferrer',
-                  }
-                : {})}
-              className="flex items-center justify-center gap-2 border-b border-zinc-800 px-4 py-3.5 text-[10px] font-bold uppercase tracking-wider text-[#f1e4c8] transition-colors hover:bg-white/10 sm:gap-3 sm:px-6 sm:py-4 sm:text-xs md:border-b-0 md:border-r first:border-none md:last:border-none"
-            >
-              <Icon className="size-4 shrink-0 sm:size-5" />
-              <span>{label}</span>
-            </a>
-          ))}
-        </div>
-
-        {/* CONNECTING LINES */}
-        <div className="mt-8 grid grid-cols-3 gap-12 justify-items-center">
-          <div className="h-6 w-px rounded-full bg-gradient-to-b from-[#c7a56a] to-transparent" />
-          <div className="h-6 w-px rounded-full bg-gradient-to-b from-[#c7a56a] to-transparent" />
-          <div className="h-6 w-px rounded-full bg-gradient-to-b from-[#c7a56a] to-transparent" />
-        </div>
-
-        {/* FOOTER LINKS - FIXED FOR PERFECT 3-COLUMN CENTERED LAYOUT */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-12 justify-items-center">
-
-          {/* EXPLORE */}
-          <div className="w-full text-center">
-            <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
-              Explore
+    <footer className="mt-auto border-t border-zinc-800 bg-black px-4 py-14 text-white">
+      <div className="mx-auto max-w-6xl">
+        <div className="grid grid-cols-2 gap-10 sm:grid-cols-2 lg:grid-cols-5">
+          {/* BRAND */}
+          <div className="col-span-2 lg:col-span-1">
+            <p className="font-display text-lg font-bold uppercase tracking-[0.18em] text-white">Panchvastra</p>
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-zinc-400">
+              Modular streetwear built for the feed and for everyday rotation.
             </p>
+            <div className="mt-5 flex items-center gap-3">
+              {socialLinks.map(({ label, href, Icon }) => (
+                <a
+                  key={label}
+                  href={href()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={label}
+                  className="flex size-9 items-center justify-center border border-zinc-700 text-zinc-300 transition-colors hover:border-white hover:text-white"
+                >
+                  <Icon className="size-4" />
+                </a>
+              ))}
+              <a
+                href={tel}
+                aria-label="Call"
+                className="flex size-9 items-center justify-center border border-zinc-700 text-zinc-300 transition-colors hover:border-white hover:text-white"
+              >
+                <IconPhone className="size-4" />
+              </a>
+            </div>
+          </div>
 
-            <ul className="mt-6 space-y-2.5 text-sm font-medium uppercase tracking-wide text-zinc-300">
-              {exploreLinks.map((l) => (
-                <li key={l.to}>
-                  <Link
-                    to={l.to}
-                    className="transition-colors hover:text-white"
-                  >
+          {/* SHOP */}
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-white">Shop</p>
+            <ul className="mt-5 space-y-2.5 text-sm text-zinc-400">
+              {shopLinks.map((l) => (
+                <li key={l.label}>
+                  <Link to={l.to} className="transition-colors hover:text-white">
                     {l.label}
                   </Link>
                 </li>
@@ -115,70 +103,73 @@ export function Footer() {
           </div>
 
           {/* COMPANY */}
-          <div className="w-full text-center">
-            <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
-              Company
-            </p>
-
-            <ul className="mt-6 space-y-2.5 text-sm font-medium uppercase tracking-wide text-zinc-300">
-              <li>
-                <Link
-                  to="/about"
-                  className="transition-colors hover:text-white"
-                >
-                  Our story
-                </Link>
-              </li>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-white">Company</p>
+            <ul className="mt-5 space-y-2.5 text-sm text-zinc-400">
+              {companyLinks.map((l) => (
+                <li key={l.label}>
+                  <Link to={l.to} className="transition-colors hover:text-white">
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* REACH US */}
-          <div className="w-full text-center">
-            <p className="font-display text-[14px] font-bold uppercase tracking-[0.28em] text-[#e9d7b4]">
-              Reach us
-            </p>
-
-            <ul className="mt-6 space-y-2.5 text-sm font-medium uppercase tracking-wide text-zinc-300">
+          {/* SUPPORT */}
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-white">Support</p>
+            <ul className="mt-5 space-y-2.5 text-sm text-zinc-400">
               <li>
-                <a
-                  href={wa}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="transition-colors hover:text-white"
-                >
+                <Link to="/orders" className="transition-colors hover:text-white">
+                  Track Order
+                </Link>
+              </li>
+              <li>
+                <a href={wa} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-white">
                   WhatsApp
                 </a>
               </li>
-
               <li>
-                <a
-                  href={ig}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="transition-colors hover:text-white"
-                >
+                <a href={ig} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-white">
                   Instagram
                 </a>
               </li>
-
               <li>
-                <a
-                  href={tel}
-                  className="transition-colors hover:text-white"
-                >
+                <a href={tel} className="transition-colors hover:text-white">
                   Call
                 </a>
               </li>
             </ul>
           </div>
 
+          {/* JOIN THE LIST */}
+          <div className="col-span-2 sm:col-span-1">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-white">Join The List</p>
+            <p className="mt-5 text-sm text-zinc-400">Early access to drops &amp; restocks.</p>
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              className="mt-4 flex max-w-xs border border-zinc-700 focus-within:border-white"
+            >
+              <input
+                type="email"
+                placeholder="Email"
+                aria-label="Email address"
+                className="w-full bg-transparent px-3 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none"
+              />
+              <button
+                type="submit"
+                className="shrink-0 bg-white px-4 text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-zinc-200"
+              >
+                Join
+              </button>
+            </form>
+          </div>
         </div>
 
-        {/* COPYRIGHT */}
-        <p className="mt-12 text-center text-[11px] text-zinc-500">
-          © {new Date().getFullYear()} PANCHVASTRA
-        </p>
-
+        <div className="mt-12 border-t border-zinc-800 pt-6">
+          <p className="text-center text-[11px] text-zinc-500">© {new Date().getFullYear()} PANCHVASTRA</p>
+        </div>
       </div>
     </footer>
   )

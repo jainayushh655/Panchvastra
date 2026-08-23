@@ -1,7 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button } from '@/components/ui/Button'
 import type { HomepageHeroSlide } from '@/types/homepage'
 
 export type HeroCarouselSlide = HomepageHeroSlide
@@ -12,62 +11,30 @@ type Props = {
   autoMs?: number
 }
 
-export function HeroCarousel({ slides, autoMs = 6400 }: Props) {
+export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(false)
-  const lastWheelTsRef = useRef(0)
   const n = slides.length
 
-  const go = useCallback(
-    (next: number) => {
-      if (n === 0) return
-      setI(((next % n) + n) % n)
-    },
-    [n],
-  )
-
+  // Single timer, re-armed for a fresh `autoMs` window whenever the slide
+  // changes — including manual indicator clicks — so autoplay always
+  // continues cleanly from the most recent slide with no leaked timers.
   useEffect(() => {
     if (n <= 1 || !autoMs || paused) return
-    const t = window.setInterval(() => setI((x) => (x + 1) % n), autoMs)
-    return () => window.clearInterval(t)
-  }, [n, autoMs, paused])
+    const t = window.setTimeout(() => setI((x) => (x + 1) % n), autoMs)
+    return () => window.clearTimeout(t)
+  }, [i, n, autoMs, paused])
 
   if (!n) return null
 
   const slide = slides[i]
-  const onDark = slide.tone === 'dark'
   const bgImage = slide.backgroundImage?.trim()
-
-  const eyebrowCls = onDark ? 'text-[#f1dfba]' : 'text-[#b07f2e] font-semibold tracking-[0.24em]'
-  const titleCls = onDark ? 'text-[#d6b36d] drop-shadow-[0_8px_30px_rgba(0,0,0,0.6)]' : 'text-[#b07f2e] drop-shadow-[0_6px_24px_rgba(0,0,0,0.18)]'
-  const subCls = onDark ? 'text-zinc-200' : 'text-zinc-700'
-
-  const pillCls = onDark
-    ? 'inline-flex items-center gap-2 rounded-full border border-[#d6b36d]/35 bg-[#d6b36d]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#f1dfba] backdrop-blur-sm'
-    : 'inline-flex items-center gap-2 rounded-full border border-[#d8c39a] bg-[#e9dfc6] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5f4210]'
-  const ghostBtn = onDark ? '!text-white hover:!bg-white/10' : 'dark:!text-white'
-
-  const onWheelNavigate = (e: React.WheelEvent<HTMLElement>) => {
-    if (n <= 1) return
-    const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX
-    if (Math.abs(delta) < 16) return
-
-    const now = Date.now()
-    if (now - lastWheelTsRef.current < 550) return
-
-    lastWheelTsRef.current = now
-    setPaused(true)
-    go(i + (delta > 0 ? 1 : -1))
-  }
 
   return (
     <section
-      className={`relative overflow-hidden border-b border-zinc-200/70 px-4 py-16 transition-colors duration-500 md:py-24 ${
-        bgImage ? 'border-[#dfc89b] bg-[#f7ecd7]' : slide.sectionClassName
-      }`}
+      className="relative overflow-hidden border-b border-zinc-800 bg-[#050505] px-4 py-16 md:py-24"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
-      onWheel={onWheelNavigate}
     >
       <AnimatePresence mode="wait" initial={false}>
         {bgImage ? (
@@ -77,28 +44,23 @@ export function HeroCarousel({ slides, autoMs = 6400 }: Props) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.45 }}
-            className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
+            className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat grayscale"
             style={{ backgroundImage: `url(${JSON.stringify(bgImage)})` }}
             aria-hidden
           />
         ) : null}
       </AnimatePresence>
       {bgImage ? (
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/85 via-black/65 to-black/40" aria-hidden />
+      ) : (
         <div
-          className={`pointer-events-none absolute inset-0 ${
-            onDark
-              ? 'bg-gradient-to-r from-black/72 via-black/48 to-black/24'
-              : 'bg-gradient-to-r from-[#fffaf0]/88 via-[#fff4de]/62 to-[#f8e5bc]/22'
-          }`}
+          className="pointer-events-none absolute inset-0 opacity-[0.05]"
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(45deg, #ffffff 0, #ffffff 1px, transparent 1px, transparent 34px)',
+          }}
           aria-hidden
         />
-      ) : (
-        <>
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_85%_55%_at_75%_35%,rgba(214,179,109,0.28),transparent_40%),radial-gradient(ellipse_70%_45%_at_15%_0%,rgba(255,255,255,0.06),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.06))]" />
-          <div className="pointer-events-none absolute -right-24 top-10 h-72 w-72 rounded-full bg-[#d6b36d]/20 blur-3xl" aria-hidden />
-          <div className="pointer-events-none absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_70%_42%,rgba(255,199,95,0.18),transparent_30%)]" aria-hidden />
-          <div className="pointer-events-none absolute -left-16 top-16 h-44 w-44 rounded-full bg-white/5 blur-3xl" aria-hidden />
-        </>
       )}
 
       <div className="relative mx-auto max-w-6xl">
@@ -111,68 +73,56 @@ export function HeroCarousel({ slides, autoMs = 6400 }: Props) {
             transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
             className="min-h-[230px] md:min-h-[300px]"
           >
-            <div className={pillCls}>
-              PANCHVASTRA EDIT
-            </div>
-            <p className={`type-eyebrow mt-4 ${eyebrowCls}`}>{slide.eyebrow}</p>
-            <h1 className={`type-hero-title mt-4 max-w-3xl text-[clamp(3rem,7vw,6rem)] ${titleCls}`}>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-400">
+              Panchvastra Edit — {slide.eyebrow}
+            </p>
+            <h1 className="mt-4 max-w-3xl whitespace-pre-line text-[clamp(3rem,8vw,6.5rem)] font-display font-bold uppercase leading-[0.95] tracking-tight text-white">
               {slide.title}
             </h1>
-            <p className={`mt-5 max-w-xl text-base leading-7 md:text-lg ${subCls}`}>{slide.sub}</p>
+            <p className="mt-5 max-w-xl text-base leading-7 text-zinc-300 md:text-lg">{slide.sub}</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link to={slide.primaryCta.to}>
-                <Button
-                  size="lg"
-                  className="!border-[#b07f2e] !bg-[#b07f2e] !text-white hover:!bg-[#99661f]"
-                >
-                  {slide.primaryCta.label}
-                </Button>
+              <Link
+                to={slide.primaryCta.to}
+                className="inline-flex items-center justify-center bg-white px-7 py-3 text-xs font-bold uppercase tracking-[0.14em] text-black transition-colors hover:bg-zinc-200"
+              >
+                {slide.primaryCta.label}
               </Link>
               {slide.secondaryCta ? (
-                <Link to={slide.secondaryCta.to}>
-                  <Button variant="ghost" size="lg" className={ghostBtn}>
-                    {slide.secondaryCta.label}
-                  </Button>
+                <Link
+                  to={slide.secondaryCta.to}
+                  className="inline-flex items-center justify-center border border-white px-7 py-3 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-white/10"
+                >
+                  {slide.secondaryCta.label}
                 </Link>
               ) : null}
             </div>
-            {n > 1 ? (
-              <p className={`mt-4 text-xs font-medium ${onDark ? 'text-zinc-300' : 'text-[#7a5f33]'}`}>
-                Scroll to switch slides
-              </p>
-            ) : null}
           </motion.div>
         </AnimatePresence>
 
         {n > 1 ? (
-          <>
-            <div className="mt-12 flex flex-wrap items-center justify-between gap-4">
-              <div className="hidden items-center gap-3 rounded-full border border-[#d6b36d]/20 bg-black/20 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75 backdrop-blur-sm md:flex">
-                Premium cotton
-                <span className="h-1 w-1 rounded-full bg-[#d6b36d]/80" />
-                Limited drops
-                <span className="h-1 w-1 rounded-full bg-[#d6b36d]/80" />
-                Crafted to layer
-              </div>
-              <div className="flex gap-2">
-                {slides.map((_, idx) => (
-                  <button
-                    key={slides[idx].id}
-                    type="button"
-                    aria-label={`Slide ${idx + 1} of ${n}`}
-                    aria-current={idx === i}
-                    onClick={() => setI(idx)}
-                    className={`h-2 rounded-full transition-all ${
-                      idx === i
-                        ? 'w-8 bg-[#d6b36d] shadow-[0_0_16px_rgba(214,179,109,0.75)]'
-                        : `w-2 ${onDark ? 'bg-white/35 hover:bg-white/55' : 'bg-zinc-400/50 hover:bg-zinc-500/70 dark:bg-zinc-600 dark:hover:bg-zinc-500'}`
-                    }`}
-                  />
-                ))}
-              </div>
+          <div className="mt-12 flex flex-wrap items-center justify-between gap-4">
+            <div className="hidden items-center gap-3 border border-zinc-700 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 md:flex">
+              Premium cotton
+              <span className="h-1 w-1 rounded-full bg-zinc-500" />
+              Limited drops
+              <span className="h-1 w-1 rounded-full bg-zinc-500" />
+              Crafted to layer
             </div>
-
-          </>
+            <div className="flex gap-2">
+              {slides.map((_, idx) => (
+                <button
+                  key={slides[idx].id}
+                  type="button"
+                  aria-label={`Slide ${idx + 1} of ${n}`}
+                  aria-current={idx === i}
+                  onClick={() => setI(idx)}
+                  className={`h-2 rounded-full transition-all ${
+                    idx === i ? 'w-8 bg-white' : 'w-2 bg-zinc-600 hover:bg-zinc-400'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
         ) : null}
       </div>
     </section>

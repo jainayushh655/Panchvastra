@@ -5,23 +5,23 @@
 
 @layer components {
   .type-page-title {
-    @apply font-display text-2xl font-bold leading-tight tracking-tight text-[#d6b36d] sm:text-3xl dark:text-white;
+    @apply font-display text-2xl font-bold leading-tight tracking-tight text-black sm:text-3xl dark:text-white;
   }
 
   .type-hero-title {
-    @apply font-display text-[2rem] font-bold leading-[1.05] tracking-tight text-[#d6b36d] sm:text-5xl md:text-6xl;
+    @apply font-display text-[2rem] font-bold leading-[1.05] tracking-tight text-black sm:text-5xl md:text-6xl;
   }
 
   .type-section-title {
-    @apply font-display text-xl font-semibold leading-tight tracking-tight text-[#d6b36d] md:text-2xl dark:text-white;
+    @apply font-display text-xl font-semibold leading-tight tracking-tight text-black md:text-2xl dark:text-white;
   }
 
   .type-product-title {
-    @apply font-display text-[0.9375rem] font-semibold leading-snug tracking-tight text-[#d6b36d] sm:text-base dark:text-white;
+    @apply font-display text-[0.9375rem] font-semibold leading-snug tracking-tight text-black sm:text-base dark:text-white;
   }
 
   .type-product-detail-title {
-    @apply font-display text-2xl font-bold leading-tight tracking-tight text-[#d6b36d] sm:text-3xl lg:text-4xl dark:text-white;
+    @apply font-display text-2xl font-bold leading-tight tracking-tight text-black sm:text-3xl lg:text-4xl dark:text-white;
   }
 
   .type-eyebrow {

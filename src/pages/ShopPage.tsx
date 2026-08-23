@@ -1,28 +1,25 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ProductCard } from '@/components/ProductCard'
-import { IconFilterPeek } from '@/components/shop/IconFilterPeek'
-import { PriceFilterSection } from '@/components/shop/PriceFilterSection'
-import { SizeFilterDropdown } from '@/components/shop/SizeFilterDropdown'
 import { ShopSortPicker } from '@/components/shop/ShopSortPicker'
 import { ProductGridSkeleton } from '@/components/shop/ProductGridSkeleton'
-import { shopToolbarButtonClass, shopToolbarLabelClass } from '@/components/shop/shopToolbar'
+import {
+  SIZE_OPTIONS,
+  ShopFilterBar,
+  priceBucketFromRange,
+  priceRangeFromBucket,
+  type SubCategoryOption,
+} from '@/components/shop/ShopFilterBar'
 import { Button } from '@/components/ui/Button'
 
 import { getProducts } from '@/api/product'
 import { getCategories } from '@/api/category'
-import type { Product } from "@/types";
-import { mapProduct } from "@/mappers/productMapper";
+import type { Product } from '@/types'
+import { mapProduct } from '@/mappers/productMapper'
+import { categoryNameToSlug } from '@/lib/categorySlug'
 import type { CategoryDto } from '@/types/api/CategoryDto'
 import type { SortKey } from '@/types'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
-
-const PRICE_FLOOR = 0
 
 const SORT_KEYS = new Set<SortKey>(['popular', 'new-arrival', 'bestseller', 'price-asc', 'price-desc'])
 
@@ -31,358 +28,264 @@ function parseSort(raw: string | null): SortKey {
   return 'popular'
 }
 
-function validCategory(
-  c: string | null,
-  allowedSlugs: Set<string>,
-): string | "all" {
-  if (!c || c === "all") return "all";
-  return allowedSlugs.has(c) ? c : "all";
-}
-
-
 export function ShopPage() {
   useDocumentTitle('Shop')
   const [searchParams, setSearchParams] = useSearchParams()
-const [products, setProducts] =
-  useState<Product[]>([]);
 
-const [categories, setCategories] =
-  useState<CategoryDto[]>([])
+  const [categories, setCategories] = useState<CategoryDto[]>([])
+  /** Full unfiltered catalog — fetched once, reused as the "no filters active" product list and as the source for deriving Sub Category options (so those options don't shrink/flicker as Size/Search change). */
+  const [catalogSnapshot, setCatalogSnapshot] = useState<Product[]>([])
+  const [catalogReady, setCatalogReady] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
 
-const [loading, setLoading] =
-  useState(true)
-  const allowedSlugs = useMemo(
-  () =>
-    new Set(
-      categories.map((c) => {
-        switch (c.name.toLowerCase()) {
-          case "t-shirts":
-            return "regular-tee";
+  const [products, setProducts] = useState<Product[]>([])
+  const [filterLoading, setFilterLoading] = useState(false)
 
-          case "shorts":
-            return "shorts";
-
-          default:
-            return c.name.toLowerCase();
-        }
-      })
-    ),
-  [categories]
-);
-
-  const q = searchParams.get('q') ?? ''
-  const category = validCategory(searchParams.get('category'), allowedSlugs);
-  const categoryHeading =
-  category === "all"
-    ? "All Products"
-    : category;
-  const sort = parseSort(searchParams.get('sort'))
-  const minP = searchParams.get('min')
-  const maxP = searchParams.get('max')
-  const sizesRaw = searchParams.get('sizes') ?? ''
-  const sizesParam = useMemo(
-    () => sizesRaw.split(',').filter(Boolean),
-    [sizesRaw],
-  )
-
-const priceBounds = useMemo(() => {
-  if (!products.length) {
-    return {
-      max: 2000,
-    };
-  }
-
-  const maxPrice = Math.max(
-    ...products.map((p) => p.price)
-  );
-
-  return {
-    max: Math.max(
-      500,
-      Math.ceil(maxPrice / 100) * 100
-    ),
-  };
-}, [products]);
-
-  const boundMin = PRICE_FLOOR
-  const boundMax = priceBounds.max
-
-  const minFromUrl =
-    minP != null && minP !== '' && Number.isFinite(Number(minP)) ? Number(minP) : null
-  const maxFromUrl =
-    maxP != null && maxP !== '' && Number.isFinite(Number(maxP)) ? Number(maxP) : null
-
-  const apiMinPrice =
-    minFromUrl != null && minFromUrl > boundMin ? minFromUrl : undefined
-  const apiMaxPrice =
-    maxFromUrl != null && maxFromUrl < boundMax ? maxFromUrl : undefined
-
-  const [filtersOpen, setFiltersOpen] = useState(false)
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
 
-  async function loadData() {
-  try {
-    setLoading(true);
+  useEffect(() => {
+    let active = true
+    setInitialLoading(true)
 
-    const [productResponse, categoryResponse] =
-      await Promise.all([
-        getProducts(),
-        getCategories(),
-      ]);
-    setProducts(
-  productResponse.map(mapProduct)
-);
-
-    setCategories(categoryResponse);
-  } catch (err) {
-    console.error(err);
-  } finally {
-    setLoading(false);
-  }
-}
-
-useEffect(() => {
-  loadData();
-}, []);
-
-  const showProductLoading =
-  loading;
-
-const list = useMemo(() => {
-  let filtered = [...products];
-
-  // Search
-  if (q.trim()) {
-    const keyword = q.toLowerCase();
-
-    filtered = filtered.filter((p) =>
-      p.name.toLowerCase().includes(keyword)
-    );
-  }
-
-  // Category
-  if (category !== "all") {
-    filtered = filtered.filter(
-      (p) => p.categorySlug === category
-    );
-  }
-
-  // Price
-  if (apiMinPrice != null) {
-    filtered = filtered.filter(
-      (p) => p.price >= apiMinPrice
-    );
-  }
-
-  if (apiMaxPrice != null) {
-    filtered = filtered.filter(
-      (p) => p.price <= apiMaxPrice
-    );
-  }
-
-  // Size (temporary)
-  if (sizesParam.length) {
-    filtered = filtered.filter((p) =>
-      p.sizes.some((s) =>
-        sizesParam.includes(s)
-      )
-    );
-  }
-
-  // Sorting
-  switch (sort) {
-    case "price-asc":
-      filtered.sort((a, b) => a.price - b.price);
-      break;
-
-    case "price-desc":
-      filtered.sort((a, b) => b.price - a.price);
-      break;
-
-    case "new-arrival":
-      filtered.sort((a, b) =>
-        Number(b.isNew) - Number(a.isNew)
-      );
-      break;
-
-    case "bestseller":
-      filtered.sort(
-        (a, b) => b.reviewCount - a.reviewCount
-      );
-      break;
-
-    default:
-      filtered.sort(
-        (a, b) => b.popularity - a.popularity
-      );
-  }
-
-  return filtered;
-}, [
-  products,
-  q,
-  category,
-  sort,
-  apiMinPrice,
-  apiMaxPrice,
-  sizesParam,
-]);
-
-  const setSort = useCallback(
-    (key: SortKey) => {
-      setSearchParams((prev) => {
-        const n = new URLSearchParams(prev)
-        if (key === 'popular') n.delete('sort')
-        else n.set('sort', key)
-        return n
+    Promise.all([getProducts(), getCategories()])
+      .then(([dtos, categoryList]) => {
+        if (!active) return
+        const mapped = dtos.map(mapProduct)
+        setCatalogSnapshot(mapped)
+        setProducts(mapped)
+        setCategories(categoryList)
       })
+      .finally(() => {
+        if (active) {
+          setInitialLoading(false)
+          setCatalogReady(true)
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const allowedCategorySlugs = useMemo(
+    () => new Set(categories.map((c) => categoryNameToSlug(c.name))),
+    [categories],
+  )
+
+  const q = searchParams.get('q') ?? ''
+  const categoryRaw = searchParams.get('category')
+  const category = categoryRaw && allowedCategorySlugs.has(categoryRaw) ? categoryRaw : 'all'
+  const sort = parseSort(searchParams.get('sort'))
+
+  const categoryHeading =
+    category === 'all' ? 'All Products' : (categories.find((c) => categoryNameToSlug(c.name) === category)?.name ?? 'All Products')
+
+  // Sub Category options depend only on the selected Category, derived from the full catalog snapshot
+  // (not the currently-filtered `products`) so they stay stable while Size/Search change.
+  const subCategoryOptions: SubCategoryOption[] = useMemo(() => {
+    const scoped = category === 'all' ? catalogSnapshot : catalogSnapshot.filter((p) => p.categorySlug === category)
+    const bySlug = new Map<string, SubCategoryOption>()
+    for (const p of scoped) {
+      if (p.subCategorySlug && p.subCategoryName && p.subCategoryId != null && !bySlug.has(p.subCategorySlug)) {
+        bySlug.set(p.subCategorySlug, { slug: p.subCategorySlug, name: p.subCategoryName, id: p.subCategoryId })
+      }
+    }
+    return [...bySlug.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [catalogSnapshot, category])
+
+  const subCategoryRaw = searchParams.get('subcategory')
+  const subcategory =
+    subCategoryRaw && subCategoryOptions.some((s) => s.slug === subCategoryRaw) ? subCategoryRaw : 'all'
+
+  const sizeRaw = searchParams.get('size')
+  const size = sizeRaw && SIZE_OPTIONS.includes(sizeRaw) ? sizeRaw : 'all'
+
+  const minP = searchParams.get('min')
+  const maxP = searchParams.get('max')
+  const minFromUrl = minP != null && minP !== '' && Number.isFinite(Number(minP)) ? Number(minP) : null
+  const maxFromUrl = maxP != null && maxP !== '' && Number.isFinite(Number(maxP)) ? Number(maxP) : null
+  const priceBucket = priceBucketFromRange(minFromUrl, maxFromUrl)
+
+  const updateParams = useCallback(
+    (mutate: (n: URLSearchParams) => void, opts?: { replace?: boolean }) => {
+      setSearchParams(
+        (prev) => {
+          const n = new URLSearchParams(prev)
+          mutate(n)
+          return n
+        },
+        opts,
+      )
     },
     [setSearchParams],
   )
 
-  const hasUrlFilters =
-    Boolean(q.trim()) ||
-    sizesParam.length > 0 ||
-    Boolean(minP) ||
-    Boolean(maxP) ||
-    (sort !== 'popular' && sort != null) ||
-    Boolean(searchParams.get('category') && searchParams.get('category') !== 'all')
+  // Clear an invalid subcategory whenever it no longer belongs to the current category's options.
+  // Gated on `catalogReady` so a deep-linked `?subcategory=` isn't wiped before the catalog
+  // (and therefore subCategoryOptions) has actually loaded.
+  useEffect(() => {
+    if (!catalogReady) return
+    const current = searchParams.get('subcategory')
+    if (!current || current === 'all') return
+    if (!subCategoryOptions.some((s) => s.slug === current)) {
+      updateParams((n) => n.delete('subcategory'), { replace: true })
+    }
+  }, [catalogReady, subCategoryOptions, searchParams, updateParams])
 
-  const productGridClass = filtersOpen
-    ? 'grid gap-5 sm:grid-cols-2 lg:grid-cols-3'
-    : 'grid gap-5 sm:grid-cols-2 lg:grid-cols-4'
+  // Real server-side filtering for category/subcategory/size/search (verified against the live backend).
+  // Reuses the initial catalog snapshot when no server-filterable param is active, avoiding a duplicate request.
+  useEffect(() => {
+    if (!catalogReady) return
+    let cancelled = false
+
+    const categoryId = category !== 'all' ? categories.find((c) => categoryNameToSlug(c.name) === category)?.id : undefined
+    const subCategoryId = subcategory !== 'all' ? subCategoryOptions.find((s) => s.slug === subcategory)?.id : undefined
+    const sizeParam = size !== 'all' ? size : undefined
+    const searchParam = q.trim() || undefined
+
+    const hasServerFilter = categoryId != null || subCategoryId != null || sizeParam != null || searchParam != null
+
+    if (!hasServerFilter) {
+      setProducts(catalogSnapshot)
+      return
+    }
+
+    setFilterLoading(true)
+    getProducts({
+      category_id: categoryId,
+      sub_category_id: subCategoryId,
+      size: sizeParam,
+      search: searchParam,
+    })
+      .then((dtos) => {
+        if (cancelled) return
+        setProducts(dtos.map(mapProduct))
+      })
+      .finally(() => {
+        if (!cancelled) setFilterLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [catalogReady, category, subcategory, size, q, categories, catalogSnapshot, subCategoryOptions])
+
+  const priceRange = priceRangeFromBucket(priceBucket)
+
+  const list = useMemo(() => {
+    let filtered = [...products]
+
+    if (priceRange.min != null) filtered = filtered.filter((p) => p.price >= priceRange.min!)
+    if (priceRange.max != null) filtered = filtered.filter((p) => p.price <= priceRange.max!)
+
+    switch (sort) {
+      case 'price-asc':
+        filtered.sort((a, b) => a.price - b.price)
+        break
+      case 'price-desc':
+        filtered.sort((a, b) => b.price - a.price)
+        break
+      case 'new-arrival':
+        filtered.sort((a, b) => Number(b.isNew) - Number(a.isNew))
+        break
+      case 'bestseller':
+        filtered.sort((a, b) => b.reviewCount - a.reviewCount)
+        break
+      default:
+        filtered.sort((a, b) => b.popularity - a.popularity)
+    }
+
+    return filtered
+  }, [products, priceRange.min, priceRange.max, sort])
+
+  const setSort = useCallback(
+    (key: SortKey) => {
+      updateParams((n) => {
+        if (key === 'popular') n.delete('sort')
+        else n.set('sort', key)
+      })
+    },
+    [updateParams],
+  )
+
+  const resetAllFilters = useCallback(() => {
+    updateParams((n) => {
+      n.delete('q')
+      n.delete('category')
+      n.delete('subcategory')
+      n.delete('size')
+      n.delete('min')
+      n.delete('max')
+      n.delete('sort')
+    })
+  }, [updateParams])
+
+  const hasActiveFilters =
+    Boolean(q.trim()) ||
+    category !== 'all' ||
+    subcategory !== 'all' ||
+    size !== 'all' ||
+    priceBucket !== 'all' ||
+    sort !== 'popular'
+
+  const showProductLoading = initialLoading || filterLoading
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      <div>
-        <h1 className="type-page-title">
-          {categoryHeading}
-        </h1>
-      </div>
+      <h1 className="type-page-title">{categoryHeading}</h1>
 
-      <div className="mt-6 flex items-center justify-between gap-4">
-        <button
-          type="button"
-          aria-expanded={filtersOpen}
-          aria-controls="shop-filters"
-          onClick={() => {
-            setFiltersOpen((x) => !x)
-            setSortMenuOpen(false)
-          }}
-          className={shopToolbarButtonClass}
-        >
-          <IconFilterPeek open={filtersOpen} className="h-8 w-8 shrink-0" />
-          <span className={shopToolbarLabelClass}>
-            Filters
-            {/* <span className="text-zinc-600 dark:text-zinc-300">
-              {filtersOpen ? 'ON' : 'OFF'}
-            </span> */}
-          </span>
-        </button>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+        <ShopFilterBar
+          categories={categories}
+          category={category}
+          onCategoryChange={(slug) => updateParams((n) => (slug === 'all' ? n.delete('category') : n.set('category', slug)))}
+          subCategoryOptions={subCategoryOptions}
+          subCategory={subcategory}
+          onSubCategoryChange={(slug) => updateParams((n) => (slug === 'all' ? n.delete('subcategory') : n.set('subcategory', slug)))}
+          subCategoryDisabled={subCategoryOptions.length === 0}
+          size={size}
+          onSizeChange={(s) => updateParams((n) => (s === 'all' ? n.delete('size') : n.set('size', s)))}
+          priceBucket={priceBucket}
+          onPriceBucketChange={(bucket) =>
+            updateParams((n) => {
+              const { min, max } = priceRangeFromBucket(bucket)
+              if (min == null) n.delete('min')
+              else n.set('min', String(min))
+              if (max == null) n.delete('max')
+              else n.set('max', String(max))
+            })
+          }
+          onReset={resetAllFilters}
+        />
 
         <ShopSortPicker
           sort={sort}
           open={sortMenuOpen}
-          onOpenChange={(next) => {
-            setSortMenuOpen(next)
-            if (next) setFiltersOpen(false)
-          }}
+          onOpenChange={setSortMenuOpen}
           onSelect={setSort}
         />
       </div>
 
-      <div
-        className={`mt-4 grid gap-6 ${filtersOpen ? 'lg:grid-cols-[260px_1fr]' : ''}`}
-      >
-        <aside
-          id="shop-filters"
-          aria-hidden={!filtersOpen}
-          className={`rounded-2xl border border-zinc-200 bg-white px-4 py-1 dark:border-zinc-800 dark:bg-zinc-950/80 ${filtersOpen ? 'block' : 'hidden'}`}
-        >
-          <SizeFilterDropdown
-            selected={sizesParam}
-            onChange={(sizes) => {
-              setSearchParams((prev) => {
-                const n = new URLSearchParams(prev)
-                if (sizes.length) n.set('sizes', sizes.join(','))
-                else n.delete('sizes')
-                return n
-              })
-            }}
-          />
-          <PriceFilterSection
-            boundMin={boundMin}
-            boundMax={boundMax}
-            minUrl={minFromUrl}
-            maxUrl={maxFromUrl}
-            onCommit={(min, max) => {
-              setSearchParams((prev) => {
-                const n = new URLSearchParams(prev)
-                if (min == null) n.delete('min')
-                else n.set('min', String(min))
-                if (max == null) n.delete('max')
-                else n.set('max', String(max))
-                return n
-              })
-            }}
-          />
-          <div className="pt-2 pb-3">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="w-full dark:!border-zinc-600 dark:!text-zinc-200"
-              onClick={() => {
-                setSearchParams((prev) => {
-                  const n = new URLSearchParams(prev)
-                  n.delete('min')
-                  n.delete('max')
-                  n.delete('sizes')
-                  return n
-                })
-              }}
-            >
-              Reset filters
-            </Button>
+      <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {showProductLoading ? (
+          <ProductGridSkeleton count={8} />
+        ) : list.length === 0 ? (
+          <div className="col-span-full border border-zinc-200 bg-zinc-50 px-6 py-14 text-center dark:border-zinc-800 dark:bg-zinc-950/50">
+            <p className="font-medium text-zinc-900 dark:text-zinc-100">No products to show.</p>
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+              {hasActiveFilters
+                ? 'Try resetting filters — size, price range, search, category, or subcategory can hide everything.'
+                : 'No products found.'}
+            </p>
+            {hasActiveFilters ? (
+              <Button type="button" className="mt-6" onClick={resetAllFilters}>
+                Reset Filter
+              </Button>
+            ) : null}
           </div>
-        </aside>
-
-        <div className={`min-w-0 ${productGridClass}`}>
-          {showProductLoading ? (
-            <ProductGridSkeleton count={filtersOpen ? 6 : 8} />
-          ) : list.length === 0 ? (
-            <div className="col-span-full rounded-2xl border border-zinc-200 bg-zinc-50 px-6 py-14 text-center dark:border-zinc-800 dark:bg-zinc-950/50">
-              <p className="font-medium text-zinc-900 dark:text-zinc-100">No products to show.</p>
-              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                {hasUrlFilters
-                  ? 'Try clearing filters — size, price range, search, or category can hide everything.'
-                  : 'No products found for the selected filters.'}
-              </p>
-              {hasUrlFilters ? (
-                <Button
-                  type="button"
-                  className="mt-6"
-                  onClick={() =>
-                    setSearchParams((prev) => {
-                      const next = new URLSearchParams(prev)
-                      next.delete('q')
-                      next.delete('sizes')
-                      next.delete('min')
-                      next.delete('max')
-                      next.delete('category')
-                      next.delete('sort')
-                      return next
-                    })
-                  }
-                >
-                  Clear filters
-                </Button>
-              ) : null}
-            </div>
-          ) : (
-            list.map((p) => <ProductCard key={p.id} product={p} />)
-          )}
-        </div>
+        ) : (
+          list.map((p) => <ProductCard key={p.id} product={p} variant="homepage" />)
+        )}
       </div>
     </div>
   )
