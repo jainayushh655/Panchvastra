@@ -1,16 +1,17 @@
-import { useMemo, useState } from 'react'
 import { Breadcrumb } from '@/admin/components/Breadcrumb'
-import { AdminTable } from '@/admin/components/AdminTable'
-import { adminCoupons } from '@/admin/services/adminData'
+import { AdminErrorState } from '@/admin/components/AdminStates'
 
+/**
+ * The coupon endpoint (`/v1/coupon_management/`) exists on the backend but rejects every
+ * request from this panel with `401 Authorization token missing`, and its request/response
+ * contract could not be verified without valid admin credentials.
+ *
+ * This page previously rendered hardcoded placeholder coupons (WELCOME10 / SUMMER20 /
+ * FESTIVE15) that were never fetched from anywhere. Showing invented promotions in an
+ * admin tool is worse than showing nothing, so the real integration status is surfaced
+ * instead. Wire this up once the endpoint contract and admin auth are available.
+ */
 export function AdminCouponsPage() {
-  const [query, setQuery] = useState('')
-  const [page, setPage] = useState(1)
-
-  const filteredCoupons = useMemo(() => {
-    return adminCoupons.filter((coupon) => coupon.code.toLowerCase().includes(query.toLowerCase()))
-  }, [query])
-
   return (
     <div className="admin-page">
       <div className="admin-page__header">
@@ -21,37 +22,10 @@ export function AdminCouponsPage() {
         <Breadcrumb items={[{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Coupons' }]} />
       </div>
 
-      <section className="admin-toolbar">
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search coupons" />
-        <button type="button">Create Coupon</button>
-      </section>
-
-      <AdminTable
-        headers={['Code', 'Discount', 'Expiry', 'Status', 'Actions']}
-        rows={filteredCoupons.slice((page - 1) * 3, page * 3)}
-        renderRow={(coupon) => (
-          <>
-            <td>{coupon.code}</td>
-            <td>{coupon.discount}</td>
-            <td>{coupon.expiry}</td>
-            <td>{coupon.status}</td>
-            <td>
-              <button type="button" className="admin-link-button">Edit</button>
-              <button type="button" className="admin-link-button admin-link-button--danger">Delete</button>
-            </td>
-          </>
-        )}
+      <AdminErrorState
+        title="Coupons are not connected"
+        message="The coupon service requires an authenticated admin session that this panel cannot yet obtain, so no coupon data can be shown. Previously this page displayed placeholder coupons that did not exist in the backend; they have been removed to avoid acting on fictional promotions."
       />
-
-      <div className="admin-pagination">
-        <button type="button" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
-          Prev
-        </button>
-        <span>Page {page}</span>
-        <button type="button" disabled={page * 3 >= filteredCoupons.length} onClick={() => setPage((current) => current + 1)}>
-          Next
-        </button>
-      </div>
     </div>
   )
 }

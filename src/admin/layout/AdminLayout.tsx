@@ -32,7 +32,7 @@ export function AdminLayout() {
       />
 
       <div className="admin-main">
-        <AdminTopbar onMenuToggle={() => setMobileOpen((open) => !open)} />
+        <AdminTopbar menuOpen={mobileOpen} onMenuToggle={() => setMobileOpen((open) => !open)} />
 
         <main className="admin-content">
           <Outlet />

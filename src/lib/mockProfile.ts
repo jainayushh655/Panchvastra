@@ -1,22 +1,29 @@
 /**
- * DEV-ONLY mock data and types for the Profile + Address Book UI.
+ * Shared types and option lists for the Profile + Address Book UI.
  *
- * There is no Profile or Address backend/API yet. This file is the isolated,
- * clearly-named local source powering that UI until a real API exists — it is not
- * imported by any API file, auth state, cart state, or checkout state. When the
- * backend is ready, replace the local `useState` seeded from this file in
- * `ProfilePage` with real GET/CREATE/UPDATE/DELETE calls; the component props
- * (`ProfileInfo`, `ProfileAddress`) are shaped so the rest of the UI doesn't change.
+ * PERSONAL INFO is backed by the real /v1/user_profile/ API — see `src/api/profile.ts`
+ * and `src/mappers/userProfileMapper.ts`. `ProfileInfo` below is the camelCase shape the
+ * backend record maps into.
+ *
+ * ADDRESSES are backed by the real /v1/address_management/ API — see `src/api/address.ts`,
+ * `src/mappers/addressMapper.ts` and `AddressProvider`. `ProfileAddress` is the camelCase
+ * shape those map into.
+ *
+ * The two are separate backend resources and are never mixed in a single request.
  */
 
-export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say'
+import { GENDER_VALUES, type GenderValue } from '@/types/api/UserProfileDto'
 
-export const GENDER_OPTIONS: { value: Gender; label: string }[] = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-  { value: 'other', label: 'Other' },
-  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
-]
+/**
+ * Mirrors the backend's `GenderEnum` exactly (`Male` | `Female` | `Other`). The API
+ * accepts no other values, so the UI must not offer any.
+ */
+export type Gender = GenderValue
+
+export const GENDER_OPTIONS: { value: Gender; label: string }[] = GENDER_VALUES.map((value) => ({
+  value,
+  label: value,
+}))
 
 export type AddressType = 'home' | 'work' | 'other'
 
@@ -27,12 +34,29 @@ export const ADDRESS_TYPE_OPTIONS: { value: AddressType; label: string }[] = [
 ]
 
 export interface ProfileInfo {
-  fullName: string
+  firstName: string
+  lastName: string
+  /** Read-only: PUT /v1/user_profile/ has no email field, so it is never submitted. */
   email: string
-  phone: string
+  /** Backend field name is `mobile`. */
+  mobile: string
   gender: Gender | null
   /** ISO `YYYY-MM-DD`, or '' when not set. */
   dateOfBirth: string
+  /** URL of the stored profile image, or '' when the user has none. */
+  profileImageUrl: string
+}
+
+export function createEmptyProfile(): ProfileInfo {
+  return {
+    firstName: '',
+    lastName: '',
+    email: '',
+    mobile: '',
+    gender: null,
+    dateOfBirth: '',
+    profileImageUrl: '',
+  }
 }
 
 export interface ProfileAddress {
@@ -66,21 +90,3 @@ export function createEmptyAddress(): ProfileAddress {
     isDefault: false,
   }
 }
-
-/** Seed data so the Address Book UI has something to render during development. */
-export const MOCK_ADDRESSES: ProfileAddress[] = [
-  {
-    id: 'addr-mock-home',
-    type: 'home',
-    fullName: 'Kunal Kumawat',
-    phone: '9876543210',
-    addressLine1: '123, Example Street',
-    addressLine2: 'Vijay Nagar',
-    landmark: 'Near City Mall',
-    city: 'Indore',
-    state: 'Madhya Pradesh',
-    postalCode: '452001',
-    country: 'India',
-    isDefault: true,
-  },
-]

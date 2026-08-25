@@ -18,7 +18,14 @@ export function CheckoutPage() {
   const navigate = useNavigate()
   const { items, subtotal, totalDiscount, clear } = useCart()
   const { user } = useAuth()
-  const { addresses, addAddress, updateAddress } = useAddresses()
+  const {
+    addresses,
+    loading: addressesLoading,
+    error: addressesError,
+    refresh: refreshAddresses,
+    addAddress,
+    updateAddress,
+  } = useAddresses()
 
   // Existing calculation, unchanged.
   const shipping = subtotal > 0 ? (subtotal >= 1999 ? 0 : 99) : 0
@@ -161,6 +168,9 @@ export function CheckoutPage() {
         <div className="space-y-6">
           <DeliveryAddressSection
             addresses={addresses}
+            loading={addressesLoading}
+            loadError={addressesError}
+            onRetry={refreshAddresses}
             selectedAddressId={selectedAddressId}
             onSelectAddress={setSelectedAddressId}
             onAddAddress={addAddress}

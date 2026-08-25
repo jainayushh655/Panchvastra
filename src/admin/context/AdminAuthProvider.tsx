@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { loginAdmin } from '@/api/adminAuth'
 
 const ADMIN_TOKEN_STORAGE_KEY = 'panchvastra-admin-token'
 const ADMIN_EMAIL_STORAGE_KEY = 'panchvastra-admin-email'
@@ -11,7 +12,8 @@ type AdminAuthContextValue = {
   adminToken: string | null
   adminUser: AdminUser | null
   isAuthenticated: boolean
-  login: (email: string, password: string) => void
+  /** Resolves to an error message on failure, or null on success. Never throws. */
+  login: (email: string, password: string) => Promise<string | null>
   logout: () => void
 }
 
@@ -36,23 +38,36 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     return storedEmail ? { email: storedEmail } : null
   })
 
-  const login = (email: string, password: string) => {
+  /**
+   * Authenticates against the real backend (POST /v1/login_admin/) and stores the token
+   * it returns. Admin state is only ever established from a successful backend response —
+   * there is no local/offline credential check, and a customer session grants nothing here
+   * (this provider reads its own storage key and never consults the customer token).
+   *
+   * The password is forwarded to the API and never stored, logged, or kept in state.
+   */
+  const login = useCallback(async (email: string, password: string): Promise<string | null> => {
     const normalizedEmail = email.trim().toLowerCase()
 
-    if (!normalizedEmail || !password.trim()) {
-      throw new Error('Please enter your email and password.')
-    }
+    if (!normalizedEmail) return 'Please enter your email address.'
+    if (!password) return 'Please enter your password.'
 
-    setAdminToken('admin-token')
-    setAdminUser({ email: normalizedEmail })
+    const result = await loginAdmin(normalizedEmail, password)
+
+    if (!result.ok) return result.message
+
+    setAdminToken(result.token)
+    setAdminUser({ email: result.email ?? normalizedEmail })
 
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, 'admin-token')
-      window.localStorage.setItem(ADMIN_EMAIL_STORAGE_KEY, normalizedEmail)
+      window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, result.token)
+      window.localStorage.setItem(ADMIN_EMAIL_STORAGE_KEY, result.email ?? normalizedEmail)
     }
-  }
 
-  const logout = () => {
+    return null
+  }, [])
+
+  const logout = useCallback(() => {
     setAdminToken(null)
     setAdminUser(null)
 
@@ -60,7 +75,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY)
       window.localStorage.removeItem(ADMIN_EMAIL_STORAGE_KEY)
     }
-  }
+  }, [])
 
   const value = useMemo<AdminAuthContextValue>(
     () => ({
@@ -70,7 +85,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       login,
       logout,
     }),
-    [adminToken, adminUser],
+    [adminToken, adminUser, login, logout],
   )
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>
