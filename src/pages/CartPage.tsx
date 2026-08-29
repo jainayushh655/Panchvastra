@@ -9,8 +9,6 @@ export function CartPage() {
   useDocumentTitle('Cart')
   const { items, refreshCart, subtotal } = useCart()
 
-  const shipping = subtotal > 0 ? (subtotal >= 499 ? 0 : 99) : 0
-
   const handleUpdateQuantity = async (cartItemId: number, quantity: number) => {
     try {
       await updateCartItem(cartItemId, quantity)
@@ -65,7 +63,14 @@ export function CartPage() {
                     Size {line.size}
                     {line.color ? ` · ${line.color}` : ''}
                   </p>
-                  <p className="mt-1 text-sm font-bold">{formatInr(line.price)}</p>
+                  {/* Selling price prominent, MRP struck through — same pattern as the
+                      Product Detail page. Both values come from the cart API. */}
+                  <p className="mt-1 flex items-baseline gap-2">
+                    <span className="text-sm font-bold">{formatInr(line.price)}</span>
+                    {(line.mrp ?? 0) > line.price ? (
+                      <span className="text-xs text-zinc-400 line-through">{formatInr(line.mrp ?? 0)}</span>
+                    ) : null}
+                  </p>
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900">
                       <button
@@ -109,17 +114,10 @@ export function CartPage() {
           <aside className="h-fit rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900/60">
             <p className="type-label">Summary</p>
             <div className="mt-4 space-y-2 text-sm">
+              {/* Shipping is shown at Checkout, where it is calculated — not here. */}
               <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
                 <span>Subtotal</span>
                 <span>{formatInr(subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
-                <span>Shipping</span>
-                <span>{shipping === 0 ? 'Free' : formatInr(shipping)}</span>
-              </div>
-              <div className="flex justify-between border-t border-zinc-200 pt-3 text-lg font-bold text-zinc-900 dark:border-zinc-800 dark:text-white">
-                <span>Total</span>
-                <span>{formatInr(subtotal + shipping)}</span>
               </div>
             </div>
             <Link to="/checkout" className="mt-6 block">

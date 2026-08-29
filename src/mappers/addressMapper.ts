@@ -3,7 +3,23 @@ import { ADDRESS_TYPE_OPTIONS, type AddressType, type ProfileAddress } from '@/l
 
 const KNOWN_ADDRESS_TYPES = new Set<string>(ADDRESS_TYPE_OPTIONS.map((option) => option.value))
 
-/** Backend sends a free-form string; fall back to 'other' for anything the UI can't render. */
+/**
+ * UI value → the enum value the backend accepts.
+ *
+ * The API's `AddressTypeEnum` is case-sensitive Title Case (`Home` | `Work` | `Other`) and
+ * rejects anything else (`"home" is not a valid choice.`), so the internal lowercase UI
+ * values are translated here — the only place the outbound value is produced.
+ */
+const API_ADDRESS_TYPE: Record<AddressType, string> = {
+  home: 'Home',
+  work: 'Work',
+  other: 'Other',
+}
+
+/**
+ * Backend value → the UI value. Matching is case-insensitive, so `HOME`, `Home` and `home`
+ * all select HOME; anything unrecognised falls back to 'other'.
+ */
 function toAddressType(value: string | null | undefined): AddressType {
   const normalized = (value ?? '').trim().toLowerCase()
   return KNOWN_ADDRESS_TYPES.has(normalized) ? (normalized as AddressType) : 'other'
@@ -39,7 +55,7 @@ export function toAddressCreateDto(address: ProfileAddress): AddressCreateDto {
     state: address.state.trim(),
     country: address.country.trim(),
     pincode: address.postalCode.trim(),
-    address_type: address.type,
+    address_type: API_ADDRESS_TYPE[address.type],
     is_default: address.isDefault,
   }
 }

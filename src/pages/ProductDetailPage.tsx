@@ -290,8 +290,13 @@ export function ProductDetailPage() {
       stockQuantity: apiSize?.stock_quantity ?? 0,
     };
   });
-  // Single source of truth for the Notify Me modal too — it only ever sees sizes derived here.
-  const unavailableSizes = uiSizes.filter((sz) => !sz.inStock).map((sz) => sz.size);
+  // Single source of truth for the Notify Me modal too — it only ever sees sizes derived
+  // here. Only sizes the backend actually knows about carry a real variant-size id, and a
+  // restock notification can only be requested for those, so sizes absent from the API
+  // response (id === null) are left out.
+  const unavailableSizes = uiSizes
+    .filter((sz) => !sz.inStock && sz.id !== null)
+    .map((sz) => ({ size: sz.size, variantSizeId: sz.id as number }));
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
@@ -375,7 +380,9 @@ export function ProductDetailPage() {
                   onClick={() => {
                     if (sz.inStock) {
                       setSize(sz.size);
-                    } else {
+                    } else if (unavailableSizes.length > 0) {
+                      // Only open Notify Me when something is actually subscribable —
+                      // otherwise the modal would contradict the crossed-out size shown here.
                       setNotifyMePreselect(sz.size);
                       setNotifyMeOpen(true);
                     }
@@ -402,21 +409,26 @@ export function ProductDetailPage() {
                 {selectedVariantSize.stock_quantity} left
               </p>
             ) : null}
-            <div className="mt-3 flex items-center justify-between gap-4">
-              <p className="font-sans text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Size not available?
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setNotifyMePreselect(undefined);
-                  setNotifyMeOpen(true);
-                }}
-                className="font-sans text-xs font-semibold uppercase tracking-wide text-black underline underline-offset-2 dark:text-white"
-              >
-                Notify Me
-              </button>
-            </div>
+            {/* Shown only when there is a size the user can actually subscribe to, so the
+                row never appears alongside a modal that has nothing to offer. Same
+                `unavailableSizes` list the modal renders — one source of truth. */}
+            {unavailableSizes.length > 0 ? (
+              <div className="mt-3 flex items-center justify-between gap-4">
+                <p className="font-sans text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Size not available?
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNotifyMePreselect(undefined);
+                    setNotifyMeOpen(true);
+                  }}
+                  className="font-sans text-xs font-semibold uppercase tracking-wide text-black underline underline-offset-2 dark:text-white"
+                >
+                  Notify Me
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {!allSizesOutOfStock ? (

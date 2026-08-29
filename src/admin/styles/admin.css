@@ -745,3 +745,94 @@
   .admin-login__card { padding: 24px; }
   .admin-pagination { justify-content: space-between; }
 }
+
+/* ---------------- Coupon form (admin modal) ---------------- */
+
+.admin-form { display: grid; gap: 14px; margin-top: 18px; }
+
+.admin-form__row { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+
+.admin-form__field { display: grid; gap: 6px; min-width: 0; }
+
+.admin-form__field label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+
+.admin-form__field input,
+.admin-form__field select,
+.admin-form__field textarea {
+  width: 100%;
+  padding: 9px 11px;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  color: inherit;
+}
+
+.admin-form__field input:focus,
+.admin-form__field select:focus,
+.admin-form__field textarea:focus {
+  outline: none;
+  border-color: var(--admin-border-strong);
+}
+
+.admin-form__check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.82rem;
+}
+
+.admin-form__check input { width: auto; }
+
+.admin-form__error {
+  margin: 0;
+  color: var(--admin-danger);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 600px) {
+  .admin-form__row { grid-template-columns: 1fr; }
+}
+
+/* ---------------- Variant editor (admin product form) ---------------- */
+
+.admin-modal--wide { width: min(680px, 100%); }
+
+.admin-variant {
+  border: 1px solid var(--admin-border);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.admin-variant__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-variant__title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+
+.admin-variant__sizes { display: grid; gap: 8px; }
+
+.admin-size-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+
+@media (max-width: 600px) {
+  .admin-size-row { grid-template-columns: 1fr 1fr; }
+}

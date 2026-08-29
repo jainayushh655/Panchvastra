@@ -22,6 +22,12 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  // A caller that supplied its own Authorization header wins — admin-only endpoints pass
+  // the admin token explicitly, and the customer token must never overwrite it.
+  if (config.headers.Authorization) {
+    return config;
+  }
+
   const token = readStoredToken();
 
   if (token) {
