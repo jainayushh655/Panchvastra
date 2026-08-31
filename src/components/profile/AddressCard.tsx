@@ -40,7 +40,7 @@ export function AddressCard({
             type="button"
             onClick={onSetDefault}
             disabled={busy}
-            className="font-sans text-[11px] font-semibold uppercase tracking-wide text-zinc-500 underline underline-offset-2 transition-colors hover:text-black dark:text-zinc-500 dark:hover:text-white"
+            className="inline-flex min-h-[32px] items-center font-sans text-[11px] font-semibold uppercase tracking-wide text-zinc-500 underline underline-offset-2 transition-colors hover:text-black dark:text-zinc-500 dark:hover:text-white"
           >
             {busy ? 'Saving…' : 'Set as default'}
           </button>
@@ -64,14 +64,14 @@ export function AddressCard({
           <button
             type="button"
             onClick={onEdit}
-            className="font-sans text-xs font-bold uppercase tracking-wide text-black underline underline-offset-2 dark:text-white"
+            className="inline-flex min-h-[32px] items-center font-sans text-xs font-bold uppercase tracking-wide text-black underline underline-offset-2 dark:text-white"
           >
             Edit
           </button>
           <button
             type="button"
             onClick={onDelete}
-            className="font-sans text-xs font-bold uppercase tracking-wide text-zinc-500 underline underline-offset-2 transition-colors hover:text-black dark:hover:text-white"
+            className="inline-flex min-h-[32px] items-center font-sans text-xs font-bold uppercase tracking-wide text-zinc-500 underline underline-offset-2 transition-colors hover:text-black dark:hover:text-white"
           >
             Delete
           </button>
@@ -81,14 +81,14 @@ export function AddressCard({
           <button
             type="button"
             onClick={onEdit}
-            className="font-sans text-xs font-bold uppercase tracking-wide text-black underline underline-offset-2 dark:text-white"
+            className="inline-flex min-h-[32px] items-center font-sans text-xs font-bold uppercase tracking-wide text-black underline underline-offset-2 dark:text-white"
           >
             Edit
           </button>
           <button
             type="button"
             onClick={onChangeAddress}
-            className="font-sans text-xs font-bold uppercase tracking-wide text-black underline underline-offset-2 dark:text-white"
+            className="inline-flex min-h-[32px] items-center font-sans text-xs font-bold uppercase tracking-wide text-black underline underline-offset-2 dark:text-white"
           >
             Change Address
           </button>

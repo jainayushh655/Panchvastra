@@ -95,7 +95,7 @@ export function ProfilePage() {
         Welcome back{profile.firstName ? `, ${profile.firstName}` : ''}
       </p>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_18rem]">
+      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <ProfileInfoSection
           profile={profile}
           loading={profileLoading}

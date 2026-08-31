@@ -300,7 +300,7 @@ export function ProductDetailPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
-      <div className="grid gap-8 lg:grid-cols-[55fr_45fr] lg:gap-12">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)] lg:gap-12">
         <div className="lg:sticky lg:top-24 lg:h-fit">
           <ProductImageGallery
             key={selectedVariantIndex}
@@ -366,7 +366,7 @@ export function ProductDetailPage() {
               <button
                 type="button"
                 onClick={() => setSizeChartOpen(true)}
-                className="font-sans text-xs font-semibold uppercase tracking-wide text-zinc-600 underline underline-offset-2 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white"
+                className="inline-flex min-h-[32px] items-center font-sans text-xs font-semibold uppercase tracking-wide text-zinc-600 underline underline-offset-2 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white"
               >
                 Size Chart
               </button>
@@ -423,7 +423,7 @@ export function ProductDetailPage() {
                     setNotifyMePreselect(undefined);
                     setNotifyMeOpen(true);
                   }}
-                  className="font-sans text-xs font-semibold uppercase tracking-wide text-black underline underline-offset-2 dark:text-white"
+                  className="inline-flex min-h-[32px] items-center font-sans text-xs font-semibold uppercase tracking-wide text-black underline underline-offset-2 dark:text-white"
                 >
                   Notify Me
                 </button>
@@ -440,7 +440,7 @@ export function ProductDetailPage() {
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   disabled={quantity <= 1}
                   aria-label="Decrease quantity"
-                  className="flex size-6 items-center justify-center text-lg font-semibold text-black transition disabled:opacity-30 dark:text-white"
+                  className="flex size-9 items-center justify-center text-lg font-semibold text-black transition disabled:opacity-30 sm:size-8 dark:text-white"
                 >
                   −
                 </button>
@@ -450,7 +450,7 @@ export function ProductDetailPage() {
                   onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
                   disabled={quantity >= maxQty}
                   aria-label="Increase quantity"
-                  className="flex size-6 items-center justify-center text-lg font-semibold text-black transition disabled:opacity-30 dark:text-white"
+                  className="flex size-9 items-center justify-center text-lg font-semibold text-black transition disabled:opacity-30 sm:size-8 dark:text-white"
                 >
                   +
                 </button>

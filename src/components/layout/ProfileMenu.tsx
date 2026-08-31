@@ -60,7 +60,7 @@ export function ProfileMenu() {
     <div className="relative" ref={menuRef}>
       <button
         type="button"
-        className="rounded-md border border-zinc-700 p-1 text-white transition-colors hover:border-zinc-500 sm:p-2"
+        className="rounded-md border border-zinc-700 p-2 text-white transition-colors hover:border-zinc-500 sm:p-2.5"
         aria-label={user ? 'Open profile menu' : 'Open account menu'}
         aria-haspopup="menu"
         aria-expanded={open}

@@ -735,6 +735,10 @@
 }
 
 @media (max-width: 640px) {
+  /* Give each column room on phones. The card scrolls horizontally, so widening the
+     table keeps cells readable instead of squeezing names to one word per line. */
+  .admin-table { min-width: 720px; }
+
   .admin-content { padding: 16px; }
   .admin-topbar { padding: 12px 16px; }
   .admin-topbar__pill { display: none; }
@@ -835,4 +839,98 @@
 
 @media (max-width: 600px) {
   .admin-size-row { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---------------- Variant images (admin product form) ---------------- */
+
+.admin-images { display: grid; gap: 8px; }
+
+.admin-images__grid {
+  display: grid;
+  /* Fluid: as many 84px thumbs as fit, wrapping down to a single column on 320px. */
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-images__item {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-bg);
+  overflow: hidden;
+}
+
+.admin-images__item--new { border-color: var(--admin-border-strong); }
+
+.admin-images__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.admin-images__tag {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  padding: 2px 6px;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--admin-muted);
+}
+
+.admin-images__tag--new { background: #000000; color: #ffffff; }
+
+.admin-images__remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  /* 32px keeps the control comfortably tappable on phones. */
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #ffffff;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.admin-images__remove:hover { background: #000000; }
+.admin-images__remove:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* The real input is driven by the adjacent button, which matches the form's own styling. */
+.admin-images__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.admin-images__empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--admin-muted);
+}
+
+.admin-images__note {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--admin-muted);
 }

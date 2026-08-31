@@ -41,7 +41,7 @@ export function CartPage() {
           </Link>
         </p>
       ) : (
-        <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_360px]">
+        <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
           <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
             {items.map((line) => (
               <li key={line.cartItemId} className="flex gap-4 py-6">
@@ -100,7 +100,7 @@ export function CartPage() {
                     </div>
                     <button
                       type="button"
-                      className="text-xs font-semibold text-red-500 hover:underline"
+                      className="inline-flex min-h-[32px] items-center text-xs font-semibold text-red-500 hover:underline"
                       onClick={() => handleRemoveItem(line.cartItemId)}
                     >
                       Remove

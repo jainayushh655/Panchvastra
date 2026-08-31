@@ -2,6 +2,7 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { registerUser } from '@/api/auth'
+import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
 import { OtpVerificationModal } from '@/components/auth/OtpVerificationModal'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthProvider'
@@ -104,8 +105,8 @@ export function SignupPage() {
   }
 
   return (
-    <div className="min-h-svh bg-[#f7f7f5] px-4 py-14">
-      <div className="mx-auto w-full max-w-md border border-zinc-200 bg-white p-7 shadow-[0_30px_60px_-36px_rgba(0,0,0,0.15)]">
+    <AuthSplitLayout eyebrow="Panchvastra" headline={<>Join<br />The Label</>}>
+      <div className="pv-auth-rise">
 
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">
           Create your account
@@ -249,6 +250,6 @@ export function SignupPage() {
         onVerify={handleOtpVerify}
         onCancel={() => setIsOtpModalOpen(false)}
       />
-    </div>
+    </AuthSplitLayout>
   )
 }

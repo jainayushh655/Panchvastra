@@ -1,86 +1,85 @@
-import { type FormEvent, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Navigate, useNavigate } from 'react-router-dom'
+import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
+import { OtpAuthForm } from '@/components/auth/OtpAuthForm'
 import { useAdminAuth } from '@/admin/hooks/useAdminAuth'
+import { ADMIN_ROLE_ID } from '@/context/AuthProvider'
+import { Button } from '@/components/ui/Button'
 
+/**
+ * Admin sign-in — the SAME email -> OTP flow the storefront uses, followed by the role check.
+ *
+ * Only the presentation changed here: it now shares `AuthSplitLayout` and `OtpAuthForm` with
+ * the customer login instead of keeping a second copy of the same state machine. The
+ * authentication and authorization behaviour is untouched — POST /v1/login_user/ then
+ * POST /v1/verify_email/ through the existing AuthProvider, no password, no admin-only
+ * endpoint, and the panel opens only when the backend-issued role is the admin role.
+ */
 export function AdminLoginPage() {
-  const { login } = useAdminAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  /**
-   * Synchronous duplicate-submit guard. `submitting` state alone is not enough: two clicks
-   * dispatched in the same tick both read the pre-update value and each fire a request.
-   */
-  const inFlight = useRef(false)
+  const { isAuthenticated, isSignedIn, logout } = useAdminAuth()
+  const [denied, setDenied] = useState(false)
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  // Already signed in with the admin role — go straight through.
+  if (isAuthenticated) {
+    return <Navigate to="/admin/dashboard" replace />
+  }
 
-    if (inFlight.current) return
-    inFlight.current = true
+  // Signed in, but not an admin. The session stays: the person is a normal customer and is
+  // not logged out merely for visiting /admin.
+  if (denied || (isSignedIn && !isAuthenticated)) {
+    return (
+      <AuthSplitLayout eyebrow="Panchvastra" headline={<>Admin<br />Access</>} tagline="Manage the Panchvastra storefront.">
+        <div className="pv-auth-rise">
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Panchvastra Admin</p>
+          <h1 className="mt-2 text-3xl font-bold uppercase tracking-tight text-black">Access denied</h1>
+          <p className="mt-3 text-sm text-zinc-600">You do not have permission to access the admin panel.</p>
+          <p className="mt-2 text-sm text-zinc-600">You are still signed in and can continue shopping as usual.</p>
 
-    setError('')
-    setSubmitting(true)
-
-    try {
-      const failure = await login(email, password)
-
-      if (failure) {
-        setError(failure)
-        return
-      }
-
-      navigate('/admin/dashboard', { replace: true })
-    } finally {
-      inFlight.current = false
-      setSubmitting(false)
-    }
+          <div className="mt-7 space-y-3">
+            <Button
+              type="button"
+              size="lg"
+              className="w-full !border-black !bg-black !text-white hover:!bg-zinc-800"
+              onClick={() => navigate('/', { replace: true })}
+            >
+              Back to Panchvastra
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                logout()
+                setDenied(false)
+              }}
+            >
+              Sign in with another account
+            </Button>
+          </div>
+        </div>
+      </AuthSplitLayout>
+    )
   }
 
   return (
-    <div className="admin-login">
-      <div className="admin-login__card">
-        <div className="admin-login__brand">Panchvastra Admin</div>
-        <h1>Welcome back</h1>
-        <p>Securely manage your storefront catalog.</p>
+    <AuthSplitLayout eyebrow="Panchvastra" headline={<>Admin<br />Access</>} tagline="Manage the Panchvastra storefront.">
+      <OtpAuthForm
+        idPrefix="admin"
+        emailHeading="Admin Login"
+        emailSubtitle="Sign in with your email to manage the storefront."
+        onAuthenticated={(user) => {
+          // Authenticated — now authorize. Anything other than the admin role, including a
+          // missing one, is refused.
+          if (user.roleId !== ADMIN_ROLE_ID) {
+            setDenied(true)
+            return
+          }
 
-        <form className="admin-login__form" onSubmit={handleSubmit} noValidate>
-          <label htmlFor="admin-email">
-            <span>Email</span>
-            <input
-              id="admin-email"
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="admin@panchvastra.com"
-              disabled={submitting}
-            />
-          </label>
-          <label htmlFor="admin-password">
-            <span>Password</span>
-            <input
-              id="admin-password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="••••••••"
-              disabled={submitting}
-            />
-          </label>
-          {error ? (
-            <p className="admin-login__error" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Logging in…' : 'Sign In'}
-          </button>
-        </form>
-      </div>
-    </div>
+          navigate('/admin/dashboard', { replace: true })
+        }}
+      />
+    </AuthSplitLayout>
   )
 }

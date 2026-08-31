@@ -276,7 +276,7 @@ export function CheckoutPage() {
         Review your delivery address and order, then choose your preferred payment method.
       </p>
 
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px]">
+      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
           <DeliveryAddressSection
             addresses={addresses}
@@ -391,7 +391,7 @@ export function CheckoutPage() {
                   name="pay"
                   checked={pay === 'upi'}
                   onChange={() => setPay('upi')}
-                  className="accent-black"
+                  className="size-4 shrink-0 accent-black"
                 />
                 <span className="text-sm text-zinc-800 dark:text-zinc-100">UPI / Cards</span>
               </label>
@@ -401,7 +401,7 @@ export function CheckoutPage() {
                   name="pay"
                   checked={pay === 'cod'}
                   onChange={() => setPay('cod')}
-                  className="accent-black"
+                  className="size-4 shrink-0 accent-black"
                 />
                 <span className="text-sm text-zinc-800 dark:text-zinc-100">Cash on delivery</span>
               </label>

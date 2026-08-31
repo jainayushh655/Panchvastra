@@ -3,6 +3,7 @@ import { Breadcrumb } from '@/admin/components/Breadcrumb'
 import { AdminTable } from '@/admin/components/AdminTable'
 import { AdminBadge, AdminEmptyState, AdminErrorState, AdminLoadingState } from '@/admin/components/AdminStates'
 import { AdminConfirmModal } from '@/admin/components/AdminConfirmModal'
+import { ProductImageUploader, toPendingImages, type PendingImage } from '@/admin/components/ProductImageUploader'
 import {
   createProduct,
   deleteProduct,
@@ -16,6 +17,7 @@ import { getCategories } from '@/api/category'
 import { formatCurrency } from '@/admin/utils/formatters'
 import type { CategoryDto } from '@/types/api/CategoryDto'
 import type { ProductDto } from '@/types/api/ProductDto'
+import type { VariantImageDto } from '@/types/api/ProductDetailDto'
 import type { ProductVariantWriteDto } from '@/types/api/ProductWriteDto'
 
 const PAGE_SIZE = 10
@@ -31,6 +33,10 @@ type VariantForm = {
   is_default: boolean
   is_active: boolean
   sizes: SizeForm[]
+  /** Images already stored for this variant, straight from GET. Read-only. */
+  existingImages: VariantImageDto[]
+  /** Images picked in this session, not yet saved. */
+  newImages: PendingImage[]
 }
 type ProductForm = {
   id: number | null
@@ -54,6 +60,7 @@ const emptySize = (): SizeForm => ({ id: null, size: '', stock_quantity: '0', is
 const emptyVariant = (): VariantForm => ({
   id: null, sku: '', color: '', mrp: '', selling_price: '', cost_price: '',
   is_default: false, is_active: true, sizes: [emptySize()],
+  existingImages: [], newImages: [],
 })
 const emptyForm = (): ProductForm => ({
   id: null, category_id: '', sub_category_id: '', name: '', description: '', fabric: '', gsm: '',
@@ -194,6 +201,9 @@ export function AdminProductsPage() {
             stock_quantity: String(s.stock_quantity ?? 0),
             is_active: s.in_stock !== false,
           })),
+          // Shown read-only: the write contract exposes no image field, deletion included.
+          existingImages: v.images ?? [],
+          newImages: [],
         })),
         delete_variant_ids: [],
         delete_size_ids: [],
@@ -254,6 +264,54 @@ export function AdminProductsPage() {
         delete_size_ids: target?.id ? [...prev.delete_size_ids, target.id] : prev.delete_size_ids,
       }
     })
+
+  /**
+   * Appends picked files to this variant's pending list. Appending (never replacing) is what
+   * lets the admin build a selection up across several trips to the file picker.
+   */
+  const addVariantImages = (index: number, files: FileList) => {
+    const { accepted, rejected } = toPendingImages(files)
+
+    if (rejected.length) {
+      setFormError(
+        rejected.length === 1
+          ? `"${rejected[0]}" is not an image file and was skipped.`
+          : `${rejected.length} files were skipped because they are not images.`,
+      )
+    } else if (accepted.length) {
+      setFormError(null)
+    }
+
+    if (!accepted.length) return
+
+    setForm((prev) =>
+      prev
+        ? {
+            ...prev,
+            variants: prev.variants.map((v, i) =>
+              i === index ? { ...v, newImages: [...v.newImages, ...accepted] } : v,
+            ),
+          }
+        : prev,
+    )
+  }
+
+  /** Drops one pending image and frees its preview URL. Other selections are untouched. */
+  const removeVariantImage = (index: number, key: string) => {
+    setForm((prev) => {
+      if (!prev) return prev
+      const variant = prev.variants[index]
+      const target = variant?.newImages.find((image) => image.key === key)
+      if (target) URL.revokeObjectURL(target.previewUrl)
+
+      return {
+        ...prev,
+        variants: prev.variants.map((v, i) =>
+          i === index ? { ...v, newImages: v.newImages.filter((image) => image.key !== key) } : v,
+        ),
+      }
+    })
+  }
 
   const handleSave = async () => {
     if (!form || savingRef.current) return
@@ -708,6 +766,15 @@ export function AdminProductsPage() {
                         + Add size
                       </button>
                     </div>
+
+                    <ProductImageUploader
+                      variantIndex={vIndex}
+                      existingImages={variant.existingImages}
+                      pendingImages={variant.newImages}
+                      onAdd={(files) => addVariantImages(vIndex, files)}
+                      onRemovePending={(key) => removeVariantImage(vIndex, key)}
+                      disabled={saving}
+                    />
                   </div>
                 ))}
 
