@@ -34,6 +34,7 @@ function mapCartItem(item: CartItemDto): CartItem {
     name: item.product_name,
     image: item.primary_image,
     price: item.selling_price,
+    mrp: item.mrp,
     quantity: item.quantity,
     size: item.size,
     color: item.color,
@@ -75,14 +76,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     void loadCart()
   }, [loadCart])
 
-  const { subtotal, totalItems } = useMemo(() => {
+  const { subtotal, totalItems, itemsMrpTotal } = useMemo(() => {
     let subtotal = 0
     let totalItems = 0
+    // SUM(mrp × quantity), used only as a fallback when the backend sends no summary.
+    let itemsMrpTotal = 0
     items.forEach((item) => {
       subtotal += item.price * item.quantity
       totalItems += item.quantity
+      itemsMrpTotal += (item.mrp ?? item.price) * item.quantity
     })
-    return { subtotal, totalItems }
+    return { subtotal, totalItems, itemsMrpTotal }
   }, [items])
 
   const value = useMemo(
@@ -92,10 +96,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       refreshCart: loadCart,
       subtotal,
       totalItems,
-      totalDiscount: summary.totalDiscount,
-      totalMrp: summary.totalMrp,
+      // The backend summary stays authoritative; the item-derived totals only fill in when
+      // it sends none, so the UI never shows ₹0 against a non-zero subtotal.
+      totalDiscount: summary.totalDiscount || Math.max(0, itemsMrpTotal - subtotal),
+      totalMrp: summary.totalMrp || itemsMrpTotal,
     }),
-    [clear, items, loadCart, subtotal, totalItems, summary],
+    [clear, items, loadCart, subtotal, totalItems, summary, itemsMrpTotal],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

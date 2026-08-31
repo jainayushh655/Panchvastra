@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import {
   validateAddressLine1,
@@ -14,7 +14,8 @@ type AddressFormProps = {
   isOpen: boolean
   /** Present when editing an existing address; omitted when adding a new one. */
   initialAddress?: ProfileAddress
-  onSave: (address: ProfileAddress) => void
+  /** Persists the address. Resolves to an error message to keep the form open, or null on success. */
+  onSave: (address: ProfileAddress) => Promise<string | null>
   onClose: () => void
 }
 
@@ -26,11 +27,18 @@ const inputCls =
 export function AddressForm({ isOpen, initialAddress, onSave, onClose }: AddressFormProps) {
   const [draft, setDraft] = useState<ProfileAddress>(initialAddress ?? createEmptyAddress())
   const [errors, setErrors] = useState<FieldErrors>({})
+  const [saving, setSaving] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  /** Synchronous guard so a fast double-click cannot fire two save requests. */
+  const inFlight = useRef(false)
 
   useEffect(() => {
     if (!isOpen) return
     setDraft(initialAddress ?? createEmptyAddress())
     setErrors({})
+    setSubmitError(null)
+    setSaving(false)
+    inFlight.current = false
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
@@ -52,8 +60,10 @@ export function AddressForm({ isOpen, initialAddress, onSave, onClose }: Address
     if (key in errors) setErrors((prev) => ({ ...prev, [key]: undefined }))
   }
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
+
+    if (inFlight.current) return
 
     const nextErrors: FieldErrors = {}
     const fn = validateFullName(draft.fullName)
@@ -72,7 +82,18 @@ export function AddressForm({ isOpen, initialAddress, onSave, onClose }: Address
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    onSave(draft)
+    inFlight.current = true
+    setSaving(true)
+    setSubmitError(null)
+
+    try {
+      // A returned message means the save failed — keep the form (and the user's edits) open.
+      const failure = await onSave(draft)
+      if (failure) setSubmitError(failure)
+    } finally {
+      inFlight.current = false
+      setSaving(false)
+    }
   }
 
   return (
@@ -257,11 +278,25 @@ export function AddressForm({ isOpen, initialAddress, onSave, onClose }: Address
             <span className="font-sans text-sm text-zinc-700 dark:text-zinc-300">Set as default address</span>
           </label>
 
+          {submitError ? (
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+              {submitError}
+            </p>
+          ) : null}
+
           <div className="flex justify-end gap-3 border-t border-zinc-200 pt-5 dark:border-zinc-800">
-            <Button type="button" variant="ghostLight" onClick={onClose} className="border-zinc-300">
+            <Button
+              type="button"
+              variant="ghostLight"
+              onClick={onClose}
+              className="border-zinc-300"
+              disabled={saving}
+            >
               Cancel
             </Button>
-            <Button type="submit">{isEditing ? 'Update Address' : 'Save Address'}</Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Saving…' : isEditing ? 'Update Address' : 'Save Address'}
+            </Button>
           </div>
         </form>
       </div>

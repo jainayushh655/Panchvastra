@@ -4,10 +4,13 @@ import { Button } from '@/components/ui/Button'
 type DeleteAddressConfirmationProps = {
   isOpen: boolean
   onConfirm: () => void
+  /** Disables the actions and shows a deleting label while the request is in flight. */
+  deleting?: boolean
+  error?: string | null
   onCancel: () => void
 }
 
-export function DeleteAddressConfirmation({ isOpen, onConfirm, onCancel }: DeleteAddressConfirmationProps) {
+export function DeleteAddressConfirmation({ isOpen, onConfirm, onCancel, deleting = false, error = null }: DeleteAddressConfirmationProps) {
   useEffect(() => {
     if (!isOpen) return
     const onKey = (e: KeyboardEvent) => {
@@ -31,12 +34,18 @@ export function DeleteAddressConfirmation({ isOpen, onConfirm, onCancel }: Delet
         <p className="text-base font-semibold text-black dark:text-white">Delete this address?</p>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">This action can't be undone.</p>
 
+        {error ? (
+          <p className="mt-3 text-sm text-red-600 dark:text-red-400" role="alert">
+            {error}
+          </p>
+        ) : null}
+
         <div className="mt-6 flex justify-center gap-3">
-          <Button type="button" variant="ghostLight" onClick={onCancel} className="border-zinc-300">
+          <Button type="button" variant="ghostLight" onClick={onCancel} className="border-zinc-300" disabled={deleting}>
             Cancel
           </Button>
-          <Button type="button" onClick={onConfirm}>
-            Delete
+          <Button type="button" onClick={onConfirm} disabled={deleting}>
+            {deleting ? 'Deleting…' : 'Delete'}
           </Button>
         </div>
       </div>

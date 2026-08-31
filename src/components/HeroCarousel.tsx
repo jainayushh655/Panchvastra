@@ -116,10 +116,16 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
                   aria-label={`Slide ${idx + 1} of ${n}`}
                   aria-current={idx === i}
                   onClick={() => setI(idx)}
-                  className={`h-2 rounded-full transition-all ${
-                    idx === i ? 'w-8 bg-white' : 'w-2 bg-zinc-600 hover:bg-zinc-400'
-                  }`}
-                />
+                  className="flex h-8 items-center justify-center px-2"
+                >
+                  {/* Dot is drawn by the inner span so the button itself can carry a
+                      comfortable tap area without changing the visual size. */}
+                  <span
+                    className={`block h-2 rounded-full transition-all ${
+                      idx === i ? 'w-8 bg-white' : 'w-2 bg-zinc-600 hover:bg-zinc-400'
+                    }`}
+                  />
+                </button>
               ))}
             </div>
           </div>

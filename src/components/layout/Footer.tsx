@@ -94,7 +94,7 @@ export function Footer() {
             <ul className="mt-5 space-y-2.5 text-sm text-zinc-400">
               {shopLinks.map((l) => (
                 <li key={l.label}>
-                  <Link to={l.to} className="transition-colors hover:text-white">
+                  <Link to={l.to} className="inline-flex items-center transition-colors hover:text-white max-sm:min-h-[32px]">
                     {l.label}
                   </Link>
                 </li>
@@ -108,7 +108,7 @@ export function Footer() {
             <ul className="mt-5 space-y-2.5 text-sm text-zinc-400">
               {companyLinks.map((l) => (
                 <li key={l.label}>
-                  <Link to={l.to} className="transition-colors hover:text-white">
+                  <Link to={l.to} className="inline-flex items-center transition-colors hover:text-white max-sm:min-h-[32px]">
                     {l.label}
                   </Link>
                 </li>
@@ -121,22 +121,22 @@ export function Footer() {
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-white">Support</p>
             <ul className="mt-5 space-y-2.5 text-sm text-zinc-400">
               <li>
-                <Link to="/orders" className="transition-colors hover:text-white">
+                <Link to="/orders" className="inline-flex items-center transition-colors hover:text-white max-sm:min-h-[32px]">
                   Track Order
                 </Link>
               </li>
               <li>
-                <a href={wa} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-white">
+                <a href={wa} target="_blank" rel="noopener noreferrer" className="inline-flex items-center transition-colors hover:text-white max-sm:min-h-[32px]">
                   WhatsApp
                 </a>
               </li>
               <li>
-                <a href={ig} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-white">
+                <a href={ig} target="_blank" rel="noopener noreferrer" className="inline-flex items-center transition-colors hover:text-white max-sm:min-h-[32px]">
                   Instagram
                 </a>
               </li>
               <li>
-                <a href={tel} className="transition-colors hover:text-white">
+                <a href={tel} className="inline-flex items-center transition-colors hover:text-white max-sm:min-h-[32px]">
                   Call
                 </a>
               </li>

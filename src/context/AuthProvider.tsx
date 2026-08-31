@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { loginUser as requestLoginOtp, verifyEmail as requestVerifyOtp } from '@/api/auth'
+import { readJwtPayload } from '@/lib/jwtPayload'
 
 const AUTH_TOKEN_STORAGE_KEY = 'pv_auth_token_v1'
 const CURRENT_USER_STORAGE_KEY = 'pv_current_user_v1'
@@ -10,18 +11,65 @@ export type AuthUser = {
   id?: string
   name?: string
   email: string
+  /**
+   * Backend-issued role. `ADMIN_ROLE_ID` (1) identifies an admin. Null when the backend
+   * did not supply one — which is treated as "not an admin", never as a default-allow.
+   */
+  roleId?: number | null
 }
+
+/** The backend's admin role. Admin UI access requires exactly this value. */
+export const ADMIN_ROLE_ID = 1
 
 type AuthContextValue = {
   user: AuthUser | null
   token: string | null
   isAuthenticated: boolean
-  sendOtpForEmail: (input: { email: string }) => Promise<{ ok: true } | { ok: false; error: string }>
+  sendOtpForEmail: (input: { email: string }) => Promise<{ ok: true; message?: string } | { ok: false; error: string }>
   verifyOtpAndLogin: (input: { email: string; otp: string }) => Promise<{ ok: true; user: AuthUser } | { ok: false; error: string }>
   logout: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
+
+/** Coerces a role value to a number; anything unusable becomes null. */
+function toRoleId(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) {
+    return Number(value)
+  }
+  return null
+}
+
+/**
+ * Looks for `role_id` on an object, descending one level into `user`/`data` wrappers.
+ *
+ * The verify_email success body could not be observed in this environment, so rather than
+ * asserting one position this checks the shapes this backend actually uses elsewhere
+ * (top-level, or nested under `data`/`user`). Returns null when absent — the caller then
+ * treats the account as non-admin, so an unreadable role FAILS CLOSED.
+ */
+function readRoleId(source: unknown, depth = 0): number | null {
+  if (!source || typeof source !== 'object' || depth > 2) return null
+
+  const record = source as Record<string, unknown>
+  for (const key of ['role_id', 'roleId']) {
+    const found = toRoleId(record[key])
+    if (found !== null) return found
+  }
+
+  for (const key of ['data', 'user']) {
+    const found = readRoleId(record[key], depth + 1)
+    if (found !== null) return found
+  }
+
+  return null
+}
+
+/** Role from the response envelope, else from the JWT's own claims. */
+function extractRoleId(response: unknown, token: string | null): number | null {
+  return readRoleId(response) ?? readRoleId(readJwtPayload(token))
+}
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
@@ -48,7 +96,13 @@ function readStoredSession() {
 
     const parsedUser = rawUser ? (JSON.parse(rawUser) as Partial<AuthUser> | null) : null
     const user = parsedUser && typeof parsedUser.email === 'string' && parsedUser.email.trim()
-      ? ({ id: parsedUser.id, name: parsedUser.name, email: parsedUser.email.trim().toLowerCase() } as AuthUser)
+      ? ({
+          id: parsedUser.id,
+          name: parsedUser.name,
+          email: parsedUser.email.trim().toLowerCase(),
+          // Re-read from the token so a tampered stored user cannot fake a role.
+          roleId: extractRoleId(null, token) ?? toRoleId(parsedUser.roleId),
+        } as AuthUser)
       : null
 
     return { user, token }
@@ -84,6 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       id: nextUser.id,
       name: nextUser.name,
       email: nextUser.email.trim().toLowerCase(),
+      roleId: nextUser.roleId ?? null,
     }
 
     setUser(normalizedUser)
@@ -114,8 +169,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const response = await requestLoginOtp({ email })
+      // The backend returns the same generic message whether or not the email is
+      // registered; it is surfaced verbatim rather than reworded.
       if (response?.success) {
-        return { ok: true as const }
+        return { ok: true as const, message: response.message }
       }
 
       return {
@@ -141,11 +198,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await requestVerifyOtp({ email, otp: input.otp.trim() })
       if (response?.success) {
+        const token = response.token ?? null
         const nextUser: AuthUser = {
           email,
           name: email.split('@')[0] || email,
+          // Role comes from the backend response/JWT only — never from the email address.
+          roleId: extractRoleId(response, token),
         }
-        persistSession(nextUser, response.token ?? null)
+        persistSession(nextUser, token)
         return { ok: true as const, user: nextUser }
       }
 

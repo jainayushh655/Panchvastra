@@ -91,7 +91,7 @@ export function Navbar() {
         <div className="flex items-center justify-self-end gap-0.5 sm:gap-2.5">
           <Link
             to="/wishlist"
-            className="relative rounded-md border border-zinc-700 p-1 text-white transition-colors hover:border-zinc-500 sm:p-2"
+            className="relative rounded-md border border-zinc-700 p-2 text-white transition-colors hover:border-zinc-500 sm:p-2.5"
             aria-label="Wishlist"
           >
             <svg className="size-4 sm:size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
@@ -110,7 +110,7 @@ export function Navbar() {
           </Link>
           <Link
             to="/cart"
-            className="relative rounded-md border border-zinc-700 p-1 text-white transition-colors hover:border-zinc-500 sm:p-2"
+            className="relative rounded-md border border-zinc-700 p-2 text-white transition-colors hover:border-zinc-500 sm:p-2.5"
             aria-label="Cart"
           >
             <svg className="size-4 sm:size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>

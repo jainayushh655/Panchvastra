@@ -81,6 +81,9 @@ export interface CartItem {
 
   price: number
 
+  /** Original pre-discount price (cart item `mrp`). Absent when the API sends none. */
+  mrp?: number
+
   quantity: number
 }
 
