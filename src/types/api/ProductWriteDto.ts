@@ -60,6 +60,11 @@ export interface ProductUpdateDto extends ProductCreateDto {
   delete_tag_ids?: number[]
   delete_variant_ids?: number[]
   delete_size_ids?: number[]
+  /**
+   * Ids of variant images the admin explicitly removed. Sent ONLY when something was
+   * actually removed — omitting it leaves every existing image untouched.
+   */
+  delete_variant_image_ids?: number[]
 }
 
 /** Query parameters accepted by GET /v1/products_management/, per the published schema. */

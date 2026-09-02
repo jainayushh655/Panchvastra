@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedAdminRoute } from '@/admin/components/ProtectedAdminRoute'
 import { AdminLayout } from '@/admin/layout/AdminLayout'
 import { AdminCategoriesPage } from '@/admin/pages/AdminCategoriesPage'
+import { AdminSubCategoriesPage } from '@/admin/pages/AdminSubCategoriesPage'
 import { AdminCouponsPage } from '@/admin/pages/AdminCouponsPage'
 import { AdminDashboardPage } from '@/admin/pages/AdminDashboardPage'
 import { AdminLoginPage } from '@/admin/pages/AdminLoginPage'
@@ -24,6 +25,8 @@ export function AdminRoutes() {
           <Route path="products" element={<AdminProductsPage />} />
 
           <Route path="categories" element={<AdminCategoriesPage />} />
+
+          <Route path="sub-categories" element={<AdminSubCategoriesPage />} />
 
           <Route path="coupons" element={<AdminCouponsPage />} />
 

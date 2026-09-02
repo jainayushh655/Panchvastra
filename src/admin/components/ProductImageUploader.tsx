@@ -42,9 +42,9 @@ export function toPendingImages(files: FileList | File[]): { accepted: PendingIm
  * `variants[].images[]` as `{ id, image_url, display_order }`, so that relationship is
  * mirrored here rather than inventing a product-level one.
  *
- * Existing images are shown read-only. The product write contract currently exposes no
- * image field at all — including no deletion array — so this component deliberately offers
- * no delete control for them rather than implying support that does not exist.
+ * Existing images keep their backend id. Removing one does NOT call an API immediately — the
+ * id is tracked by the page and sent as `delete_variant_image_ids` on save, so nothing is
+ * destroyed until the admin actually saves.
  */
 export function ProductImageUploader({
   variantIndex,
@@ -52,6 +52,7 @@ export function ProductImageUploader({
   pendingImages,
   onAdd,
   onRemovePending,
+  onRemoveExisting,
   disabled,
 }: {
   variantIndex: number
@@ -59,6 +60,8 @@ export function ProductImageUploader({
   pendingImages: PendingImage[]
   onAdd: (files: FileList) => void
   onRemovePending: (key: string) => void
+  /** Marks a saved image for deletion on the next save. */
+  onRemoveExisting: (imageId: number) => void
   disabled?: boolean
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -89,6 +92,15 @@ export function ProductImageUploader({
             <li className="admin-images__item" key={`existing-${image.id}`}>
               <img src={image.image_url} alt="" loading="lazy" />
               <span className="admin-images__tag">Saved</span>
+              <button
+                type="button"
+                className="admin-images__remove"
+                onClick={() => onRemoveExisting(image.id)}
+                aria-label={`Remove saved image ${image.id}`}
+                disabled={disabled}
+              >
+                ×
+              </button>
             </li>
           ))}
 
@@ -136,12 +148,7 @@ export function ProductImageUploader({
         {ordered.length || pendingImages.length ? '+ Add more images' : '+ Add images'}
       </button>
 
-      {/* Stated plainly rather than letting an admin believe a selection was stored: the
-          product write API exposes no image field yet, so saving cannot include these. */}
-      <p className="admin-images__note">
-        Selected images are previewed here only — the product API does not accept image uploads yet,
-        so they are not sent when you save.
-      </p>
+      <p className="admin-images__note">Images are uploaded when you save this product.</p>
     </div>
   )
 }

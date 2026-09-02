@@ -11,11 +11,14 @@ import {
   getProductsPage,
   readProductApiError,
   updateProduct,
+  type VariantImageFiles,
   type ProductPagination,
 } from '@/api/product'
 import { getCategories } from '@/api/category'
+import { listSubCategories } from '@/api/subCategory'
 import { formatCurrency } from '@/admin/utils/formatters'
 import type { CategoryDto } from '@/types/api/CategoryDto'
+import type { SubCategoryDto } from '@/types/api/SubCategoryDto'
 import type { ProductDto } from '@/types/api/ProductDto'
 import type { VariantImageDto } from '@/types/api/ProductDetailDto'
 import type { ProductVariantWriteDto } from '@/types/api/ProductWriteDto'
@@ -54,6 +57,45 @@ type ProductForm = {
   /** Ids of children the admin removed, soft-deleted by the backend on save. */
   delete_variant_ids: number[]
   delete_size_ids: number[]
+  /** Ids of saved variant images the admin removed. Sent only when non-empty. */
+  delete_variant_image_ids: number[]
+}
+
+/**
+ * `key_highlights` is stored by the API as a JSON string (healthy products read back as
+ * `'["Yarn-dyed stripes", …]'`). The backend re-encodes whatever it receives, so handing the
+ * stored string straight back added one escaping layer per save — which is how product 14
+ * reached twelve nested layers.
+ *
+ * Unwrapping exactly ONE level for the editor, and re-parsing the edited text on save, makes
+ * a save round-trip net-neutral: what goes out is the same shape that came in, so the value
+ * can no longer grow. Exactly one level is unwrapped — the value is never peeled repeatedly
+ * to make it "look clean", so already-corrupted data is reported rather than silently rewritten.
+ */
+function keyHighlightsToText(value: unknown): string {
+  if (value == null) return ''
+  if (typeof value !== 'string') return JSON.stringify(value, null, 2)
+
+  try {
+    const parsed: unknown = JSON.parse(value)
+    // A JSON string unwraps to plain text; anything structured is shown as readable JSON.
+    return typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2)
+  } catch {
+    // Not JSON (plain prose, or a value the backend never encoded) — show it verbatim.
+    return value
+  }
+}
+
+/**
+ * Structured JSON is sent as a real value rather than a string; anything else is sent as the
+ * plain text the admin typed. Nothing is rejected and no input is discarded.
+ */
+function keyHighlightsToPayload(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    return text
+  }
 }
 
 const emptySize = (): SizeForm => ({ id: null, size: '', stock_quantity: '0', is_active: true })
@@ -66,6 +108,7 @@ const emptyForm = (): ProductForm => ({
   id: null, category_id: '', sub_category_id: '', name: '', description: '', fabric: '', gsm: '',
   key_highlights: '', is_featured: false, is_new_arrival: false, is_active: true,
   variants: [emptyVariant()], delete_variant_ids: [], delete_size_ids: [],
+  delete_variant_image_ids: [],
 })
 
 export function AdminProductsPage() {
@@ -76,6 +119,9 @@ export function AdminProductsPage() {
   const [notice, setNotice] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [categories, setCategories] = useState<CategoryDto[]>([])
+  /** Sub-categories for the category currently chosen in the form. */
+  const [subCategories, setSubCategories] = useState<SubCategoryDto[]>([])
+  const [subCategoriesLoading, setSubCategoriesLoading] = useState(false)
 
   const [query, setQuery] = useState('')
   const [search, setSearch] = useState('')
@@ -137,6 +183,34 @@ export function AdminProductsPage() {
     }
   }, [])
 
+  // Sub-categories always come from the dedicated endpoint, re-fetched whenever the form's
+  // category changes (and when the form opens), so the list is never stale after a category
+  // is edited or deleted. GET is public, so no admin token is involved.
+  const formCategoryId = form?.category_id ?? ''
+  useEffect(() => {
+    if (!formCategoryId) {
+      setSubCategories([])
+      return
+    }
+
+    let cancelled = false
+    setSubCategoriesLoading(true)
+    listSubCategories({ category_id: Number(formCategoryId) })
+      .then((rows) => {
+        if (!cancelled) setSubCategories(Array.isArray(rows) ? rows : [])
+      })
+      .catch(() => {
+        if (!cancelled) setSubCategories([])
+      })
+      .finally(() => {
+        if (!cancelled) setSubCategoriesLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [formCategoryId])
+
   // Debounce typing so each keystroke does not fire its own request.
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -175,12 +249,16 @@ export function AdminProductsPage() {
       setForm({
         id: detail.id,
         category_id: detail.category?.id ? String(detail.category.id) : '',
-        sub_category_id: detail.sub_category?.id ? String(detail.sub_category.id) : '',
+        // The detail response carries the subcategory both nested and flat; read either so
+        // an existing value survives an edit-and-save untouched.
+        sub_category_id: (detail.sub_category?.id ?? detail.sub_category_id)
+          ? String(detail.sub_category?.id ?? detail.sub_category_id)
+          : '',
         name: detail.name ?? '',
         description: detail.description ?? '',
         fabric: detail.fabric ?? '',
         gsm: detail.gsm == null ? '' : String(detail.gsm),
-        key_highlights: detail.key_highlights ?? '',
+        key_highlights: keyHighlightsToText(detail.key_highlights),
         is_featured: Boolean(detail.is_featured),
         is_new_arrival: Boolean(detail.is_new_arrival),
         // The detail response carries no product-level `is_active`, so this cannot be
@@ -207,6 +285,7 @@ export function AdminProductsPage() {
         })),
         delete_variant_ids: [],
         delete_size_ids: [],
+        delete_variant_image_ids: [],
       })
     } catch (err) {
       setFormError(readProductApiError(err, 'Could not load this product.'))
@@ -313,6 +392,28 @@ export function AdminProductsPage() {
     })
   }
 
+  /**
+   * Removes a saved image from the form and records its id for deletion on save. No API call
+   * happens here — nothing is destroyed until the admin saves.
+   */
+  const removeExistingImage = (index: number, imageId: number) => {
+    setForm((prev) =>
+      prev
+        ? {
+            ...prev,
+            variants: prev.variants.map((v, i) =>
+              i === index
+                ? { ...v, existingImages: v.existingImages.filter((image) => image.id !== imageId) }
+                : v,
+            ),
+            delete_variant_image_ids: prev.delete_variant_image_ids.includes(imageId)
+              ? prev.delete_variant_image_ids
+              : [...prev.delete_variant_image_ids, imageId],
+          }
+        : prev,
+    )
+  }
+
   const handleSave = async () => {
     if (!form || savingRef.current) return
 
@@ -332,8 +433,11 @@ export function AdminProductsPage() {
       }
     }
 
-    const variants: ProductVariantWriteDto[] = form.variants
-      .filter((v) => v.sku.trim() && v.color.trim())
+    // The variants actually sent, in order. Files are keyed by position in THIS list, so
+    // the two must be derived from the same filtered source.
+    const selectedVariants = form.variants.filter((v) => v.sku.trim() && v.color.trim())
+
+    const variants: ProductVariantWriteDto[] = selectedVariants
       .map((v) => ({
         ...(v.id ? { id: v.id } : {}),
         sku: v.sku.trim(),
@@ -360,12 +464,21 @@ export function AdminProductsPage() {
       ...(form.description.trim() ? { description: form.description.trim() } : {}),
       ...(form.fabric.trim() ? { fabric: form.fabric.trim() } : {}),
       ...(form.gsm.trim() ? { gsm: Number(form.gsm) } : {}),
-      ...(form.key_highlights.trim() ? { key_highlights: form.key_highlights.trim() } : {}),
+      ...(form.key_highlights.trim()
+        ? { key_highlights: keyHighlightsToPayload(form.key_highlights.trim()) }
+        : {}),
       is_featured: form.is_featured,
       is_new_arrival: form.is_new_arrival,
       is_active: form.is_active,
       ...(variants.length ? { variants } : {}),
     }
+
+    // Files keyed by the variant's ZERO-BASED POSITION in `variants` — never by its id.
+    // `selectedVariants` and `variants` are the same list, so indexes line up exactly.
+    const images: VariantImageFiles = new Map()
+    selectedVariants.forEach((variant, index) => {
+      if (variant.newImages.length) images.set(index, variant.newImages.map((image) => image.file))
+    })
 
     savingRef.current = true
     setSaving(true)
@@ -373,14 +486,27 @@ export function AdminProductsPage() {
 
     try {
       if (form.id === null) {
-        await createProduct(base)
+        // No images -> the existing JSON create is used unchanged.
+        await createProduct(base, images)
       } else {
-        await updateProduct({
-          id: form.id,
-          ...base,
-          ...(form.delete_variant_ids.length ? { delete_variant_ids: form.delete_variant_ids } : {}),
-          ...(form.delete_size_ids.length ? { delete_size_ids: form.delete_size_ids } : {}),
-        })
+        await updateProduct(
+          {
+            id: form.id,
+            ...base,
+            // Always present, as arrays, exactly as the backend's update contract shows —
+            // previously these were omitted when empty, which left the keys missing from
+            // `data` entirely. `tags` is deliberately NOT sent: there is no tags editor, so
+            // sending an empty array would clear a product's existing tags.
+            delete_tag_ids: [],
+            delete_variant_ids: form.delete_variant_ids,
+            delete_size_ids: form.delete_size_ids,
+            // Only present when the admin actually removed a saved image.
+            ...(form.delete_variant_image_ids.length
+              ? { delete_variant_image_ids: form.delete_variant_image_ids }
+              : {}),
+          },
+          images,
+        )
       }
 
       setForm(null)
@@ -570,7 +696,9 @@ export function AdminProductsPage() {
                     <select
                       id="product-category"
                       value={form.category_id}
-                      onChange={(e) => patch({ category_id: e.target.value })}
+                      // Changing category invalidates the current subcategory, so it is
+                      // cleared immediately; the effect above loads the new category's list.
+                      onChange={(e) => patch({ category_id: e.target.value, sub_category_id: '' })}
                     >
                       <option value="">Select a category</option>
                       {categories.map((category) => (
@@ -578,6 +706,41 @@ export function AdminProductsPage() {
                           {category.name}
                         </option>
                       ))}
+                    </select>
+                  </div>
+
+                  <div className="admin-form__field">
+                    <label htmlFor="product-sub-category">Subcategory</label>
+                    <select
+                      id="product-sub-category"
+                      value={form.sub_category_id}
+                      disabled={!form.category_id || subCategoriesLoading}
+                      onChange={(e) => patch({ sub_category_id: e.target.value })}
+                    >
+                      <option value="">
+                        {!form.category_id
+                          ? 'Select a category first'
+                          : subCategoriesLoading
+                            ? 'Loading…'
+                            : 'No subcategory'}
+                      </option>
+                      {/* Inactive sub-categories are not offered for new assignments, but the
+                          product's current one is always kept selectable so an existing
+                          sub_category_id is never silently dropped on save. */}
+                      {subCategories
+                        .filter((sub) => sub.is_active !== false || String(sub.id) === form.sub_category_id)
+                        .map((sub) => (
+                          <option key={sub.id} value={String(sub.id)}>
+                            {sub.name}
+                            {sub.is_active === false ? ' (inactive)' : ''}
+                          </option>
+                        ))}
+                      {/* The saved sub-category may not come back in the list at all (for
+                          example once soft-deleted); keep it as an option so saving preserves it. */}
+                      {form.sub_category_id &&
+                      !subCategories.some((sub) => String(sub.id) === form.sub_category_id) ? (
+                        <option value={form.sub_category_id}>Current selection (#{form.sub_category_id})</option>
+                      ) : null}
                     </select>
                   </div>
                 </div>
@@ -773,6 +936,7 @@ export function AdminProductsPage() {
                       pendingImages={variant.newImages}
                       onAdd={(files) => addVariantImages(vIndex, files)}
                       onRemovePending={(key) => removeVariantImage(vIndex, key)}
+                      onRemoveExisting={(imageId) => removeExistingImage(vIndex, imageId)}
                       disabled={saving}
                     />
                   </div>

@@ -157,12 +157,79 @@ export async function getProductsPage(query: ProductAdminQuery = {}) {
 }
 
 /** POST /v1/products_management/ — creates a product with its variants and sizes. */
-export async function createProduct(payload: ProductCreateDto) {
+/**
+ * New image files to upload, keyed by the variant's ZERO-BASED POSITION in the payload's
+ * `variants` array — not by variant id. The backend reads `variant_<index>_images`.
+ */
+export type VariantImageFiles = Map<number, File[]>;
+
+/**
+ * Builds the multipart body the image contract specifies: the whole product payload as a
+ * JSON string under `data`, then every file appended under `variant_<index>_images`.
+ *
+ * Images never appear inside the JSON — no `images` key is added to any variant.
+ */
+function toProductFormData(payload: unknown, images: VariantImageFiles): FormData {
+  const formData = new FormData();
+  formData.append("data", JSON.stringify(payload));
+
+  for (const [index, files] of images) {
+    // Several files share one field name; that is how the backend receives a list.
+    for (const file of files) formData.append(`variant_${index}_images`, file);
+  }
+
+  return formData;
+}
+
+function hasFiles(images: VariantImageFiles | undefined): boolean {
+  if (!images) return false;
+  for (const files of images.values()) if (files.length) return true;
+  return false;
+}
+
+/**
+ * Config for a multipart write. `Content-Type` is explicitly unset so the browser generates
+ * the multipart boundary itself — it is never set to "multipart/form-data" by hand, which
+ * would omit the boundary and break the request. The admin Authorization header is
+ * unchanged and still comes from `adminAuthConfig`.
+ */
+function multipartConfig() {
+  const config = adminAuthConfig();
+  return { ...config, headers: { ...config.headers, "Content-Type": undefined } };
+}
+
+/**
+ * POST /v1/products_management/ — creates a product.
+ *
+ * Without images this sends exactly the JSON body it always has. With images it switches to
+ * multipart, so image-free creates keep their existing behaviour untouched.
+ */
+export async function createProduct(payload: ProductCreateDto, images?: VariantImageFiles) {
+  if (hasFiles(images)) {
+    return api.post("/v1/products_management/", toProductFormData(payload, images!), multipartConfig());
+  }
+
   return api.post("/v1/products_management/", payload, adminAuthConfig());
 }
 
 /** PUT /v1/products_management/ — updates a product; `id` identifies it. */
-export async function updateProduct(payload: ProductUpdateDto) {
+/**
+ * PUT /v1/products_management/ — updates a product; `id` identifies it.
+ *
+ * Multipart is used when images are added OR when existing images are being deleted;
+ * everything else keeps the existing JSON request unchanged.
+ */
+export async function updateProduct(payload: ProductUpdateDto, images?: VariantImageFiles) {
+  const removingImages = Boolean(payload.delete_variant_image_ids?.length);
+
+  if (hasFiles(images) || removingImages) {
+    return api.put(
+      "/v1/products_management/",
+      toProductFormData(payload, images ?? new Map()),
+      multipartConfig(),
+    );
+  }
+
   return api.put("/v1/products_management/", payload, adminAuthConfig());
 }
 
