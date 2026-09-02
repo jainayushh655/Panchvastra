@@ -14,10 +14,16 @@ export interface ProductDetailDto {
     name: string;
   };
 
+  /** Null when the product has no subcategory. */
   sub_category: {
     id: number;
     name: string;
-  };
+  } | null;
+
+  /** Flat mirrors of `sub_category`, also present on the detail response. */
+  sub_category_id?: number | null;
+
+  sub_category_name?: string | null;
 
   tags: TagDto[];
 
