@@ -5,7 +5,7 @@
 
 @theme {
   --font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Poppins', ui-sans-serif, system-ui, sans-serif;
   --color-pv: oklch(0.72 0.19 45);
   --color-pv-dim: oklch(0.62 0.16 42);
   --radius-card: 1.25rem;
