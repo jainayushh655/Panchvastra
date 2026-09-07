@@ -56,11 +56,11 @@ export function Footer() {
   const tel = phoneCallUrl()
 
   return (
-    <footer className="mt-auto border-t border-zinc-800 bg-black px-4 py-14 text-white">
+    <footer className="mt-auto border-t border-zinc-800 bg-black px-4 py-10 text-white">
       <div className="mx-auto max-w-6xl">
-        <div className="grid grid-cols-2 gap-10 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-3 gap-x-6 gap-y-9 sm:grid-cols-4 lg:grid-cols-4">
           {/* BRAND */}
-          <div className="col-span-2 lg:col-span-1">
+          <div className="col-span-3 sm:col-span-1">
             <p className="font-display text-lg font-bold uppercase tracking-[0.18em] text-white">Panchvastra</p>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-zinc-400">
               Modular streetwear built for the feed and for everyday rotation.
@@ -143,31 +143,9 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* JOIN THE LIST */}
-          <div className="col-span-2 sm:col-span-1">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-white">Join The List</p>
-            <p className="mt-5 text-sm text-zinc-400">Early access to drops &amp; restocks.</p>
-            <form
-              onSubmit={(e) => e.preventDefault()}
-              className="mt-4 flex max-w-xs border border-zinc-700 focus-within:border-white"
-            >
-              <input
-                type="email"
-                placeholder="Email"
-                aria-label="Email address"
-                className="w-full bg-transparent px-3 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none"
-              />
-              <button
-                type="submit"
-                className="shrink-0 bg-white px-4 text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-zinc-200"
-              >
-                Join
-              </button>
-            </form>
-          </div>
         </div>
 
-        <div className="mt-12 border-t border-zinc-800 pt-6">
+        <div className="mt-9 border-t border-zinc-800 pt-5">
           <p className="text-center text-[11px] text-zinc-500">© {new Date().getFullYear()} PANCHVASTRA</p>
         </div>
       </div>

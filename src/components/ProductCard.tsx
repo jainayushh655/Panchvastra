@@ -33,7 +33,7 @@ export function ProductCard({ product, variant = 'shop' }: ProductCardProps) {
               src={mainSrc}
               alt={product.name}
               loading="lazy"
-              className={`h-full w-full object-cover grayscale contrast-[1.02] transition-all duration-300 ${
+              className={`h-full w-full object-cover transition-all duration-300 ${
                 hoverSrc ? 'group-hover:opacity-0' : 'group-hover:scale-[1.03]'
               }`}
             />
@@ -43,7 +43,7 @@ export function ProductCard({ product, variant = 'shop' }: ProductCardProps) {
                 alt=""
                 aria-hidden
                 loading="lazy"
-                className="pointer-events-none absolute inset-0 h-full w-full object-cover grayscale contrast-[1.02] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-300 group-hover:opacity-100"
               />
             ) : null}
             {off != null && off > 0 ? (

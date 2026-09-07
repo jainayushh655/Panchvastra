@@ -5,7 +5,7 @@
 
 @theme {
   --font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Poppins', ui-sans-serif, system-ui, sans-serif;
   --color-pv: oklch(0.72 0.19 45);
   --color-pv-dim: oklch(0.62 0.16 42);
   --radius-card: 1.25rem;
@@ -182,4 +182,15 @@
   .pv-auth-rise {
     animation: pv-auth-rise 1ms linear both;
   }
+}
+
+/* Hides the native scrollbar on the mobile product-image carousel while keeping the element
+   scrollable and swipeable. Used only by that track. */
+.pv-hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.pv-hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }

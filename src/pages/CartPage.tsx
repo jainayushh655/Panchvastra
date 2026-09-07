@@ -49,7 +49,7 @@ export function CartPage() {
                   <img
                     src={line.image}
                     alt=""
-                    className="h-28 w-24 rounded-md border border-zinc-200 object-cover grayscale"
+                    className="h-28 w-24 rounded-md border border-zinc-200 object-cover"
                   />
                 </Link>
                 <div className="min-w-0 flex-1">
