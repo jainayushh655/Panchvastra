@@ -27,7 +27,7 @@ export function HomeCategoryGrid({ categories }: { categories: CategoryDto[] }) 
   if (tiles.length <= 1) return null
 
   return (
-    <section className="bg-[#f5f5f3] px-4 py-14 sm:py-20">
+    <section className="bg-white px-4 pb-8 pt-12 sm:pb-10 sm:pt-16">
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">Shop By Category</p>
@@ -36,7 +36,7 @@ export function HomeCategoryGrid({ categories }: { categories: CategoryDto[] }) 
           </h2>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {tiles.map((tile) => (
             <CategoryTile key={tile.key} tile={tile} />
           ))}

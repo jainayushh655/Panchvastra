@@ -74,11 +74,12 @@ export function ShopSortPicker({ sort, open, onOpenChange, onSelect }: ShopSortP
         aria-haspopup="listbox"
         aria-controls={open ? listId : undefined}
         onClick={() => onOpenChange(!open)}
+        aria-label="Sort by"
         className={shopToolbarButtonClass}
       >
         <IconSortMenu className="h-4 w-4 shrink-0 text-zinc-600 dark:text-zinc-300" />
         <span className={shopToolbarLabelClass}>
-          Sort by : <span className="text-zinc-600 dark:text-zinc-300">{sortTriggerLabel(sort)}</span>
+          <span className="text-zinc-600 dark:text-zinc-300">{sortTriggerLabel(sort)}</span>
         </span>
       </button>
 

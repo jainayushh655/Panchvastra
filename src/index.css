@@ -183,3 +183,14 @@
     animation: pv-auth-rise 1ms linear both;
   }
 }
+
+/* Hides the native scrollbar on the mobile product-image carousel while keeping the element
+   scrollable and swipeable. Used only by that track. */
+.pv-hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.pv-hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}

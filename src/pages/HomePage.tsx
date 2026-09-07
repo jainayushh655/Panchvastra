@@ -41,11 +41,24 @@ export function HomePage() {
     }
   }, [])
 
-  // Default the pill filter to the first real category once it loads.
+  /**
+   * Only categories that actually have products are shown to customers. The product list
+   * this page already fetched is the source of truth, so an empty category never reaches
+   * the tiles or the filter pills.
+   */
+  const availableCategories = useMemo(() => {
+    const slugsWithProducts = new Set(products.map((product) => product.categorySlug))
+    return categories.filter((category) => slugsWithProducts.has(categoryNameToSlug(category.name)))
+  }, [categories, products])
+
+  // Default the pill filter to the first AVAILABLE category, and fall back to it if the
+  // selected one stops having products.
   useEffect(() => {
-    if (activeCategory || categories.length === 0) return
-    setActiveCategory(categoryNameToSlug(categories[0].name))
-  }, [categories, activeCategory])
+    if (availableCategories.length === 0) return
+    const slugs = availableCategories.map((category) => categoryNameToSlug(category.name))
+    if (activeCategory && slugs.includes(activeCategory)) return
+    setActiveCategory(slugs[0])
+  }, [availableCategories, activeCategory])
 
   const newArrivals = useMemo(() => {
     const isNew = products.filter((p) => p.isNew)
@@ -62,9 +75,9 @@ export function HomePage() {
     <div>
       <HeroCarousel slides={homepage.heroSlides} />
       <NewArrivalSection products={newArrivals} loading={loading} />
-      <HomeCategoryGrid categories={categories} />
+      <HomeCategoryGrid categories={availableCategories} />
       <div className="bg-white">
-        <HomeCategoryFilters categories={categories} active={activeCategory} onChange={setActiveCategory} />
+        <HomeCategoryFilters categories={availableCategories} active={activeCategory} onChange={setActiveCategory} />
         <HomeProductGrid products={categoryProducts} loading={loading} />
       </div>
     </div>
