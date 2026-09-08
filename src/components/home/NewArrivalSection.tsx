@@ -4,7 +4,7 @@ import type { Product } from '@/types'
 
 export function NewArrivalSection({ products, loading }: { products: Product[]; loading: boolean }) {
   return (
-    <section className="bg-white px-4 py-14 sm:py-20">
+    <section className="bg-white px-4 pb-8 pt-14 sm:pb-10 sm:pt-20">
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">Fresh Drop</p>
@@ -13,7 +13,7 @@ export function NewArrivalSection({ products, loading }: { products: Product[]; 
           </h2>
         </div>
 
-        <div className="mt-10 grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4">
+        <div className="mt-8 grid grid-cols-2 gap-4 sm:gap-5 sm:mt-10 lg:grid-cols-4">
           {loading ? (
             <ProductGridSkeleton count={4} />
           ) : products.length === 0 ? (
