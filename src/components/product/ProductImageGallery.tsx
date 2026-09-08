@@ -72,9 +72,9 @@ export function ProductImageGallery({ images }: Props) {
       </div>
 
       {/* ------------------------------------------- desktop: unchanged rail + main image */}
-      <div className="hidden gap-3 sm:flex sm:flex-row">
+      <div className="@container hidden gap-3 sm:flex sm:flex-row sm:items-start">
         {list.length > 1 ? (
-          <div className="flex gap-2 overflow-x-auto sm:w-20 sm:shrink-0 sm:flex-col sm:overflow-x-visible sm:overflow-y-auto">
+          <div className="flex gap-2 overflow-x-auto sm:max-h-[calc((100cqw-5.75rem)*1.25)] sm:w-20 sm:shrink-0 sm:flex-col sm:overflow-x-visible sm:overflow-y-auto">
             {list.map((src, i) => (
               <button
                 key={`${i}-${src}`}

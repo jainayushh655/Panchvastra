@@ -17,8 +17,21 @@ import type { ProductDetailDto } from '@/types/api/ProductDetailDto'
 import { addToCart } from '@/api/cart'
 import { useAuth } from '@/context/AuthProvider'
 
-/** Standard apparel size run, always shown in this fixed order regardless of what the API returns. */
+/**
+ * Standard apparel run, used ONLY to order the sizes a variant actually has. It is never a
+ * list of sizes to render — a size absent from the API is a size this product does not come
+ * in, so it is not shown at all.
+ */
 const UI_SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'] as const
+
+/**
+ * A configured size is buyable only when the backend both lists it in stock and has
+ * quantity for it. A configured size with `stock_quantity: 0` stays visible and becomes
+ * the Notify Me path — it is out of stock, not non-existent.
+ */
+function isSizeAvailable(sz: { in_stock: boolean; stock_quantity: number }): boolean {
+  return sz.in_stock !== false && sz.stock_quantity > 0
+}
 
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
@@ -273,33 +286,33 @@ export function ProductDetailPage() {
   }
 
   const productSizes = currentVariant?.sizes ?? [];
-  const allSizesOutOfStock = productSizes.length > 0 && productSizes.every((sz) => !sz.in_stock);
+  const allSizesOutOfStock = productSizes.length > 0 && !productSizes.some(isSizeAvailable);
   const wishlisted = isWishlisted(product.id);
   const maxQty = selectedVariantSize ? Math.max(1, Math.min(selectedVariantSize.stock_quantity, 10)) : 1;
   const subtitle = [productDto?.category?.name, productDto?.sub_category?.name].filter(Boolean).join(' · ');
 
-  // Always render the full standard size run; availability for each comes from the real
-  // per-variant API data (a size absent from the API response is treated as unavailable,
-  // same as one explicitly marked `in_stock: false`).
-  const uiSizes = UI_SIZE_OPTIONS.map((label) => {
-    const apiSize = productSizes.find((sz) => sz.size === label);
-    return {
-      size: label,
-      id: apiSize?.id ?? null,
-      inStock: apiSize?.in_stock ?? false,
-      stockQuantity: apiSize?.stock_quantity ?? 0,
-    };
-  });
-  // Single source of truth for the Notify Me modal too — it only ever sees sizes derived
-  // here. Only sizes the backend actually knows about carry a real variant-size id, and a
-  // restock notification can only be requested for those, so sizes absent from the API
-  // response (id === null) are left out.
+  // Only the sizes this variant is actually configured with are rendered, in the standard
+  // run's order. Sizes the API does not return are simply not offered; a configured size
+  // with zero stock is still shown, marked unavailable.
+  const sizeRank = new Map<string, number>(UI_SIZE_OPTIONS.map((label, index) => [label, index]));
+  const uiSizes = productSizes
+    .map((apiSize) => ({
+      size: apiSize.size,
+      id: apiSize.id,
+      inStock: isSizeAvailable(apiSize),
+      stockQuantity: apiSize.stock_quantity,
+    }))
+    // Anything outside the standard run keeps its API order, after the known sizes.
+    .sort((a, b) => (sizeRank.get(a.size) ?? Number.MAX_SAFE_INTEGER) - (sizeRank.get(b.size) ?? Number.MAX_SAFE_INTEGER));
+  // Single source of truth for the Notify Me modal too. Every entry here is a real
+  // configured size carrying its backend `variant_size_id`, so a restock notification can
+  // only ever be requested for a size the product actually comes in.
   const unavailableSizes = uiSizes
-    .filter((sz) => !sz.inStock && sz.id !== null)
-    .map((sz) => ({ size: sz.size, variantSizeId: sz.id as number }));
+    .filter((sz) => !sz.inStock)
+    .map((sz) => ({ size: sz.size, variantSizeId: sz.id }));
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8 lg:py-10 xl:max-w-[88rem] 2xl:max-w-[96rem]">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)] lg:gap-12">
         <div className="lg:sticky lg:top-24 lg:h-fit">
           <ProductImageGallery
@@ -312,7 +325,7 @@ export function ProductDetailPage() {
           />
         </div>
 
-        <div className="flex max-w-xl flex-col gap-7">
+        <div className="flex max-w-xl flex-col gap-7 lg:max-w-none lg:gap-8">
           <div>
             <h1 className="type-product-detail-title">{product.name}</h1>
             {subtitle ? <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">{subtitle}</p> : null}
