@@ -2,6 +2,7 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { registerUser } from '@/api/auth'
+import { AuthCarousel } from '@/components/AuthCarousel'
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
 import { OtpVerificationModal } from '@/components/auth/OtpVerificationModal'
 import { Button } from '@/components/ui/Button'
@@ -105,7 +106,12 @@ export function SignupPage() {
   }
 
   return (
-    <AuthSplitLayout eyebrow="Panchvastra" headline={<>Join<br />The Label</>}>
+    <AuthSplitLayout
+      eyebrow="Panchvastra"
+      headline={<>Join<br />The Label</>}
+      // Brand imagery only — the signup + OTP flow below is untouched.
+      media={<AuthCarousel slideClassName="h-full" className="h-full" showSkeleton={false} />}
+    >
       <div className="pv-auth-rise">
 
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">

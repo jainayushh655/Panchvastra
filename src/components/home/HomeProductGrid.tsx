@@ -31,7 +31,7 @@ export function HomeProductGrid({ products, loading }: { products: Product[]; lo
               to="/shop"
               className="inline-flex items-center gap-2 bg-black px-8 py-3 text-xs font-bold uppercase tracking-[0.16em] text-white transition-colors hover:bg-zinc-800"
             >
-              Shop All
+              View All
               <span aria-hidden>→</span>
             </Link>
           </div>

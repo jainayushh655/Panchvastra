@@ -69,7 +69,7 @@ export function OtpAuthForm({
   // initial send and the resend because both hit the same endpoint.
   const sendingRef = useRef(false)
   const verifyingRef = useRef(false)
-  const otpInputRef = useRef<HTMLInputElement | null>(null)
+  const otpInputRefs = useRef<Array<HTMLInputElement | null>>([])
 
   const emailError = emailTouched ? validateEmail(email) : null
   const canSend = !emailError && !isSending
@@ -86,9 +86,16 @@ export function OtpAuthForm({
     return () => window.clearInterval(timer)
   }, [countdown])
 
+  useEffect(() => {
+    if (!notice) return
+
+    const timer = window.setTimeout(() => setNotice(''), 2000)
+    return () => window.clearTimeout(timer)
+  }, [notice])
+
   // Move focus to the OTP field as the step changes, so keyboard users aren't stranded.
   useEffect(() => {
-    if (otpSent) otpInputRef.current?.focus()
+    if (otpSent) otpInputRefs.current[0]?.focus()
   }, [otpSent])
 
   /** Shared by the first Send OTP and every Resend — one request path, one guard. */
@@ -179,7 +186,8 @@ export function OtpAuthForm({
   // ------------------------------------------------------------------ OTP step
   if (otpSent) {
     return (
-      <div className="pv-auth-rise" key="otp-step">
+      <>
+        <div className="pv-auth-rise" key="otp-step">
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Welcome back</p>
         <h1 className="mt-2 text-3xl font-bold uppercase tracking-tight text-black">Verify OTP</h1>
         <p className="mt-2 text-sm text-zinc-600">
@@ -193,33 +201,55 @@ export function OtpAuthForm({
             <label htmlFor={`${idPrefix}-otp`} className={labelClass}>
               OTP
             </label>
-            <input
-              id={`${idPrefix}-otp`}
-              ref={otpInputRef}
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              // Digits only, capped at 6. Runs on paste too, so a pasted code is cleaned
-              // rather than rejected.
-              value={otp}
-              onChange={(event) => {
-                setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))
-                setError('')
-                setNotice('')
-              }}
-              placeholder="Enter 6-digit OTP"
-              aria-describedby={`${idPrefix}-otp-status`}
-              aria-invalid={error ? true : undefined}
-              className={`${inputClass} mt-1 text-center text-lg font-semibold tracking-[0.5em]`}
-            />
+            <div className="mt-1 flex max-w-sm gap-2" role="group" aria-label="6-digit OTP">
+              {Array.from({ length: 6 }, (_, index) => (
+                <input
+                  key={index}
+                  id={`${idPrefix}-otp-${index + 1}`}
+                  ref={(element) => {
+                    otpInputRefs.current[index] = element
+                  }}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                  maxLength={1}
+                  value={otp[index] ?? ''}
+                  onChange={(event) => {
+                    const digit = event.target.value.replace(/\D/g, '').slice(-1)
+                    const nextOtp = otp.slice(0, index) + digit + otp.slice(index + 1)
+                    setOtp(nextOtp.slice(0, 6))
+                    setError('')
+                    setNotice('')
+                    if (digit && index < 5) otpInputRefs.current[index + 1]?.focus()
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Backspace' && !otp[index] && index > 0) {
+                      otpInputRefs.current[index - 1]?.focus()
+                    }
+                  }}
+                  onPaste={(event) => {
+                    event.preventDefault()
+                    const pastedOtp = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+                    if (!pastedOtp) return
+                    setOtp(pastedOtp)
+                    setError('')
+                    setNotice('')
+                    otpInputRefs.current[Math.min(pastedOtp.length, 6) - 1]?.focus()
+                  }}
+                  aria-label={`OTP digit ${index + 1}`}
+                  aria-describedby={`${idPrefix}-otp-status`}
+                  aria-invalid={error ? true : undefined}
+                  className={`${inputClass} h-12 min-w-0 flex-1 px-1 text-center text-lg font-semibold`}
+                />
+              ))}
+            </div>
           </div>
 
-          <div id={`${idPrefix}-otp-status`} aria-live="polite" className="min-h-5">
+          <div id={`${idPrefix}-otp-status`} aria-live="polite" className="min-h-0">
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
-            {!error && notice ? <p className="text-sm text-emerald-600">{notice}</p> : null}
           </div>
 
-          <Button type="submit" size="lg" className={primaryButton} disabled={!canVerify}>
+          <Button type="submit" size="lg" className={`${primaryButton} max-w-sm`} disabled={!canVerify}>
             {isVerifying ? 'Verifying...' : 'Verify OTP'}
           </Button>
 
@@ -252,7 +282,19 @@ export function OtpAuthForm({
         >
           Use a different email
         </button>
-      </div>
+
+        </div>
+
+        {notice ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-5 right-5 z-50 max-w-[calc(100vw-2.5rem)] bg-zinc-800 px-4 py-3 text-sm font-medium text-white shadow-lg"
+          >
+            {notice}
+          </div>
+        ) : null}
+      </>
     )
   }
 
@@ -286,7 +328,7 @@ export function OtpAuthForm({
           />
         </div>
 
-        <div id={`${idPrefix}-email-status`} aria-live="polite" className="min-h-5">
+        <div id={`${idPrefix}-email-status`} aria-live="polite" className="min-h-0">
           {emailError ? <p className="text-sm text-red-600">{emailError}</p> : null}
           {!emailError && error ? <p className="text-sm text-red-600">{error}</p> : null}
         </div>

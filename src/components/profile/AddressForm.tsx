@@ -8,6 +8,7 @@ import {
   validatePhoneIndia,
   validateState,
 } from '@/lib/formValidation'
+import { INDIAN_STATES_AND_UT } from '@/lib/indianStates'
 import { ADDRESS_TYPE_OPTIONS, createEmptyAddress, type ProfileAddress } from '@/lib/mockProfile'
 
 type AddressFormProps = {
@@ -228,13 +229,19 @@ export function AddressForm({ isOpen, initialAddress, onSave, onClose }: Address
               <label htmlFor="addr-state" className="type-label">
                 State
               </label>
-              <input
+              <select
                 id="addr-state"
-                type="text"
                 value={draft.state}
                 onChange={(e) => setField('state', e.target.value)}
-                className={`mt-1.5 ${inputCls}`}
-              />
+                className={`mt-1.5 ${inputCls} cursor-pointer`}
+              >
+                <option value="">Select state</option>
+                {INDIAN_STATES_AND_UT.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </select>
               {errors.state ? <p className="mt-1.5 text-xs text-red-600">{errors.state}</p> : null}
             </div>
 

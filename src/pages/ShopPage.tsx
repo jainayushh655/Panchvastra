@@ -270,15 +270,10 @@ export function ShopPage() {
         {showProductLoading ? (
           <ProductGridSkeleton count={8} />
         ) : list.length === 0 ? (
-          <div className="col-span-full border border-zinc-200 bg-zinc-50 px-6 py-14 text-center dark:border-zinc-800 dark:bg-zinc-950/50">
-            <p className="font-medium text-zinc-900 dark:text-zinc-100">No products to show.</p>
-            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              {hasActiveFilters
-                ? 'Try resetting filters — size, price range, search, category, or subcategory can hide everything.'
-                : 'No products found.'}
-            </p>
+          <div className="col-span-full px-4 py-12 text-center">
+            <p className="font-medium text-zinc-900 dark:text-zinc-100">No product for this choice.</p>
             {hasActiveFilters ? (
-              <Button type="button" className="mt-6" onClick={resetAllFilters}>
+              <Button type="button" className="mt-5" onClick={resetAllFilters}>
                 Reset Filter
               </Button>
             ) : null}

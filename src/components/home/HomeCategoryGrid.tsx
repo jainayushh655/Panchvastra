@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { categoryNameToSlug } from '@/lib/categorySlug'
-import { categoryPlaceholderImage, NEW_DROPS_TILE } from '@/lib/homeCategories'
+import { categoryPlaceholderImage } from '@/lib/homeCategories'
 import type { CategoryDto } from '@/types/api/CategoryDto'
 
 type Tile = {
@@ -21,22 +21,22 @@ export function HomeCategoryGrid({ categories }: { categories: CategoryDto[] }) 
         image: c.image_url?.trim() || categoryPlaceholderImage(slug),
       }
     }),
-    { key: 'new-drops', ...NEW_DROPS_TILE },
   ]
 
-  if (tiles.length <= 1) return null
+  // Every tile is now a real category, so the section hides only when there are none.
+  // (The old `<= 1` allowed for the static New Drops tile always occupying a slot.)
+  if (tiles.length === 0) return null
 
   return (
-    <section className="bg-[#f5f5f3] px-4 py-14 sm:py-20">
+    <section className="bg-white px-4 pb-6 pt-8 sm:pb-7 sm:pt-10">
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">Shop By Category</p>
-          <h2 className="mt-2 font-display text-3xl font-bold uppercase tracking-tight text-black sm:text-4xl">
-            Category Edit
+          <h2 className="font-display text-3xl font-bold uppercase tracking-tight text-black sm:text-4xl">
+            Shop By Category
           </h2>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid grid-cols-1 gap-3 sm:mt-10 sm:grid-cols-2 lg:grid-cols-3">
           {tiles.map((tile) => (
             <CategoryTile key={tile.key} tile={tile} />
           ))}

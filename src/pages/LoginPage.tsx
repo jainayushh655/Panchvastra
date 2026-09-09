@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { AuthCarousel } from '@/components/AuthCarousel'
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
 import { OtpAuthForm } from '@/components/auth/OtpAuthForm'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -22,7 +23,12 @@ export function LoginPage() {
       : '/'
 
   return (
-    <AuthSplitLayout eyebrow="Panchvastra" headline={<>New<br />Arrivals</>}>
+    <AuthSplitLayout
+      eyebrow="Panchvastra"
+      headline={<>New<br />Arrivals</>}
+      // Brand imagery only — the OTP flow below is untouched.
+      media={<AuthCarousel slideClassName="h-full" className="h-full" showSkeleton={false} />}
+    >
       <OtpAuthForm
         idPrefix="login"
         emailHeading="Login"

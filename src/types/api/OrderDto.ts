@@ -63,13 +63,61 @@ export interface OrderDto {
   items?: OrderItemDto[] | null
   order_items?: OrderItemDto[] | null
   products?: OrderItemDto[] | null
+
+  /**
+   * Shipment fields. These two names are CONFIRMED by the published
+   * `UpdateOrderStatusRequest` schema, which writes exactly `tracking_id` and
+   * `courier_name`; they are read back under the same names.
+   */
+  tracking_id?: string | null
+  courier_name?: string | null
+
+  /**
+   * Payment fields, using the names from `CodOrderData` — a REAL OBSERVED response from
+   * POST /v1/cod_order/, which creates an order on this same backend.
+   */
+  payment_method?: string | null
+  payment_status?: string | null
+
   [key: string]: unknown
 }
 
-/** Query parameters accepted by GET /v1/orders/, per the published schema. */
+/**
+ * Query parameters accepted by GET /v1/orders/, per the published schema.
+ *
+ * `order_type` and `search_parameter` were added to the schema alongside admin access;
+ * `search_parameter` is documented admin-only (order number, customer name, or email).
+ * Note the schema no longer documents a `status` parameter, so it is not sent.
+ */
 export interface OrderQuery {
   id?: number | string
+  order_type?: 'current' | 'history'
   page?: number
   page_size?: number
-  status?: string
+  search_parameter?: string
 }
+
+/**
+ * Body for PUT /v1/orders/ — admin only.
+ *
+ * Mirrors `UpdateOrderStatusRequest` exactly: `id` and `order_status` are required,
+ * `tracking_id` and `courier_name` are optional. Nothing else is ever sent; the backend
+ * stamps shipped_at / delivered_at / cancelled_at itself.
+ */
+export interface UpdateOrderStatusDto {
+  id: number | string
+  order_status: string
+  tracking_id?: string
+  courier_name?: string
+}
+
+/** The status vocabulary from the published `OrderStatusEnum`. */
+export const ORDER_STATUS_VALUES = [
+  'PLACED',
+  'CONFIRMED',
+  'PACKED',
+  'SHIPPED',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+  'CANCELLED',
+] as const

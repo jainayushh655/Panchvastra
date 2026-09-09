@@ -13,7 +13,7 @@ export function HomeCategoryFilters({
   if (categories.length === 0) return null
 
   return (
-    <div role="tablist" aria-label="Shop by category" className="flex flex-wrap items-center justify-center gap-2.5 px-4 py-10">
+    <div role="tablist" aria-label="Shop by category" className="flex flex-wrap items-center justify-center gap-2.5 px-4 pb-8 pt-1 sm:pb-9">
       {categories.map((c) => {
         const slug = categoryNameToSlug(c.name)
         const selected = active === slug

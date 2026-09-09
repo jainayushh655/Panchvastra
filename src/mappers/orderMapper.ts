@@ -46,7 +46,10 @@ const ITEM_PRICE_KEYS = ['selling_price', 'price', 'unit_price', 'mrp']
 
 function mapOrderItem(dto: OrderItemDto, index: number): CustomerOrderItem {
   const record = dto as Record<string, unknown>
-  const productId = firstString(record, ['product_id', 'id'])
+  // An order item's own `id` is the LINE id, not the product's — linking with it would open
+  // the wrong product detail page. Only a product-specific key is accepted, so an item
+  // without one renders with no link rather than a wrong one.
+  const productId = firstString(record, ['product_id'])
 
   return {
     key: firstString(record, ['id', 'order_item_id', 'cart_item_id']) || `${productId || 'item'}-${index}`,
@@ -64,7 +67,32 @@ const ORDER_DATE_KEYS = ['created_at', 'order_date', 'placed_at', 'created', 'da
 const ORDER_TOTAL_KEYS = ['total_amount', 'total_price', 'grand_total', 'final_amount', 'total', 'amount']
 const ORDER_ITEMS_KEYS = ['items', 'order_items', 'products']
 
-/** API record → the model the Orders page consumes. */
+/**
+ * Customer identity keys.
+ *
+ * The backend definitely holds a customer name and email on an order — admin search is
+ * documented as matching on both — but the field names are not published, so these are
+ * candidates and an unmatched value stays '' for the UI to omit.
+ */
+const ORDER_CUSTOMER_NAME_KEYS = ['customer_name', 'user_name', 'name', 'full_name']
+const ORDER_CUSTOMER_EMAIL_KEYS = ['customer_email', 'user_email', 'email']
+
+/** Reads a value that may sit on the order itself or inside a nested customer object. */
+function nestedString(record: Record<string, unknown>, keys: string[]): string {
+  const direct = firstString(record, keys)
+  if (direct) return direct
+
+  for (const wrapper of ['customer', 'user', 'created_by']) {
+    const value = record[wrapper]
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const found = firstString(value as Record<string, unknown>, keys)
+      if (found) return found
+    }
+  }
+  return ''
+}
+
+/** API record → the model the Orders pages consume. */
 export function mapOrder(dto: OrderDto, index = 0): CustomerOrder {
   const record = dto as Record<string, unknown>
   const id = firstString(record, ['id', 'order_id'])
@@ -79,6 +107,14 @@ export function mapOrder(dto: OrderDto, index = 0): CustomerOrder {
     items: firstArray(record, ORDER_ITEMS_KEYS).map((item, itemIndex) =>
       mapOrderItem((item ?? {}) as OrderItemDto, itemIndex),
     ),
+    customerName: nestedString(record, ORDER_CUSTOMER_NAME_KEYS),
+    customerEmail: nestedString(record, ORDER_CUSTOMER_EMAIL_KEYS),
+    // Confirmed names: `payment_method`/`payment_status` from the observed COD order
+    // response, `tracking_id`/`courier_name` from the published PUT contract.
+    paymentMethod: firstString(record, ['payment_method']),
+    paymentStatus: firstString(record, ['payment_status']),
+    trackingId: firstString(record, ['tracking_id']),
+    courierName: firstString(record, ['courier_name']),
   }
 }
 
@@ -124,17 +160,17 @@ export function readPageInfo(payload: unknown, requestedPage: number): OrderPage
   const record = payload as Record<string, unknown>
 
   // DRF PageNumberPagination: `next` is a URL string, or null on the last page.
-  if (typeof record.next === 'string' && record.next.trim()) return { hasNextPage: true, totalCount: firstNumber(record, ['count', 'total_count', 'total']) }
-  if (record.next === null) return { hasNextPage: false, totalCount: firstNumber(record, ['count', 'total_count', 'total']) }
+  if (typeof record.next === 'string' && record.next.trim()) return { hasNextPage: true, totalCount: firstNumber(record, ['count', 'total_count', 'total_records', 'total']) }
+  if (record.next === null) return { hasNextPage: false, totalCount: firstNumber(record, ['count', 'total_count', 'total_records', 'total']) }
 
   if (typeof record.has_next === 'boolean') {
-    return { hasNextPage: record.has_next, totalCount: firstNumber(record, ['count', 'total_count', 'total']) }
+    return { hasNextPage: record.has_next, totalCount: firstNumber(record, ['count', 'total_count', 'total_records', 'total']) }
   }
 
   const totalPages = firstNumber(record, ['total_pages', 'num_pages', 'page_count'])
   if (totalPages !== null) {
     const current = firstNumber(record, ['page', 'current_page']) ?? requestedPage
-    return { hasNextPage: current < totalPages, totalCount: firstNumber(record, ['count', 'total_count', 'total']) }
+    return { hasNextPage: current < totalPages, totalCount: firstNumber(record, ['count', 'total_count', 'total_records', 'total']) }
   }
 
   return empty
