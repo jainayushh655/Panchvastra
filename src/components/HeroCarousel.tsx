@@ -11,6 +11,20 @@ type Props = {
   autoMs?: number
 }
 
+/**
+ * Desktop-only prev/next control.
+ *
+ * Hidden below `md` so the existing mobile hero — its dots, autoplay and layout — is
+ * untouched. The translucent fill plus hairline border keeps it legible over any
+ * admin-uploaded image while staying in the site's black/white editorial language.
+ */
+const arrowClass = (position: string) =>
+  'absolute top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center ' +
+  'border border-white/35 bg-black/45 pb-1 text-3xl leading-none text-white backdrop-blur-sm ' +
+  'transition-colors hover:border-white hover:bg-black/75 focus-visible:outline ' +
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:flex ' +
+  position
+
 export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -30,6 +44,14 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
   const slide = slides[i]
   const bgImage = slide.backgroundImage?.trim()
 
+  /**
+   * Manual navigation writes to the same `i` the dots and autoplay already use, wrapping
+   * around whatever number of slides the backend returned. Because the autoplay effect
+   * depends on `i`, moving a slide re-arms that one timer for a fresh window — no second
+   * interval is ever created.
+   */
+  const go = (step: number) => setI((x) => (x + step + n) % n)
+
   return (
     <section
       className="relative overflow-hidden border-b border-zinc-800 bg-[#050505] px-4 py-16 md:py-24"
@@ -44,7 +66,10 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.45 }}
-            className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat grayscale"
+            // No grayscale: these are admin-uploaded carousel images from
+            // /v1/auth_carousel/, so they show in their real colours. The scrim below still
+            // keeps the headline legible over them.
+            className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
             style={{ backgroundImage: `url(${JSON.stringify(bgImage)})` }}
             aria-hidden
           />
@@ -131,6 +156,28 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
           </div>
         ) : null}
       </div>
+
+      {/* ------------------------------------- desktop prev / next, 2+ slides only */}
+      {n > 1 ? (
+        <>
+          <button
+            type="button"
+            onClick={() => go(-1)}
+            aria-label="Previous slide"
+            className={arrowClass('left-3 lg:left-6')}
+          >
+            <span aria-hidden>&lsaquo;</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => go(1)}
+            aria-label="Next slide"
+            className={arrowClass('right-3 lg:right-6')}
+          >
+            <span aria-hidden>&rsaquo;</span>
+          </button>
+        </>
+      ) : null}
     </section>
   )
 }

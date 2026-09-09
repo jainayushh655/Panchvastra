@@ -15,6 +15,11 @@
 export interface CustomerOrderItem {
   /** Stable key for rendering; falls back to the list index when the API sends no id. */
   key: string
+  /**
+   * The product's own id, used for the existing `/product/:id` route. '' when the response
+   * carries no product-specific id — the UI then renders the item without a link rather
+   * than guessing one from the order-line id.
+   */
   productId: string
   name: string
   imageUrl: string
@@ -38,6 +43,23 @@ export interface CustomerOrder {
   /** Order total as reported by the backend, or null when it reports none. */
   total: number | null
   items: CustomerOrderItem[]
+
+  /**
+   * Fields the admin order list needs. They are additive and optional: the customer page
+   * ignores them, so there is one order model rather than two competing ones.
+   *
+   * `trackingId`/`courierName` use the names CONFIRMED by the PUT contract, and
+   * `paymentMethod`/`paymentStatus` the names from the observed COD order response.
+   * `customerName`/`customerEmail` are resolved from candidates — the backend is known to
+   * hold them (admin search matches on customer name and email) but their JSON field names
+   * are not published, so they stay '' when unmatched and the UI simply omits them.
+   */
+  customerName: string
+  customerEmail: string
+  paymentMethod: string
+  paymentStatus: string
+  trackingId: string
+  courierName: string
 }
 
 /** Pagination metadata, populated only from fields the response actually contains. */

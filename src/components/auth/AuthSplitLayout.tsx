@@ -16,6 +16,7 @@ export function AuthSplitLayout({
   eyebrow,
   headline,
   tagline = 'Premium essentials, made to be worn every day.',
+  media,
   children,
 }: {
   /** Small uppercase label above the headline in the brand panel. */
@@ -24,6 +25,11 @@ export function AuthSplitLayout({
   headline: ReactNode
   /** Supporting line under the headline. */
   tagline?: string
+  /**
+   * Optional imagery for the brand panel, rendered behind the headline. Opt-in, so the
+   * screens that do not pass it (admin login) keep the CSS-only panel exactly as before.
+   */
+  media?: ReactNode
   /** The authentication form. */
   children: ReactNode
 }) {
@@ -32,11 +38,25 @@ export function AuthSplitLayout({
       {/* ---------------------------------------------------------- brand panel */}
       <aside
         className="relative flex min-h-[168px] items-end overflow-hidden bg-black px-6 py-8 sm:min-h-[200px] lg:min-h-svh lg:px-12 lg:py-14"
-        aria-hidden
+        // Purely decorative when it is CSS only. With imagery the panel holds real content,
+        // so it is exposed and the decorative layers below carry their own `aria-hidden`.
+        aria-hidden={media ? undefined : true}
       >
+        {media ? (
+          <>
+            <div className="absolute inset-0">{media}</div>
+            {/* Scrim so the headline stays legible over any photograph. */}
+            <div
+              className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25"
+              aria-hidden
+            />
+          </>
+        ) : null}
+
         {/* Very slow, very faint diagonal weave — the "fabric" texture, drawn in CSS. */}
         <div
           className="pv-auth-drift pointer-events-none absolute inset-0 opacity-[0.13]"
+          aria-hidden
           style={{
             backgroundImage:
               'repeating-linear-gradient(135deg, #ffffff 0 1px, transparent 1px 22px), repeating-linear-gradient(45deg, #ffffff 0 1px, transparent 1px 22px)',
@@ -44,14 +64,14 @@ export function AuthSplitLayout({
         />
 
         {/* Single soft light pass, so the panel is never completely static. */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
           <div className="pv-auth-sweep absolute inset-x-0 h-1/2 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
         </div>
 
         {/* Hairline frame, echoing the thin borders used across the site. */}
-        <div className="pointer-events-none absolute inset-4 border border-white/15 lg:inset-8" />
+        <div className="pointer-events-none absolute inset-4 border border-white/15 lg:inset-8" aria-hidden />
 
-        <div className="relative">
+        <div className="pointer-events-none relative">
           <p className="text-[10px] font-bold uppercase tracking-[0.34em] text-white/60">{eyebrow}</p>
           <p className="mt-3 text-3xl font-bold uppercase leading-[0.95] tracking-tight text-white sm:text-4xl lg:text-6xl">
             {headline}

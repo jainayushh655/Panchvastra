@@ -6,10 +6,12 @@ import { AdminTopbar } from './AdminTopbar'
 
 const sidebarLinks = [
   { to: '/admin/dashboard', label: 'Dashboard' },
+  { to: '/admin/orders', label: 'Orders' },
   { to: '/admin/products', label: 'Products' },
   { to: '/admin/categories', label: 'Categories' },
   { to: '/admin/sub-categories', label: 'Sub-Categories' },
   { to: '/admin/coupons', label: 'Coupons' },
+  { to: '/admin/auth-carousel', label: 'Auth Carousel' },
 ]
 
 export function AdminLayout() {

@@ -1,11 +1,13 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedAdminRoute } from '@/admin/components/ProtectedAdminRoute'
 import { AdminLayout } from '@/admin/layout/AdminLayout'
+import { AdminAuthCarouselPage } from '@/admin/pages/AdminAuthCarouselPage'
 import { AdminCategoriesPage } from '@/admin/pages/AdminCategoriesPage'
 import { AdminSubCategoriesPage } from '@/admin/pages/AdminSubCategoriesPage'
 import { AdminCouponsPage } from '@/admin/pages/AdminCouponsPage'
 import { AdminDashboardPage } from '@/admin/pages/AdminDashboardPage'
 import { AdminLoginPage } from '@/admin/pages/AdminLoginPage'
+import { AdminOrdersPage } from '@/admin/pages/AdminOrdersPage'
 import { AdminProductsPage } from '@/admin/pages/AdminProductsPage'
 
 export function AdminRoutes() {
@@ -22,6 +24,8 @@ export function AdminRoutes() {
 
           <Route path="dashboard" element={<AdminDashboardPage />} />
 
+          <Route path="orders" element={<AdminOrdersPage />} />
+
           <Route path="products" element={<AdminProductsPage />} />
 
           <Route path="categories" element={<AdminCategoriesPage />} />
@@ -29,6 +33,8 @@ export function AdminRoutes() {
           <Route path="sub-categories" element={<AdminSubCategoriesPage />} />
 
           <Route path="coupons" element={<AdminCouponsPage />} />
+
+          <Route path="auth-carousel" element={<AdminAuthCarouselPage />} />
 
           <Route path="*" element={<Navigate to="dashboard" replace />} />
 
