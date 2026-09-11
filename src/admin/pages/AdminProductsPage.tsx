@@ -3,7 +3,12 @@ import { Breadcrumb } from '@/admin/components/Breadcrumb'
 import { AdminTable } from '@/admin/components/AdminTable'
 import { AdminBadge, AdminEmptyState, AdminErrorState, AdminLoadingState } from '@/admin/components/AdminStates'
 import { AdminConfirmModal } from '@/admin/components/AdminConfirmModal'
-import { ProductImageUploader, toPendingImages, type PendingImage } from '@/admin/components/ProductImageUploader'
+import {
+  buildImageEntries,
+  ProductImageUploader,
+  toPendingImages,
+  type PendingImage,
+} from '@/admin/components/ProductImageUploader'
 import {
   createProduct,
   deleteProduct,
@@ -12,9 +17,16 @@ import {
   readProductApiError,
   updateProduct,
   type VariantImageFiles,
+  type VariantImageOrders,
   type ProductPagination,
 } from '@/api/product'
 import { getCategories } from '@/api/category'
+import {
+  readKeyHighlights,
+  toKeyHighlightsPayload,
+  validateKeyHighlights,
+  type KeyHighlight,
+} from '@/lib/keyHighlights'
 import { listSubCategories } from '@/api/subCategory'
 import { formatCurrency } from '@/admin/utils/formatters'
 import type { CategoryDto } from '@/types/api/CategoryDto'
@@ -40,6 +52,13 @@ type VariantForm = {
   existingImages: VariantImageDto[]
   /** Images picked in this session, not yet saved. */
   newImages: PendingImage[]
+  /**
+   * The admin's chosen order for this variant's images, as stable tokens
+   * (`e:<imageId>` / `n:<localKey>`). Empty until something is dragged, in which case the
+   * gallery falls back to its original arrangement. Tokens — never array indexes — so a
+   * saved image's identity is independent of its position.
+   */
+  imageOrder: string[]
 }
 type ProductForm = {
   id: number | null
@@ -49,7 +68,7 @@ type ProductForm = {
   description: string
   fabric: string
   gsm: string
-  key_highlights: string
+  key_highlights: KeyHighlight[]
   is_featured: boolean
   is_new_arrival: boolean
   is_active: boolean
@@ -61,52 +80,15 @@ type ProductForm = {
   delete_variant_image_ids: number[]
 }
 
-/**
- * `key_highlights` is stored by the API as a JSON string (healthy products read back as
- * `'["Yarn-dyed stripes", …]'`). The backend re-encodes whatever it receives, so handing the
- * stored string straight back added one escaping layer per save — which is how product 14
- * reached twelve nested layers.
- *
- * Unwrapping exactly ONE level for the editor, and re-parsing the edited text on save, makes
- * a save round-trip net-neutral: what goes out is the same shape that came in, so the value
- * can no longer grow. Exactly one level is unwrapped — the value is never peeled repeatedly
- * to make it "look clean", so already-corrupted data is reported rather than silently rewritten.
- */
-function keyHighlightsToText(value: unknown): string {
-  if (value == null) return ''
-  if (typeof value !== 'string') return JSON.stringify(value, null, 2)
-
-  try {
-    const parsed: unknown = JSON.parse(value)
-    // A JSON string unwraps to plain text; anything structured is shown as readable JSON.
-    return typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2)
-  } catch {
-    // Not JSON (plain prose, or a value the backend never encoded) — show it verbatim.
-    return value
-  }
-}
-
-/**
- * Structured JSON is sent as a real value rather than a string; anything else is sent as the
- * plain text the admin typed. Nothing is rejected and no input is discarded.
- */
-function keyHighlightsToPayload(text: string): unknown {
-  try {
-    return JSON.parse(text) as unknown
-  } catch {
-    return text
-  }
-}
-
 const emptySize = (): SizeForm => ({ id: null, size: '', stock_quantity: '0', is_active: true })
 const emptyVariant = (): VariantForm => ({
   id: null, sku: '', color: '', mrp: '', selling_price: '', cost_price: '',
   is_default: false, is_active: true, sizes: [emptySize()],
-  existingImages: [], newImages: [],
+  existingImages: [], newImages: [], imageOrder: [],
 })
 const emptyForm = (): ProductForm => ({
   id: null, category_id: '', sub_category_id: '', name: '', description: '', fabric: '', gsm: '',
-  key_highlights: '', is_featured: false, is_new_arrival: false, is_active: true,
+  key_highlights: [], is_featured: false, is_new_arrival: false, is_active: true,
   variants: [emptyVariant()], delete_variant_ids: [], delete_size_ids: [],
   delete_variant_image_ids: [],
 })
@@ -258,7 +240,8 @@ export function AdminProductsPage() {
         description: detail.description ?? '',
         fabric: detail.fabric ?? '',
         gsm: detail.gsm == null ? '' : String(detail.gsm),
-        key_highlights: keyHighlightsToText(detail.key_highlights),
+        // Straight from the array contract - no unwrapping, no JSON shown to the admin.
+        key_highlights: readKeyHighlights(detail.key_highlights),
         is_featured: Boolean(detail.is_featured),
         is_new_arrival: Boolean(detail.is_new_arrival),
         // The detail response carries no product-level `is_active`, so this cannot be
@@ -282,6 +265,8 @@ export function AdminProductsPage() {
           // Shown read-only: the write contract exposes no image field, deletion included.
           existingImages: v.images ?? [],
           newImages: [],
+          // Untouched order: the gallery shows the backend's own display_order.
+          imageOrder: [],
         })),
         delete_variant_ids: [],
         delete_size_ids: [],
@@ -348,6 +333,31 @@ export function AdminProductsPage() {
    * Appends picked files to this variant's pending list. Appending (never replacing) is what
    * lets the admin build a selection up across several trips to the file picker.
    */
+  /** Appends a blank row; it shows immediately and is validated only on save. */
+  const addHighlight = () =>
+    setForm((prev) =>
+      prev ? { ...prev, key_highlights: [...prev.key_highlights, { label: '', value: '' }] } : prev,
+    )
+
+  /** Edits ONE row in place; every other row keeps its own object. */
+  const patchHighlight = (index: number, patchRow: Partial<KeyHighlight>) =>
+    setForm((prev) =>
+      prev
+        ? {
+            ...prev,
+            key_highlights: prev.key_highlights.map((row, i) =>
+              i === index ? { ...row, ...patchRow } : row,
+            ),
+          }
+        : prev,
+    )
+
+  /** Drops one row. Clearing every row leaves an empty array, sent as an explicit clear. */
+  const removeHighlight = (index: number) =>
+    setForm((prev) =>
+      prev ? { ...prev, key_highlights: prev.key_highlights.filter((_, i) => i !== index) } : prev,
+    )
+
   const addVariantImages = (index: number, files: FileList) => {
     const { accepted, rejected } = toPendingImages(files)
 
@@ -391,6 +401,20 @@ export function AdminProductsPage() {
       }
     })
   }
+
+  /**
+   * Stores the order produced by a drag. Only the token sequence is written — no image data
+   * moves, so saved images keep their ids and pending files keep their File objects.
+   */
+  const reorderVariantImages = (index: number, tokens: string[]) =>
+    setForm((prev) =>
+      prev
+        ? {
+            ...prev,
+            variants: prev.variants.map((v, i) => (i === index ? { ...v, imageOrder: tokens } : v)),
+          }
+        : prev,
+    )
 
   /**
    * Removes a saved image from the form and records its id for deletion on save. No API call
@@ -464,9 +488,9 @@ export function AdminProductsPage() {
       ...(form.description.trim() ? { description: form.description.trim() } : {}),
       ...(form.fabric.trim() ? { fabric: form.fabric.trim() } : {}),
       ...(form.gsm.trim() ? { gsm: Number(form.gsm) } : {}),
-      ...(form.key_highlights.trim()
-        ? { key_highlights: keyHighlightsToPayload(form.key_highlights.trim()) }
-        : {}),
+      // ALWAYS sent, including an empty array - that is how the admin clears highlights,
+      // so omitting the key would leave the stored ones in place.
+      key_highlights: toKeyHighlightsPayload(form.key_highlights),
       is_featured: form.is_featured,
       is_new_arrival: form.is_new_arrival,
       is_active: form.is_active,
@@ -475,10 +499,42 @@ export function AdminProductsPage() {
 
     // Files keyed by the variant's ZERO-BASED POSITION in `variants` — never by its id.
     // `selectedVariants` and `variants` are the same list, so indexes line up exactly.
+    //
+    // Everything below is derived from ONE source of truth: the visual list the admin sees.
+    // Its position becomes a 1-based display_order, split into the two channels the
+    // contract defines — saved images by id inside `data`, new files positionally
+    // alongside their upload field.
     const images: VariantImageFiles = new Map()
+    const imageOrders: VariantImageOrders = new Map()
+    const variantImageOrders: { id: number; display_order: number }[] = []
+
     selectedVariants.forEach((variant, index) => {
-      if (variant.newImages.length) images.set(index, variant.newImages.map((image) => image.file))
+      const entries = buildImageEntries(variant.existingImages, variant.newImages, variant.imageOrder)
+      const files: File[] = []
+      const orders: number[] = []
+
+      entries.forEach((entry, position) => {
+        const displayOrder = position + 1
+        if (entry.kind === 'existing') {
+          variantImageOrders.push({ id: entry.image.id, display_order: displayOrder })
+        } else {
+          // Pushed together so file N and order N always describe the same image.
+          files.push(entry.pending.file)
+          orders.push(displayOrder)
+        }
+      })
+
+      if (files.length) {
+        images.set(index, files)
+        imageOrders.set(index, orders)
+      }
     })
+
+    const highlightError = validateKeyHighlights(form.key_highlights)
+    if (highlightError) {
+      setFormError(highlightError)
+      return
+    }
 
     savingRef.current = true
     setSaving(true)
@@ -487,7 +543,7 @@ export function AdminProductsPage() {
     try {
       if (form.id === null) {
         // No images -> the existing JSON create is used unchanged.
-        await createProduct(base, images)
+        await createProduct(base, images, imageOrders)
       } else {
         await updateProduct(
           {
@@ -504,8 +560,12 @@ export function AdminProductsPage() {
             ...(form.delete_variant_image_ids.length
               ? { delete_variant_image_ids: form.delete_variant_image_ids }
               : {}),
+            // Only when saved images actually remain — an all-new variant has nothing to
+            // renumber, and an empty array would say nothing.
+            ...(variantImageOrders.length ? { variant_image_orders: variantImageOrders } : {}),
           },
           images,
+          imageOrders,
         )
       }
 
@@ -779,13 +839,44 @@ export function AdminProductsPage() {
                 </div>
 
                 <div className="admin-form__field">
-                  <label htmlFor="product-highlights">Key Highlights</label>
-                  <input
-                    id="product-highlights"
-                    value={form.key_highlights}
-                    onChange={(e) => patch({ key_highlights: e.target.value })}
-                    placeholder="Optional"
-                  />
+                  <label>Key Highlights</label>
+
+                  {form.key_highlights.length === 0 ? (
+                    <p className="admin-muted" style={{ fontSize: 12 }}>
+                      No highlights added.
+                    </p>
+                  ) : (
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      {form.key_highlights.map((row, hIndex) => (
+                        <div key={hIndex} className="admin-highlight-row">
+                          <input
+                            aria-label={`Highlight ${hIndex + 1} label`}
+                            value={row.label}
+                            onChange={(e) => patchHighlight(hIndex, { label: e.target.value })}
+                            placeholder="Label"
+                          />
+                          <input
+                            aria-label={`Highlight ${hIndex + 1} value`}
+                            value={row.value}
+                            onChange={(e) => patchHighlight(hIndex, { value: e.target.value })}
+                            placeholder="Value"
+                          />
+                          <button
+                            type="button"
+                            className="admin-link-button admin-link-button--danger"
+                            onClick={() => removeHighlight(hIndex)}
+                            aria-label={`Remove highlight ${hIndex + 1}`}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button type="button" className="admin-link-button" onClick={addHighlight}>
+                    + Add highlight
+                  </button>
                 </div>
 
                 <label className="admin-form__check">
@@ -934,9 +1025,11 @@ export function AdminProductsPage() {
                       variantIndex={vIndex}
                       existingImages={variant.existingImages}
                       pendingImages={variant.newImages}
+                      imageOrder={variant.imageOrder}
                       onAdd={(files) => addVariantImages(vIndex, files)}
                       onRemovePending={(key) => removeVariantImage(vIndex, key)}
                       onRemoveExisting={(imageId) => removeExistingImage(vIndex, imageId)}
+                      onReorder={(tokens) => reorderVariantImages(vIndex, tokens)}
                       disabled={saving}
                     />
                   </div>
