@@ -7,6 +7,7 @@ import { AdminSubCategoriesPage } from '@/admin/pages/AdminSubCategoriesPage'
 import { AdminCouponsPage } from '@/admin/pages/AdminCouponsPage'
 import { AdminDashboardPage } from '@/admin/pages/AdminDashboardPage'
 import { AdminLoginPage } from '@/admin/pages/AdminLoginPage'
+import { AdminNotifyMePage } from '@/admin/pages/AdminNotifyMePage'
 import { AdminOrdersPage } from '@/admin/pages/AdminOrdersPage'
 import { AdminProductsPage } from '@/admin/pages/AdminProductsPage'
 
@@ -33,6 +34,8 @@ export function AdminRoutes() {
           <Route path="sub-categories" element={<AdminSubCategoriesPage />} />
 
           <Route path="coupons" element={<AdminCouponsPage />} />
+
+          <Route path="notify-me" element={<AdminNotifyMePage />} />
 
           <Route path="auth-carousel" element={<AdminAuthCarouselPage />} />
 
