@@ -11,6 +11,7 @@ const sidebarLinks = [
   { to: '/admin/categories', label: 'Categories' },
   { to: '/admin/sub-categories', label: 'Sub-Categories' },
   { to: '/admin/coupons', label: 'Coupons' },
+  { to: '/admin/notify-me', label: 'Notify Me' },
   { to: '/admin/auth-carousel', label: 'Auth Carousel' },
 ]
 

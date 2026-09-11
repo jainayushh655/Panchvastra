@@ -1,5 +1,15 @@
 import api from './axios'
-import type { NotifyMeCreateDto, NotifyMeQuery, NotifyMeSubscriptionDto } from '@/types/api/NotifyMeDto'
+import { adminAuthConfig, MissingAdminSessionError } from './adminRequest'
+import type {
+  AdminNotifyMeListResponse,
+  AdminNotifyMeRequestDto,
+  NotifyMeCreateDto,
+  NotifyMePagination,
+  NotifyMeQuery,
+  NotifyMeSubscriptionDto,
+} from '@/types/api/NotifyMeDto'
+
+export { MissingAdminSessionError }
 
 /**
  * Notify-Me (restock subscription) API.
@@ -121,5 +131,70 @@ export async function createNotifySubscription(variantSizeId: number, email: str
 export async function deleteNotifySubscription(subscriptionId: number | string, email: string): Promise<void> {
   await api.delete<NotifyEnvelope<unknown>>('/v1/notify_me/', {
     params: { email: email.trim(), id: subscriptionId },
+  })
+}
+
+/* --------------------------------------------------------------- admin (waitlist) */
+
+/** Turns a thrown request error into a message safe to show an admin. */
+export function readAdminNotifyApiError(error: unknown, fallback: string): string {
+  if (error instanceof MissingAdminSessionError) return error.message
+
+  const response = (error as { response?: { status?: number; data?: NotifyEnvelope<unknown> } }).response
+  if (!response) return 'Unable to connect to the server. Check your connection and try again.'
+
+  const status = response.status
+  if (status === 401) return 'Your admin session has expired. Please sign in again.'
+  if (status === 403) return 'You do not have permission to view notify-me requests.'
+  if (status === 404) return 'That notify request could not be found.'
+  if (status === 429) return 'Too many requests. Please try again in a moment.'
+  // 5xx bodies can carry raw DB/exception text — never surface it.
+  if (status && status >= 500) return 'The server is temporarily unavailable. Please try again shortly.'
+
+  return readNotifyApiMessage(response.data?.message, fallback)
+}
+
+/**
+ * GET /v1/notify_me/ as an ADMIN — the restock waitlist across every customer.
+ *
+ * This GET is admin-only (403 for a signed-in shopper, 401 without a token), so the admin
+ * token is passed explicitly through the shared `adminAuthConfig` helper rather than
+ * relying on the client's customer-token interceptor. It fails closed with no admin
+ * session. The customer functions above are untouched.
+ *
+ * The backend already joins product, variant and size onto every row, so nothing here
+ * looks anything up in the product catalogue.
+ */
+export async function getAdminNotifyMeRequests(
+  query: NotifyMeQuery = {},
+): Promise<{ data: AdminNotifyMeRequestDto[]; pagination?: NotifyMePagination }> {
+  const params: Record<string, number> = {}
+  if (query.page !== undefined) params.page = query.page
+  if (query.page_size !== undefined) params.page_size = query.page_size
+  if (query.variant_size_id !== undefined) params.variant_size_id = query.variant_size_id
+
+  const response = await api.get<AdminNotifyMeListResponse>('/v1/notify_me/', {
+    ...adminAuthConfig(),
+    params,
+  })
+
+  return {
+    data: Array.isArray(response.data?.data) ? response.data.data : [],
+    pagination: response.data?.pagination,
+  }
+}
+
+/**
+ * DELETE /v1/notify_me/?id=<id> as an ADMIN — removes any customer's waitlist request.
+ *
+ * Separate from `deleteNotifySubscription` on purpose: the customer call must also send
+ * `email` so the backend can verify ownership, while the admin call is authorised by the
+ * admin token and takes the row id alone. Changing the customer function would alter its
+ * behaviour, so this is additive.
+ */
+export async function deleteAdminNotifyMeRequest(id: number): Promise<void> {
+  await api.delete<NotifyEnvelope<unknown>>('/v1/notify_me/', {
+    ...adminAuthConfig(),
+    params: { id },
   })
 }

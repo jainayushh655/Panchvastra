@@ -32,3 +32,46 @@ export interface NotifyMeQuery {
   page_size?: number
   variant_size_id?: number
 }
+
+/**
+ * One waitlist row from GET /v1/notify_me/ — the CONFIRMED admin response.
+ *
+ * The backend already joins the product, variant and size, so every column the admin needs
+ * is present here and no catalogue lookup is performed anywhere on the client.
+ *
+ * `size_id` and `variant_size_id` are the same size identifier in this schema, not two
+ * different entities; `id` is the waitlist row's own id and the value DELETE expects.
+ */
+export interface AdminNotifyMeRequestDto {
+  id: number
+  email: string
+  variant_size_id: number
+  size_id: number
+  product_id: number
+  product_name: string
+  variant_id: number
+  color: string
+  size: string
+  stock_quantity: number
+  user_id: number
+  created_at: string
+  is_notified: boolean
+}
+
+/** The pagination block returned alongside the waitlist rows. */
+export interface NotifyMePagination {
+  current_page: number
+  page_size: number
+  total_pages: number
+  total_records: number
+  has_next: boolean
+  has_previous: boolean
+}
+
+/** Envelope for the admin list read. */
+export interface AdminNotifyMeListResponse {
+  success?: boolean
+  message?: string | Record<string, string[]>
+  data?: AdminNotifyMeRequestDto[]
+  pagination?: NotifyMePagination
+}
