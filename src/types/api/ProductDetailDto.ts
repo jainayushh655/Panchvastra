@@ -7,7 +7,12 @@ export interface ProductDetailDto {
   is_featured: boolean;
   is_new_arrival: boolean;
   created_at: string;
-  key_highlights: string;
+  /**
+   * `{ label, value }[]` per the current contract. Typed as `unknown` because a legacy
+   * product may still read back in the old string form; every consumer goes through
+   * `readKeyHighlights` rather than trusting the shape.
+   */
+  key_highlights: unknown;
 
   category: {
     id: number;

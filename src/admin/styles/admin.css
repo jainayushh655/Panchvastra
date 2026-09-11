@@ -934,3 +934,22 @@
   line-height: 1.5;
   color: var(--admin-muted);
 }
+
+/* Key highlights: label + value + remove on one row, stacking on narrow screens. */
+.admin-highlight-row {
+  display: grid;
+  gap: 8px;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .admin-highlight-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-highlight-row .admin-link-button {
+    justify-self: start;
+  }
+}

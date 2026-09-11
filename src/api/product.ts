@@ -164,18 +164,40 @@ export async function getProductsPage(query: ProductAdminQuery = {}) {
 export type VariantImageFiles = Map<number, File[]>;
 
 /**
+ * 1-based `display_order` for each new file, keyed by the same variant index and held in
+ * the SAME order as that variant's entry in `VariantImageFiles` — entry `n` here is the
+ * order for file `n` there. Sent as repeated `variant_<index>_image_orders` fields.
+ */
+export type VariantImageOrders = Map<number, number[]>;
+
+/**
  * Builds the multipart body the image contract specifies: the whole product payload as a
  * JSON string under `data`, then every file appended under `variant_<index>_images`.
  *
  * Images never appear inside the JSON — no `images` key is added to any variant.
  */
-function toProductFormData(payload: unknown, images: VariantImageFiles): FormData {
+function toProductFormData(
+  payload: unknown,
+  images: VariantImageFiles,
+  imageOrders?: VariantImageOrders,
+): FormData {
   const formData = new FormData();
   formData.append("data", JSON.stringify(payload));
 
   for (const [index, files] of images) {
-    // Several files share one field name; that is how the backend receives a list.
-    for (const file of files) formData.append(`variant_${index}_images`, file);
+    const orders = imageOrders?.get(index);
+
+    files.forEach((file, position) => {
+      // Several files share one field name; that is how the backend receives a list.
+      formData.append(`variant_${index}_images`, file);
+
+      // Appended in the SAME iteration as its file, so the two repeated fields stay
+      // positionally aligned — the backend pairs them by position, not by name.
+      const order = orders?.[position];
+      if (order !== undefined) {
+        formData.append(`variant_${index}_image_orders`, String(order));
+      }
+    });
   }
 
   return formData;
@@ -204,9 +226,17 @@ function multipartConfig() {
  * Without images this sends exactly the JSON body it always has. With images it switches to
  * multipart, so image-free creates keep their existing behaviour untouched.
  */
-export async function createProduct(payload: ProductCreateDto, images?: VariantImageFiles) {
+export async function createProduct(
+  payload: ProductCreateDto,
+  images?: VariantImageFiles,
+  imageOrders?: VariantImageOrders,
+) {
   if (hasFiles(images)) {
-    return api.post("/v1/products_management/", toProductFormData(payload, images!), multipartConfig());
+    return api.post(
+      "/v1/products_management/",
+      toProductFormData(payload, images!, imageOrders),
+      multipartConfig(),
+    );
   }
 
   return api.post("/v1/products_management/", payload, adminAuthConfig());
@@ -219,13 +249,17 @@ export async function createProduct(payload: ProductCreateDto, images?: VariantI
  * Multipart is used when images are added OR when existing images are being deleted;
  * everything else keeps the existing JSON request unchanged.
  */
-export async function updateProduct(payload: ProductUpdateDto, images?: VariantImageFiles) {
+export async function updateProduct(
+  payload: ProductUpdateDto,
+  images?: VariantImageFiles,
+  imageOrders?: VariantImageOrders,
+) {
   const removingImages = Boolean(payload.delete_variant_image_ids?.length);
 
   if (hasFiles(images) || removingImages) {
     return api.put(
       "/v1/products_management/",
-      toProductFormData(payload, images ?? new Map()),
+      toProductFormData(payload, images ?? new Map(), imageOrders),
       multipartConfig(),
     );
   }

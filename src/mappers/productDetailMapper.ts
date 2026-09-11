@@ -1,5 +1,6 @@
 import type { Product } from "@/types";
 import type { ProductDetailDto } from "@/types/api/ProductDetailDto";
+import { readKeyHighlights } from '@/lib/keyHighlights';
 
 function slugify(text: string) {
   return text
@@ -78,7 +79,14 @@ export function mapProductDetail(dto: ProductDetailDto): Product {
 
     tags: dto.tags.map((tag) => tag.name),
 
-    highlights: [],
+    // The backend's own `{ label, value }` rows drive the PDP spec table. `resolveProductHighlights`
+    // keys rows by label, so an API row replaces the matching built-in default and any other
+    // label is added as-is — no label is hardcoded here.
+    highlights: readKeyHighlights(dto.key_highlights).map((row) => ({
+      key: `api-${row.label.toLowerCase()}`,
+      label: row.label,
+      value: row.value,
+    })),
 
     trending: dto.tags.some(
       (tag) => tag.name === "trending"
