@@ -5,6 +5,12 @@ export interface CategoryDto {
   image_url: string | null;
   is_active: boolean;
 
+  /**
+   * Storefront position, ascending. VERIFIED LIVE on GET /v1/categories_management/.
+   * The endpoint already returns rows in `display_order ASC`, so no consumer sorts.
+   */
+  display_order: number;
+
   created_at: string;
   created_by: number | null;
 
@@ -48,4 +54,10 @@ export interface CategoryWritePayload {
   description?: string;
   is_active?: boolean;
   image?: File | null;
+  /**
+   * Storefront position. Optional on both writes per the published contract
+   * (`CreateCategoryRequest.display_order` is nullable, `minimum: 0`), so it is sent only
+   * when the admin actually entered one. Positions need not be unique or contiguous.
+   */
+  display_order?: number;
 }
