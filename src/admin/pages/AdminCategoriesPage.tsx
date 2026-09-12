@@ -21,12 +21,17 @@ type CategoryForm = {
   name: string
   description: string
   is_active: boolean
+  /**
+   * Storefront position, held as text because it is a text input. Empty means "leave it
+   * to the backend" — the field is optional on both writes, so nothing is sent then.
+   */
+  display_order: string
   /** Only set when the admin picked a new file; otherwise the stored image is kept. */
   image: File | null
 }
 
 function emptyForm(): CategoryForm {
-  return { id: null, name: '', description: '', is_active: true, image: null }
+  return { id: null, name: '', description: '', is_active: true, display_order: '', image: null }
 }
 
 function toForm(category: CategoryDto): CategoryForm {
@@ -35,6 +40,11 @@ function toForm(category: CategoryDto): CategoryForm {
     name: category.name ?? '',
     description: category.description ?? '',
     is_active: category.is_active !== false,
+    // Populated from the category's own backend value.
+    display_order:
+      category.display_order === null || category.display_order === undefined
+        ? ''
+        : String(category.display_order),
     image: null,
   }
 }
@@ -128,6 +138,13 @@ export function AdminCategoriesPage() {
 
     const name = form.name.trim()
     if (!name) return setFormError('Category name is required.')
+    // Only what the contract defines: an integer of at least 0. Positions need NOT be
+    // unique or contiguous, so duplicates and gaps are deliberately accepted.
+    const orderText = form.display_order.trim()
+    if (orderText && !/^\d+$/.test(orderText)) {
+      return setFormError('Display order must be a whole number of 0 or more.')
+    }
+
     if (form.image && !form.image.type.startsWith('image/')) return setFormError('Choose an image file.')
     if (form.image && form.image.size > MAX_IMAGE_BYTES) return setFormError('Image must be 5 MB or smaller.')
 
@@ -142,6 +159,8 @@ export function AdminCategoriesPage() {
           name,
           description: form.description,
           is_active: form.is_active,
+          // Sent as a real number, and only when entered — the field is optional.
+          ...(orderText ? { display_order: Number(orderText) } : {}),
           image: form.image,
         })
       } else {
@@ -150,6 +169,9 @@ export function AdminCategoriesPage() {
           name,
           description: form.description,
           is_active: form.is_active,
+          // Exactly what the admin typed. No other category is renumbered here — the
+          // backend owns the ordering semantics.
+          ...(orderText ? { display_order: Number(orderText) } : {}),
           image: form.image,
         })
       }
@@ -242,7 +264,7 @@ export function AdminCategoriesPage() {
       ) : (
         <>
           <AdminTable
-            headers={['Image', 'Name', 'Description', 'Products', 'Status', 'Actions']}
+            headers={['Image', 'Name', 'Description', 'Display Order', 'Products', 'Status', 'Actions']}
             rows={categories}
             getRowKey={(category) => String(category.id)}
             renderRow={(category) => (
@@ -260,6 +282,13 @@ export function AdminCategoriesPage() {
                 </td>
                 <td className="admin-table__primary">{category.name}</td>
                 <td className="admin-table__muted">{category.description || '—'}</td>
+                <td>
+                  {category.display_order === null || category.display_order === undefined ? (
+                    <span className="admin-muted">—</span>
+                  ) : (
+                    category.display_order
+                  )}
+                </td>
                 <td>{productCounts.get(category.id) ?? 0}</td>
                 <td>
                   <AdminBadge
@@ -344,6 +373,20 @@ export function AdminCategoriesPage() {
                   onChange={(e) => field('description', e.target.value)}
                   placeholder="Optional"
                 />
+              </div>
+
+              <div className="admin-form__field">
+                <label htmlFor="category-display-order">Display Order</label>
+                <input
+                  id="category-display-order"
+                  value={form.display_order}
+                  onChange={(e) => field('display_order', e.target.value)}
+                  inputMode="numeric"
+                  placeholder="Optional"
+                />
+                <span className="admin-muted" style={{ fontSize: 12 }}>
+                  Lower numbers appear first. Values may repeat and need not be consecutive.
+                </span>
               </div>
 
               <div className="admin-form__field">
