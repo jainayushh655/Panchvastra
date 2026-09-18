@@ -325,7 +325,14 @@ export function ProductDetailPage() {
           />
         </div>
 
-        <div className="flex max-w-xl flex-col gap-7 lg:max-w-none lg:gap-8">
+        {/*
+          `min-w-0` because this is a grid item, and a grid item's default `min-width: auto`
+          lets its widest content set its size. The colour row's intrinsic width was doing
+          exactly that — stretching this column to `max-w-xl` on a 390px phone and pushing
+          the page sideways. With the floor at 0 the column follows the viewport and the
+          colour row's own `overflow-x-auto` finally has somewhere to scroll.
+        */}
+        <div className="flex min-w-0 max-w-xl flex-col gap-7 lg:max-w-none lg:gap-8">
           <div>
             <h1 className="type-product-detail-title">{product.name}</h1>
             {subtitle ? <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">{subtitle}</p> : null}
