@@ -122,17 +122,19 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
    */
   const go = (step: number) => setI((x) => (x + step + n) % n)
 
-  /** The two calls to action for one slide. Shared by the mobile and desktop branches. */
+  /**
+   * The hero's single call to action. Shared by the mobile and desktop branches.
+   *
+   * One centred button: the secondary "Our story" link was removed, and the row is now
+   * `justify-center` in both branches so the button reads as centred against the hero at
+   * every width. `s.secondaryCta` is left untouched on the slide type and the API payload —
+   * it is simply no longer rendered here.
+   */
   const renderActions = (s: HeroCarouselSlide) => (
-    <div className="flex flex-wrap gap-3">
+    <div className="flex w-full justify-center">
       <Link to={s.primaryCta.to} className={'inline-flex items-center justify-center bg-white px-7 py-3 text-xs font-bold uppercase tracking-[0.14em] text-black transition-colors hover:bg-zinc-200'}>
         {s.primaryCta.label}
       </Link>
-      {s.secondaryCta ? (
-        <Link to={s.secondaryCta.to} className={'inline-flex items-center justify-center border border-white px-7 py-3 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-white/10'}>
-          {s.secondaryCta.label}
-        </Link>
-      ) : null}
     </div>
   )
 
@@ -161,19 +163,13 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
       </div>
     ) : null
 
-  /** The feature line. Rendered once per hero, never repeated inside the slides. */
-  const renderFeatureLine = () => (
-    <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 border border-white/25 bg-black/40 px-3 py-1.5 text-[10px] font-semibold uppercase leading-tight tracking-[0.14em] text-zinc-200 backdrop-blur-sm sm:gap-x-3 sm:px-4 sm:py-2 sm:text-[11px] sm:tracking-[0.18em]">
-      Premium cotton
-      <span className="h-1 w-1 shrink-0 rounded-full bg-zinc-400" aria-hidden />
-      Limited drops
-      <span className="h-1 w-1 shrink-0 rounded-full bg-zinc-400" aria-hidden />
-      Crafted to layer
-    </p>
-  )
-
-  /** The scrim that keeps the actions legible over any admin-uploaded artwork. */
-  const scrimClass = 'pointer-events-none absolute inset-0 bg-gradient-to-r from-black/85 via-black/65 to-black/40'
+  /**
+   * The scrim that keeps the action legible over any admin-uploaded artwork.
+   *
+   * Values unchanged (85/65/40 -> 60/40/15 was a previous task). The button is white-filled
+   * with black text, so it stays readable anywhere along the ramp now that it is centred.
+   */
+  const scrimClass = 'pointer-events-none absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-black/15'
 
   return (
     <>
@@ -216,10 +212,24 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
                 key={`${s.id}-${physical}`}
                 {...(isClone ? { inert: true, 'aria-hidden': true } : {})}
                 /*
-                 * Each slide carries the artwork's own 16:9 ratio, so `cover` has nothing
-                 * to crop — phones get the same complete composition desktop does.
+                 * The artwork is 16:9, so from `sm` up the slide keeps that exact ratio and
+                 * `cover` has nothing to crop — tablets (768/820/834) get 432-469px of the
+                 * complete composition, which needs no help.
+                 *
+                 * A phone is too narrow for that: 16:9 at 390px is a 219px letterbox strip
+                 * that the buttons then sit on top of. Below `sm` the slide is 4:3 instead,
+                 * which gives 292-360px of hero and costs 25% of the image width — trimmed
+                 * evenly from both edges by `bg-center`, so the centred subject is kept. The
+                 * ratio scales the box, so the image is never stretched at any width.
                  */
-                className="relative flex aspect-[16/9] w-full shrink-0 snap-start flex-col justify-end px-4 py-4"
+                /*
+                 * `pb-[12%]` lifts the button off the bottom edge into the lower-middle of
+                 * the frame. Percentage padding resolves against the slide's WIDTH, and the
+                 * slide's width is a fixed multiple of its height at each ratio, so the
+                 * offset scales with the hero instead of being pinned to one viewport: the
+                 * button centre lands at 74-78% of the slide height from 390px to 1023px.
+                 */
+                className="relative flex aspect-[4/3] w-full shrink-0 snap-start flex-col justify-end px-4 pb-[12%] pt-5 sm:aspect-[16/9] sm:pt-4"
               >
                 {bg ? (
                   <div
@@ -237,10 +247,10 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
           })}
         </div>
 
-        {/* Feature line and dots sit under the track, so they appear once rather than
-            repeating on every slide. */}
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-4">
-          {renderFeatureLine()}
+        {/* Dots sit under the track, so they appear once rather than repeating on every
+            slide. Centred under the button now that the feature line no longer shares the
+            row, which also keeps them clearly separated from the CTA. */}
+        <div className="flex items-center justify-center px-4 py-4">
           {renderDots()}
         </div>
       </section>
@@ -257,7 +267,14 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
          * `min-h` keeps the box tall enough for the actions where a 16:9 box would be
          * shorter than the content; the content is bottom-aligned so it stays lower-left.
          */
-        className="relative hidden min-h-[26rem] flex-col justify-end overflow-hidden border-b border-zinc-800 bg-[#050505] px-4 py-16 lg:flex lg:aspect-[16/9] lg:py-24"
+        /*
+         * `lg:pb-[8%]` replaces the fixed `lg:py-24` bottom inset so the button sits at the
+         * same proportional height as it does on the mobile/tablet track. A fixed 96px
+         * against a box whose height scales with the viewport pushed the button to 84% of
+         * the hero at 1920px but only 70% at 1024px; a percentage holds it at 72-79%
+         * throughout. Section height is still set by `lg:aspect-[16/9]` and is unchanged.
+         */
+        className="relative hidden min-h-[26rem] flex-col justify-end overflow-hidden border-b border-zinc-800 bg-[#050505] px-4 py-16 lg:flex lg:aspect-[16/9] lg:py-24 lg:pb-[8%]"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
@@ -302,16 +319,15 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -28 }}
               transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-              // Only the two calls to action remain. They sit at the BOTTOM of the block so
-              // they stack directly above the feature line, reading as one lower-left group.
-              className="flex min-h-[230px] items-end md:min-h-[300px]"
+              // The single call to action sits at the BOTTOM of this block, centred, so it
+              // lands in the lower-middle of the hero with the dots directly beneath it.
+              className="flex min-h-[230px] items-end justify-center md:min-h-[300px]"
             >
               {renderActions(slide)}
             </motion.div>
           </AnimatePresence>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 sm:mt-5">
-            {renderFeatureLine()}
+          <div className="mt-5 flex items-center justify-center sm:mt-6">
             {renderDots()}
           </div>
         </div>
