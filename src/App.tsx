@@ -15,6 +15,9 @@ import { SignupPage } from '@/pages/SignupPage'
 import { OrdersPage } from '@/pages/OrdersPage'
 import { WishlistPage } from '@/pages/WishlistPage'
 import { AdminApp } from '@/admin'
+import { RefundPolicyPage } from '@/pages/policies/RefundPolicyPage'
+import { PrivacyPolicyPage } from '@/pages/policies/PrivacyPolicyPage'
+import { TermsOfServicePage } from '@/pages/policies/TermsOfServicePage'
 
 export default function App() {
   return (
@@ -28,6 +31,11 @@ export default function App() {
           <Route path="product/:id" element={<ProductDetailPage />} />
           <Route path="about" element={<AboutPage />} />
           <Route path="contact" element={<ContactPage />} />
+
+          {/* Legal / policy pages — public, inside the shared layout. */}
+          <Route path="policies/refund-policy" element={<RefundPolicyPage />} />
+          <Route path="policies/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="policies/terms-of-service" element={<TermsOfServicePage />} />
         </Route>
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
