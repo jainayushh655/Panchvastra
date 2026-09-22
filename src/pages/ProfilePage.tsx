@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { ProfileInfoSection } from '@/components/profile/ProfileInfoSection'
 import { AddressSection } from '@/components/profile/AddressSection'
+import { LogoutConfirmation } from '@/components/layout/LogoutConfirmation'
 import { getProfile, readProfileApiError, updateProfile } from '@/api/profile'
 import { mapUserProfile, toProfileFormData } from '@/mappers/userProfileMapper'
 import { useAddresses } from '@/context/AddressProvider'
@@ -16,6 +17,7 @@ export function ProfilePage() {
   const { user, token, logout } = useAuth()
   const { clear } = useCart()
   const navigate = useNavigate()
+  const [confirmingLogout, setConfirmingLogout] = useState(false)
 
   // Personal information comes from the real /v1/user_profile/ API. The backend is the
   // source of truth: every successful update is followed by a re-fetch.
@@ -84,6 +86,7 @@ export function ProfilePage() {
   const handleLogout = () => {
     clear()
     logout()
+    setConfirmingLogout(false)
     navigate('/', { replace: true })
   }
 
@@ -106,11 +109,17 @@ export function ProfilePage() {
 
         <section className="h-fit border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
           <h2 className="type-section-title">Account Actions</h2>
-          <Button variant="outline" className="mt-5 w-full" onClick={handleLogout}>
+          <Button variant="outline" className="mt-5 w-full" onClick={() => setConfirmingLogout(true)}>
             Logout
           </Button>
         </section>
       </div>
+
+      <LogoutConfirmation
+        isOpen={confirmingLogout}
+        onConfirm={handleLogout}
+        onCancel={() => setConfirmingLogout(false)}
+      />
 
       <div className="mt-6">
         <AddressSection

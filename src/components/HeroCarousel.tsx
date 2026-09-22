@@ -132,7 +132,7 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
    */
   const renderActions = (s: HeroCarouselSlide) => (
     <div className="flex w-full justify-center">
-      <Link to={s.primaryCta.to} className={'inline-flex items-center justify-center bg-white px-7 py-3 text-xs font-bold uppercase tracking-[0.14em] text-black transition-colors hover:bg-zinc-200'}>
+      <Link to={s.primaryCta.to} className={'inline-flex items-center justify-center border border-white/70 bg-white/80 px-7 py-3 text-xs font-extrabold uppercase tracking-[0.14em] text-black backdrop-blur-md transition-colors hover:bg-white/95'}>
         {s.primaryCta.label}
       </Link>
     </div>
@@ -223,13 +223,12 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
                  * ratio scales the box, so the image is never stretched at any width.
                  */
                 /*
-                 * `pb-[12%]` lifts the button off the bottom edge into the lower-middle of
-                 * the frame. Percentage padding resolves against the slide's WIDTH, and the
-                 * slide's width is a fixed multiple of its height at each ratio, so the
-                 * offset scales with the hero instead of being pinned to one viewport: the
-                 * button centre lands at 74-78% of the slide height from 390px to 1023px.
+                 * `pb-6`/`sm:pb-8` keeps the button close to the bottom edge of the frame
+                 * with just enough margin that it isn't flush against it. A fixed offset
+                 * (rather than a percentage of width) so it reads as "bottom of the image"
+                 * at every viewport instead of drifting up as the ratio changes.
                  */
-                className="relative flex aspect-[4/3] w-full shrink-0 snap-start flex-col justify-end px-4 pb-[12%] pt-5 sm:aspect-[16/9] sm:pt-4"
+                className="relative flex aspect-[4/3] w-full shrink-0 snap-start flex-col justify-end px-4 pb-6 pt-5 sm:aspect-[16/9] sm:pb-8 sm:pt-4"
               >
                 {bg ? (
                   <div
@@ -255,105 +254,102 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
         </div>
       </section>
 
-      {/* ------------------------------- desktop: existing fade carousel, unchanged */}
-      <section
-        /*
-         * The carousel artwork is 16:9 (verified: 1280x720 and 1920x1080). The hero used to
-         * take its height from its content, which made it ~2.6:1 on desktop — so `bg-cover`
-         * had to crop roughly a third off the top and bottom of every image. Giving the
-         * section the artwork's own 16:9 ratio makes `cover` and `contain` equivalent, so
-         * the full composition is shown with nothing cut and nothing distorted.
-         *
-         * `min-h` keeps the box tall enough for the actions where a 16:9 box would be
-         * shorter than the content; the content is bottom-aligned so it stays lower-left.
-         */
-        /*
-         * `lg:pb-[8%]` replaces the fixed `lg:py-24` bottom inset so the button sits at the
-         * same proportional height as it does on the mobile/tablet track. A fixed 96px
-         * against a box whose height scales with the viewport pushed the button to 84% of
-         * the hero at 1920px but only 70% at 1024px; a percentage holds it at 72-79%
-         * throughout. Section height is still set by `lg:aspect-[16/9]` and is unchanged.
-         */
-        className="relative hidden min-h-[26rem] flex-col justify-end overflow-hidden border-b border-zinc-800 bg-[#050505] px-4 py-16 lg:flex lg:aspect-[16/9] lg:py-24 lg:pb-[8%]"
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
-      >
-        <AnimatePresence mode="wait" initial={false}>
+      {/* ------------------------------- desktop: existing fade carousel */}
+      {/* Dots live outside the image box (below it, like the mobile track) so the button
+          itself can sit at the true bottom of the artwork instead of sharing that space. */}
+      <div className="hidden border-b border-zinc-800 bg-[#050505] lg:block">
+        <section
+          /*
+           * The carousel artwork is 16:9 (verified: 1280x720 and 1920x1080). The hero used to
+           * take its height from its content, which made it ~2.6:1 on desktop — so `bg-cover`
+           * had to crop roughly a third off the top and bottom of every image. Giving the
+           * section the artwork's own 16:9 ratio makes `cover` and `contain` equivalent, so
+           * the full composition is shown with nothing cut and nothing distorted.
+           *
+           * `min-h` keeps the box tall enough for the actions where a 16:9 box would be
+           * shorter than the content; the content is bottom-aligned so it stays lower-left.
+           */
+          className="relative flex min-h-[26rem] flex-col justify-end overflow-hidden px-4 pb-8 pt-16 lg:aspect-[16/9]"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            {bgImage ? (
+              <motion.div
+                key={`bg-${slide.id}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.45 }}
+                // No grayscale: these are admin-uploaded carousel images from
+                // /v1/auth_carousel/, so they show in their real colours. The scrim below
+                // still keeps the actions legible over them.
+                className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
+                style={{ backgroundImage: `url(${JSON.stringify(bgImage)})` }}
+                aria-hidden
+              />
+            ) : null}
+          </AnimatePresence>
           {bgImage ? (
-            <motion.div
-              key={`bg-${slide.id}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.45 }}
-              // No grayscale: these are admin-uploaded carousel images from
-              // /v1/auth_carousel/, so they show in their real colours. The scrim below
-              // still keeps the actions legible over them.
-              className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
-              style={{ backgroundImage: `url(${JSON.stringify(bgImage)})` }}
+            <div className={scrimClass} aria-hidden />
+          ) : (
+            <div
+              className="pointer-events-none absolute inset-0 opacity-[0.05]"
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(45deg, #ffffff 0, #ffffff 1px, transparent 1px, transparent 34px)',
+              }}
               aria-hidden
             />
-          ) : null}
-        </AnimatePresence>
-        {bgImage ? (
-          <div className={scrimClass} aria-hidden />
-        ) : (
-          <div
-            className="pointer-events-none absolute inset-0 opacity-[0.05]"
-            style={{
-              backgroundImage:
-                'repeating-linear-gradient(45deg, #ffffff 0, #ffffff 1px, transparent 1px, transparent 34px)',
-            }}
-            aria-hidden
-          />
-        )}
+          )}
 
-        {/* `w-full` because the section is a flex column: without it this becomes a flex
-            item sized to its content and `mx-auto` would centre it instead of keeping the
-            usual left-aligned 6xl container. */}
-        <div className="relative mx-auto w-full max-w-6xl">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={slide.id}
-              initial={{ opacity: 0, x: 32 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -28 }}
-              transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-              // The single call to action sits at the BOTTOM of this block, centred, so it
-              // lands in the lower-middle of the hero with the dots directly beneath it.
-              className="flex min-h-[230px] items-end justify-center md:min-h-[300px]"
-            >
-              {renderActions(slide)}
-            </motion.div>
-          </AnimatePresence>
-
-          <div className="mt-5 flex items-center justify-center sm:mt-6">
-            {renderDots()}
+          {/* `w-full` because the section is a flex column: without it this becomes a flex
+              item sized to its content and `mx-auto` would centre it instead of keeping the
+              usual left-aligned 6xl container. */}
+          <div className="relative mx-auto w-full max-w-6xl">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={slide.id}
+                initial={{ opacity: 0, x: 32 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -28 }}
+                transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+                // The single call to action sits at the BOTTOM of this block, centred, so it
+                // lands at the bottom of the hero image itself.
+                className="flex min-h-[230px] items-end justify-center md:min-h-[300px]"
+              >
+                {renderActions(slide)}
+              </motion.div>
+            </AnimatePresence>
           </div>
-        </div>
 
-        {/* --------------------------------- desktop prev / next, 2+ slides only */}
-        {n > 1 ? (
-          <>
-            <button
-              type="button"
-              onClick={() => go(-1)}
-              aria-label="Previous slide"
-              className={arrowClass('left-3 lg:left-6')}
-            >
-              <span aria-hidden>&lsaquo;</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => go(1)}
-              aria-label="Next slide"
-              className={arrowClass('right-3 lg:right-6')}
-            >
-              <span aria-hidden>&rsaquo;</span>
-            </button>
-          </>
-        ) : null}
-      </section>
+          {/* --------------------------------- desktop prev / next, 2+ slides only */}
+          {n > 1 ? (
+            <>
+              <button
+                type="button"
+                onClick={() => go(-1)}
+                aria-label="Previous slide"
+                className={arrowClass('left-3 lg:left-6')}
+              >
+                <span aria-hidden>&lsaquo;</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => go(1)}
+                aria-label="Next slide"
+                className={arrowClass('right-3 lg:right-6')}
+              >
+                <span aria-hidden>&rsaquo;</span>
+              </button>
+            </>
+          ) : null}
+        </section>
+
+        <div className="flex items-center justify-center py-4">
+          {renderDots()}
+        </div>
+      </div>
     </>
   )
 }
