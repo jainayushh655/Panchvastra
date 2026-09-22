@@ -7,6 +7,7 @@ import { ProductImageGallery } from '@/components/product/ProductImageGallery'
 import { ProductVariantPicker } from '@/components/product/ProductVariantPicker'
 import { SizeChart } from '@/components/product/SizeChart'
 import { useCart } from '@/context/CartProvider'
+import { useToast } from '@/context/ToastProvider'
 import { useWishlist, type WishlistItem } from '@/context/WishlistProvider'
 import { getProductById } from '@/api/product'
 import { mapProductDetail, } from '@/mappers/productDetailMapper'
@@ -91,7 +92,8 @@ export function ProductDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated } = useAuth();
-  const { refreshCart } = useCart();
+  const { items: cartItems, refreshCart } = useCart();
+  const { showToast } = useToast();
   const { isWishlisted, toggleWishlist } = useWishlist();
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -105,8 +107,8 @@ export function ProductDetailPage() {
 
   const [quantity, setQuantity] = useState(1);
 
-  const [showCartPopup, setShowCartPopup] =
-    useState(false);
+  /** True only while the add-to-cart request for the CURRENT selection is in flight. */
+  const [adding, setAdding] = useState(false);
 
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
 
@@ -196,39 +198,42 @@ export function ProductDetailPage() {
     setQuantity(1);
   }, [selectedVariantSizeId]);
 
+  // This exact product/variant/size combo is already a line in the cart — the single
+  // source of truth for "already added" is the cart itself, not a locally-guessed flag,
+  // so it stays correct across a fresh page load, a back-navigation, or another tab.
+  const alreadyInCart = cartItems.some(
+    (item) =>
+      item.productId === product?.id &&
+      item.size === size &&
+      (item.color ?? '') === (currentVariant?.color ?? ''),
+  );
+
   const canAdd =
     Boolean(product) &&
-    Boolean(selectedVariantSizeId);
-
-  const add = async () => {
-  if (!product || !selectedVariantSizeId) return;
-
-  if (!isAuthenticated) {
-    navigate('/login', { replace: false, state: { from: `${location.pathname}${location.search}` } })
-    return
-  }
-
-  try {
-    await addToCart(selectedVariantSizeId, quantity);
-    await refreshCart();
-  } catch (error) {
-    console.error("Failed to add product to cart", error);
-  }
-};
+    Boolean(selectedVariantSizeId) &&
+    !adding &&
+    !alreadyInCart;
 
   const handleAddToCart = async () => {
-  await add();
+    if (!product || !selectedVariantSizeId || adding || alreadyInCart) return;
 
-  if (!isAuthenticated) {
-    return
-  }
+    if (!isAuthenticated) {
+      navigate('/login', { replace: false, state: { from: `${location.pathname}${location.search}` } })
+      return
+    }
 
-  setShowCartPopup(true);
-
-  setTimeout(() => {
-    setShowCartPopup(false);
-  }, 2500);
-};
+    setAdding(true);
+    try {
+      await addToCart(selectedVariantSizeId, quantity);
+      await refreshCart();
+      showToast('Added to cart', { description: 'Product added successfully' });
+    } catch (error) {
+      console.error("Failed to add product to cart", error);
+      showToast('Could not add to cart', { variant: 'warning', description: 'Please try again.' });
+    } finally {
+      setAdding(false);
+    }
+  };
 
   const handleWishlistToggle = () => {
     if (!product) return;
@@ -458,7 +463,7 @@ export function ProductDetailPage() {
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  disabled={quantity <= 1}
+                  disabled={quantity <= 1 || alreadyInCart}
                   aria-label="Decrease quantity"
                   className="flex size-9 items-center justify-center text-lg font-semibold text-black transition disabled:opacity-30 sm:size-8 dark:text-white"
                 >
@@ -468,7 +473,7 @@ export function ProductDetailPage() {
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
-                  disabled={quantity >= maxQty}
+                  disabled={quantity >= maxQty || alreadyInCart}
                   aria-label="Increase quantity"
                   className="flex size-9 items-center justify-center text-lg font-semibold text-black transition disabled:opacity-30 sm:size-8 dark:text-white"
                 >
@@ -484,9 +489,10 @@ export function ProductDetailPage() {
                 type="button"
                 onClick={handleAddToCart}
                 disabled={!canAdd}
+                aria-busy={adding}
                 className="type-btn flex-1 rounded-xl bg-black px-6 py-4 text-sm text-white transition hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-black"
               >
-                ADD TO CART
+                {adding ? 'ADDING…' : alreadyInCart ? 'ADDED TO CART' : 'ADD TO CART'}
               </button>
               <button
                 type="button"
@@ -571,27 +577,6 @@ export function ProductDetailPage() {
         preselectedSize={notifyMePreselect}
         onClose={() => setNotifyMeOpen(false)}
       />
-
-      {showCartPopup ? (
-        <div
-          className="fixed top-24 right-6 z-[9999] animate-in slide-in-from-top duration-300"
-          role="status"
-          aria-live="polite"
-        >
-          <div className="flex items-center gap-3 rounded-2xl bg-black px-5 py-4 text-white shadow-2xl">
-            <div
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white font-sans text-sm font-bold text-black"
-              aria-hidden
-            >
-              ✓
-            </div>
-            <div>
-              <p className="font-sans text-sm font-semibold">Added to cart</p>
-              <p className="font-sans text-xs text-zinc-300">Product added successfully</p>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   )
 }

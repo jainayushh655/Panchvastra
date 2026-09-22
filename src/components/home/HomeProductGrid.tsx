@@ -5,7 +5,7 @@ import type { Product } from '@/types'
 
 export function HomeProductGrid({ products, loading }: { products: Product[]; loading: boolean }) {
   return (
-    <section className="bg-white px-4 pb-16 sm:pb-20">
+    <section className="bg-white px-4 pb-8 sm:pb-10">
       <div className="mx-auto max-w-6xl">
         <div className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4">
           {loading ? (

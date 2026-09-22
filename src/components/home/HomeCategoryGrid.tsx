@@ -27,8 +27,16 @@ export function HomeCategoryGrid({ categories }: { categories: CategoryDto[] }) 
   // (The old `<= 1` allowed for the static New Drops tile always occupying a slot.)
   if (tiles.length === 0) return null
 
+  /*
+   * The grid never opens a column it can't fill: `lg:grid-cols-3` only kicks in at 3+
+   * tiles, so two categories sit evenly in a 2-column row (each getting real width and
+   * no dangling empty third column) instead of being stranded on the left. A single
+   * category is capped to half width and centred so it doesn't stretch full-bleed.
+   */
+  const gridColsClass = tiles.length >= 3 ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2'
+
   return (
-    <section className="bg-white px-4 pb-6 pt-8 sm:pb-7 sm:pt-10">
+    <section className="bg-white px-4 pb-6 pt-6 sm:pb-7 sm:pt-8">
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
           <h2 className="font-display text-3xl font-bold uppercase tracking-tight text-black sm:text-4xl">
@@ -36,7 +44,11 @@ export function HomeCategoryGrid({ categories }: { categories: CategoryDto[] }) 
           </h2>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-3 sm:mt-10 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={`mt-6 grid grid-cols-1 gap-3 sm:mt-8 ${gridColsClass} ${
+            tiles.length === 1 ? 'mx-auto max-w-sm' : ''
+          }`}
+        >
           {tiles.map((tile) => (
             <CategoryTile key={tile.key} tile={tile} />
           ))}

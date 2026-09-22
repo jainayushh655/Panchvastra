@@ -1,30 +1,61 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { formatInr } from '@/lib/format'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useCart } from '@/context/CartProvider'
+import { useToast } from '@/context/ToastProvider'
 import { removeCartItem, updateCartItem } from '@/api/cart'
+import type { CartItem } from '@/types'
 
 export function CartPage() {
   useDocumentTitle('Cart')
   const { items, refreshCart, subtotal } = useCart()
+  const { showToast } = useToast()
 
-  const handleUpdateQuantity = async (cartItemId: number, quantity: number) => {
+  /** Cart item ids with a request in flight, so a line's own controls are the only ones
+      disabled while it updates and a fast double-click can't fire a second request. */
+  const [pendingIds, setPendingIds] = useState<Set<number>>(new Set())
+
+  const withPending = async (cartItemId: number, run: () => Promise<void>) => {
+    setPendingIds((prev) => new Set(prev).add(cartItemId))
     try {
-      await updateCartItem(cartItemId, quantity)
-      await refreshCart()
+      await run()
     } catch (err) {
       console.error(err)
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(cartItemId)
+        return next
+      })
     }
   }
 
-  const handleRemoveItem = async (cartItemId: number) => {
-    try {
+  const handleUpdateQuantity = (line: CartItem, requestedQuantity: number) => {
+    if (pendingIds.has(line.cartItemId)) return
+
+    const nextQuantity = Math.max(1, requestedQuantity)
+
+    if (nextQuantity > line.availableStock) {
+      showToast(`Only ${line.availableStock} item${line.availableStock === 1 ? '' : 's'} available in stock.`, {
+        variant: 'warning',
+      })
+      return
+    }
+
+    void withPending(line.cartItemId, async () => {
+      await updateCartItem(line.cartItemId, nextQuantity)
+      await refreshCart()
+    })
+  }
+
+  const handleRemoveItem = (cartItemId: number) => {
+    if (pendingIds.has(cartItemId)) return
+    void withPending(cartItemId, async () => {
       await removeCartItem(cartItemId)
       await refreshCart()
-    } catch (err) {
-      console.error(err)
-    }
+    })
   }
 
   return (
@@ -75,8 +106,9 @@ export function CartPage() {
                     <div className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900">
                       <button
                         type="button"
-                        onClick={() => handleUpdateQuantity(line.cartItemId, Math.max(1, line.quantity - 1))}
-                        disabled={line.quantity <= 1}
+                        onClick={() => handleUpdateQuantity(line, line.quantity - 1)}
+                        disabled={line.quantity <= 1 || pendingIds.has(line.cartItemId)}
+                        aria-label="Decrease quantity"
                         className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-lg font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
                       >
                         −
@@ -84,24 +116,35 @@ export function CartPage() {
                       <input
                         type="number"
                         min={1}
-                        max={99}
+                        max={line.availableStock || 1}
                         value={line.quantity}
-                        onChange={(event) => handleUpdateQuantity(line.cartItemId, Number(event.target.value) || 1)}
-                        className="w-16 border-none bg-transparent text-center text-sm font-semibold text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        disabled={pendingIds.has(line.cartItemId)}
+                        onChange={(event) => handleUpdateQuantity(line, Number(event.target.value) || 1)}
+                        className="w-16 border-none bg-transparent text-center text-sm font-semibold text-zinc-900 outline-none placeholder:text-zinc-400 disabled:opacity-40 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
+                      {/* Stays clickable right up to the stock ceiling — a click AT the
+                          ceiling is what triggers the "only X available" toast, rather
+                          than the button just going quietly dead. */}
                       <button
                         type="button"
-                        onClick={() => handleUpdateQuantity(line.cartItemId, Math.min(99, line.quantity + 1))}
-                        disabled={line.quantity >= 99}
+                        onClick={() => handleUpdateQuantity(line, line.quantity + 1)}
+                        disabled={line.availableStock <= 0 || pendingIds.has(line.cartItemId)}
+                        aria-label="Increase quantity"
                         className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-lg font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
                       >
                         +
                       </button>
                     </div>
+                    {line.availableStock > 0 && line.availableStock <= 10 ? (
+                      <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                        {line.availableStock} left
+                      </span>
+                    ) : null}
                     <button
                       type="button"
-                      className="inline-flex min-h-[32px] items-center text-xs font-semibold text-red-500 hover:underline"
+                      className="inline-flex min-h-[32px] items-center text-xs font-semibold text-red-500 hover:underline disabled:cursor-not-allowed disabled:opacity-40"
                       onClick={() => handleRemoveItem(line.cartItemId)}
+                      disabled={pendingIds.has(line.cartItemId)}
                     >
                       Remove
                     </button>

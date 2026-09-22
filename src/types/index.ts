@@ -85,6 +85,11 @@ export interface CartItem {
   mrp?: number
 
   quantity: number
+
+  /** Real-time stock for this exact variant/size, from the cart API — the hard ceiling on `quantity`. */
+  availableStock: number
+
+  isInStock: boolean
 }
 
 export type SortKey =
