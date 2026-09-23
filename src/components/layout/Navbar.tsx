@@ -53,7 +53,19 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-zinc-800 bg-black text-white">
-      <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 py-3.5 sm:gap-3 sm:px-4">
+      {/*
+        Three tracks with a centred brand. The side tracks are equal `1fr`s, which is what
+        keeps the wordmark optically centred on the full bar — but it also means the right
+        cluster (wishlist + cart + account ≈ 106px) is handed the same width as the left
+        (a 34px hamburger). Under a ~275px viewport the right cluster no longer fits its
+        track and, being `justify-self-end`, spills leftwards over the brand.
+
+        Below 375px — narrower than any real phone, so only reachable through high browser
+        zoom — the side tracks become content-sized and the middle absorbs the slack, which
+        makes that collision structurally impossible. Gap and padding tighten at the same
+        point. From 375px up nothing here applies and the bar is byte-for-byte as it was.
+      */}
+      <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 py-3.5 max-[374px]:grid-cols-[auto_minmax(0,1fr)_auto] max-[374px]:gap-1 max-[374px]:px-2 sm:gap-3 sm:px-4">
         {/* LEFT */}
         <div className="flex items-center gap-4">
           <button

@@ -223,16 +223,29 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
                  * ratio scales the box, so the image is never stretched at any width.
                  */
                 /*
-                 * `pb-6`/`sm:pb-8` keeps the button close to the bottom edge of the frame
-                 * with just enough margin that it isn't flush against it. A fixed offset
-                 * (rather than a percentage of width) so it reads as "bottom of the image"
-                 * at every viewport instead of drifting up as the ratio changes.
+                 * `pb-16` reserves the strip the dots now occupy INSIDE the frame, so the
+                 * button still reads as sitting near the bottom of the image with the dots
+                 * directly beneath it. A fixed offset (rather than a percentage of width)
+                 * so that spacing stays constant instead of drifting as the ratio changes.
                  */
-                className="relative flex aspect-[4/3] w-full shrink-0 snap-start flex-col justify-end px-4 pb-6 pt-5 sm:aspect-[16/9] sm:pb-8 sm:pt-4"
+                className="relative flex aspect-[4/3] w-full shrink-0 snap-start flex-col justify-end px-4 pb-16 pt-5 sm:aspect-[16/9] sm:pt-4"
               >
                 {bg ? (
                   <div
-                    className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
+                    /*
+                     * Phones only: the 4:3 box is narrower than the 16:9 artwork, so `cover`
+                     * discards 25% of its width. Centring split that evenly and ate into the
+                     * brand typography, which this artwork sets in the LEFT third. Moving the
+                     * focal point to 25% takes 6.3% off the left instead of 12.5% and 18.8%
+                     * off the right, where the frame is background. Same crop amount, so the
+                     * box — and therefore the hero height — is unchanged; only which part of
+                     * the image survives. A percentage, not a pixel offset, so it holds at
+                     * every width and for any image size.
+                     *
+                     * From `sm` up the box is already the artwork's own 16:9, so nothing is
+                     * cropped and `bg-center` is restored — tablet and desktop are untouched.
+                     */
+                    className="pointer-events-none absolute inset-0 bg-cover bg-[position:25%_center] bg-no-repeat sm:bg-center"
                     style={{ backgroundImage: `url(${JSON.stringify(bg)})` }}
                     aria-hidden
                   />
@@ -246,10 +259,14 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
           })}
         </div>
 
-        {/* Dots sit under the track, so they appear once rather than repeating on every
-            slide. Centred under the button now that the feature line no longer shares the
-            row, which also keeps them clearly separated from the CTA. */}
-        <div className="flex items-center justify-center px-4 py-4">
+        {/*
+          Dots overlay the bottom of the track rather than sitting in a strip beneath it.
+          Rendered once here (not inside the slide loop) so there is still exactly one set
+          for the whole carousel, and taken out of flow so the section's height is exactly
+          the track's height — which is exactly the artwork's height. That is what removes
+          the black band; nothing is being covered up.
+        */}
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-center px-4 pb-4">
           {renderDots()}
         </div>
       </section>
@@ -269,7 +286,7 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
            * `min-h` keeps the box tall enough for the actions where a 16:9 box would be
            * shorter than the content; the content is bottom-aligned so it stays lower-left.
            */
-          className="relative flex min-h-[26rem] flex-col justify-end overflow-hidden px-4 pb-8 pt-16 lg:aspect-[16/9]"
+          className="relative flex min-h-[26rem] flex-col justify-end overflow-hidden px-4 pb-20 pt-16 lg:aspect-[16/9]"
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
@@ -344,11 +361,17 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
               </button>
             </>
           ) : null}
-        </section>
 
-        <div className="flex items-center justify-center py-4">
-          {renderDots()}
-        </div>
+          {/*
+            Dots overlay the bottom of the artwork, matching the mobile branch. Previously
+            they sat in a strip below the section, which added a constant 65px black band
+            between the image and the next homepage section at every width. Out of flow, so
+            the section's height stays exactly `aspect-[16/9]` = the artwork's height.
+          */}
+          <div className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center px-4 pb-6">
+            {renderDots()}
+          </div>
+        </section>
       </div>
     </>
   )
