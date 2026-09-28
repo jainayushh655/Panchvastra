@@ -820,6 +820,39 @@
   gap: 10px;
 }
 
+/*
+ * Drag handle for variant ordering. `margin-right: auto` on the title keeps the handle and
+ * the title grouped on the left while Remove stays hard right, which is exactly where the
+ * two-child `space-between` head already put them.
+ *
+ * 32px square so it stays comfortably tappable on phones, matching the image remove button.
+ */
+.admin-variant__handle {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-bg);
+  color: var(--admin-muted);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+}
+
+.admin-variant__handle:hover { border-color: var(--admin-border-strong); color: inherit; }
+.admin-variant__handle:active { cursor: grabbing; }
+
+.admin-variant__head .admin-variant__title { margin-right: auto; }
+
+/* Feedback while a variant is being dragged over the list. */
+.admin-variant--dragging { opacity: 0.45; }
+.admin-variant--dropzone { border-color: var(--admin-border-strong); border-style: dashed; }
+
 .admin-variant__title {
   font-size: 0.68rem;
   font-weight: 700;

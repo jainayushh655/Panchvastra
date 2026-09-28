@@ -32,6 +32,18 @@ export interface ProductVariantWriteDto {
   cost_price?: string | null
   is_default?: boolean
   is_active?: boolean
+  /**
+   * 1-based position of this variant among the product's variants.
+   *
+   * Optional in the contract — omitting it leaves a saved variant where it is and appends
+   * a new one — but the admin form always sends it, computed from the variant's index in
+   * the list being submitted. That guarantees a contiguous 1..N with no duplicates rather
+   * than relying on backend inference.
+   *
+   * Entirely separate from image ordering, which travels in `variant_image_orders` and the
+   * positional `variant_<index>_image_orders` fields.
+   */
+  display_order?: number
   sizes: ProductVariantSizeWriteDto[]
 }
 

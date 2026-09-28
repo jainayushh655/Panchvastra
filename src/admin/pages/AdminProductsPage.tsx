@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Breadcrumb } from '@/admin/components/Breadcrumb'
 import { AdminTable } from '@/admin/components/AdminTable'
 import { AdminBadge, AdminEmptyState, AdminErrorState, AdminLoadingState } from '@/admin/components/AdminStates'
@@ -22,6 +22,8 @@ import {
 } from '@/api/product'
 import { getCategories } from '@/api/category'
 import {
+  defaultKeyHighlightRows,
+  keyHighlightOptionsFor,
   readKeyHighlights,
   toKeyHighlightsPayload,
   validateKeyHighlights,
@@ -94,6 +96,24 @@ const emptyForm = (): ProductForm => ({
 })
 
 export function AdminProductsPage() {
+  /** Prefix for the per-row `<datalist>` ids, so they stay unique on the page. */
+  const highlightListId = useId()
+
+  /*
+   * Variant drag state. Same architecture the image uploader already uses: the
+   * authoritative source index lives in a ref because `drop` can fire in the same tick as
+   * `dragstart` and state is not readable synchronously; the state below exists only to
+   * drive the visual feedback.
+   */
+  const dragVariantRef = useRef<number | null>(null)
+  const [dragVariant, setDragVariant] = useState<number | null>(null)
+  const [overVariant, setOverVariant] = useState<number | null>(null)
+
+  const endVariantDrag = () => {
+    dragVariantRef.current = null
+    setDragVariant(null)
+    setOverVariant(null)
+  }
   const [products, setProducts] = useState<ProductDto[]>([])
   const [pagination, setPagination] = useState<ProductPagination | undefined>(undefined)
   const [loading, setLoading] = useState(true)
@@ -215,8 +235,17 @@ export function AdminProductsPage() {
     return map
   }, [categories])
 
+  /*
+   * The predefined highlights are seeded HERE and nowhere else.
+   *
+   * Not in `emptyForm()`, because `openEdit` uses that as its placeholder while the detail
+   * request is in flight — seeding there would flash defaults over a saved product and, if
+   * the request failed, leave the admin looking at defaults for a product that has its own
+   * highlights. Not in an effect either, so a row the admin removes stays removed for the
+   * rest of the session instead of being re-added on the next render.
+   */
   const openCreate = () => {
-    setForm(emptyForm())
+    setForm({ ...emptyForm(), key_highlights: defaultKeyHighlightRows() })
     setFormError(null)
   }
 
@@ -314,6 +343,26 @@ export function AdminProductsPage() {
         // Existing children must be soft-deleted by the backend, not just dropped locally.
         delete_variant_ids: target?.id ? [...prev.delete_variant_ids, target.id] : prev.delete_variant_ids,
       }
+    })
+
+  /**
+   * Moves one variant to a new position. The ONLY thing reordering changes.
+   *
+   * Each entry is carried across by reference, so every field travels with it untouched —
+   * id, colour, prices, sizes and their ids, stock, active flag, saved images, pending
+   * uploads and that variant's own image order. `display_order` is not stored on the form
+   * at all; it is derived from this array's order at save time, which is what keeps it
+   * contiguous after an add or a remove.
+   */
+  const moveVariant = (from: number, to: number) =>
+    setForm((prev) => {
+      if (!prev) return prev
+      if (from === to || from < 0 || to < 0) return prev
+      if (from >= prev.variants.length || to >= prev.variants.length) return prev
+      const next = [...prev.variants]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      return { ...prev, variants: next }
     })
 
   const removeSize = (vIndex: number, sIndex: number) =>
@@ -462,7 +511,7 @@ export function AdminProductsPage() {
     const selectedVariants = form.variants.filter((v) => v.sku.trim() && v.color.trim())
 
     const variants: ProductVariantWriteDto[] = selectedVariants
-      .map((v) => ({
+      .map((v, index) => ({
         ...(v.id ? { id: v.id } : {}),
         sku: v.sku.trim(),
         color: v.color.trim(),
@@ -471,6 +520,15 @@ export function AdminProductsPage() {
         ...(v.cost_price.trim() ? { cost_price: v.cost_price.trim() } : {}),
         is_default: v.is_default,
         is_active: v.is_active,
+        /*
+         * The list the admin sees IS the order. Numbering from the index of
+         * `selectedVariants` — the array actually submitted, not `form.variants` — keeps
+         * this a contiguous 1..N even when a blank row is skipped or a variant was
+         * removed, so duplicates and gaps are impossible without relying on the backend.
+         * Every other field of the variant is still sent alongside it; this is never a
+         * standalone {id, display_order} reorder request.
+         */
+        display_order: index + 1,
         sizes: v.sizes
           .filter((s) => s.size.trim())
           .map((s) => ({
@@ -847,7 +905,18 @@ export function AdminProductsPage() {
                     </p>
                   ) : (
                     <div style={{ display: 'grid', gap: 8 }}>
-                      {form.key_highlights.map((row, hIndex) => (
+                      {form.key_highlights.map((row, hIndex) => {
+                        /*
+                         * Every value is a plain text input, so anything can be typed —
+                         * "220 GSM" instead of the suggested "240 GSM", an unlisted fabric,
+                         * a value a saved product already holds. A predefined label simply
+                         * also gets a `<datalist>` of suggestions, which the browser offers
+                         * as a dropdown without restricting what may be entered. Custom rows
+                         * have no suggestions and behave exactly as they always have.
+                         */
+                        const options = keyHighlightOptionsFor(row.label)
+                        const listId = options ? `${highlightListId}-${hIndex}` : undefined
+                        return (
                         <div key={hIndex} className="admin-highlight-row">
                           <input
                             aria-label={`Highlight ${hIndex + 1} label`}
@@ -860,7 +929,15 @@ export function AdminProductsPage() {
                             value={row.value}
                             onChange={(e) => patchHighlight(hIndex, { value: e.target.value })}
                             placeholder="Value"
+                            list={listId}
                           />
+                          {options ? (
+                            <datalist id={listId}>
+                              {options.map((option) => (
+                                <option key={option} value={option} />
+                              ))}
+                            </datalist>
+                          ) : null}
                           <button
                             type="button"
                             className="admin-link-button admin-link-button--danger"
@@ -870,7 +947,8 @@ export function AdminProductsPage() {
                             Remove
                           </button>
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
 
@@ -905,8 +983,70 @@ export function AdminProductsPage() {
                 </label>
 
                 {form.variants.map((variant, vIndex) => (
-                  <div className="admin-variant" key={variant.id ?? `new-${vIndex}`}>
+                  <div
+                    className={[
+                      'admin-variant',
+                      dragVariant === vIndex ? 'admin-variant--dragging' : '',
+                      overVariant === vIndex && dragVariant !== vIndex ? 'admin-variant--dropzone' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    key={variant.id ?? `new-${vIndex}`}
+                    /*
+                     * The whole card is a drop TARGET (so there is a generous area to aim
+                     * at) but never a drag SOURCE — only the handle below is draggable, so
+                     * selecting text in an input can never start a reorder. Every handler
+                     * bails unless a variant drag is actually in flight, which is what
+                     * keeps the image uploader's own drag/drop inside this card working
+                     * exactly as before.
+                     */
+                    onDragEnter={() => {
+                      if (dragVariantRef.current === null) return
+                      setOverVariant(vIndex)
+                    }}
+                    onDragOver={(event) => {
+                      if (dragVariantRef.current === null) return
+                      event.preventDefault()
+                      event.dataTransfer.dropEffect = 'move'
+                    }}
+                    onDrop={(event) => {
+                      const from = dragVariantRef.current
+                      if (from === null) return
+                      event.preventDefault()
+                      moveVariant(from, vIndex)
+                      endVariantDrag()
+                    }}
+                  >
                     <div className="admin-variant__head">
+                      <button
+                        type="button"
+                        className="admin-variant__handle"
+                        aria-label={`Reorder variant ${vIndex + 1} of ${form.variants.length}. Drag, or use the arrow keys.`}
+                        draggable
+                        onDragStart={(event) => {
+                          dragVariantRef.current = vIndex
+                          setDragVariant(vIndex)
+                          event.dataTransfer.effectAllowed = 'move'
+                          // Firefox starts no drag at all unless some data is set.
+                          event.dataTransfer.setData('text/plain', String(vIndex))
+                          // Drag the whole card, not just the little handle glyph.
+                          const card = event.currentTarget.closest('.admin-variant')
+                          if (card) event.dataTransfer.setDragImage(card, 16, 16)
+                        }}
+                        onDragEnd={endVariantDrag}
+                        // Keyboard equivalent, so ordering is never mouse-only.
+                        onKeyDown={(event) => {
+                          if (event.key === 'ArrowUp') {
+                            event.preventDefault()
+                            moveVariant(vIndex, vIndex - 1)
+                          } else if (event.key === 'ArrowDown') {
+                            event.preventDefault()
+                            moveVariant(vIndex, vIndex + 1)
+                          }
+                        }}
+                      >
+                        <span aria-hidden>⠿</span>
+                      </button>
                       <span className="admin-variant__title">Variant {vIndex + 1}</span>
                       {form.variants.length > 1 ? (
                         <button

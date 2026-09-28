@@ -1,9 +1,10 @@
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { registerUser } from '@/api/auth'
 import { AuthCarousel } from '@/components/AuthCarousel'
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { OtpVerificationModal } from '@/components/auth/OtpVerificationModal'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthProvider'
@@ -13,7 +14,28 @@ import { validateEmail, validateName } from '@/lib/formValidation'
 export function SignupPage() {
   useDocumentTitle('Sign up')
   const navigate = useNavigate()
-  const { verifyOtpAndLogin } = useAuth()
+  const { verifyOtpAndLogin, loginWithGoogleCredential } = useAuth()
+  const [googleError, setGoogleError] = useState('')
+
+  /**
+   * A signup via Google is just an authentication result: the backend has already created
+   * or matched the account, so this goes straight home like any other successful sign-in.
+   * A new Google account has no phone number, but that does not divert the customer to the
+   * profile screen — they can add one from their profile when they want to. No OTP, no
+   * second Google call, and the registration API is not involved.
+   */
+  const onGoogleCredential = useCallback(
+    async (credential: string) => {
+      setGoogleError('')
+      const result = await loginWithGoogleCredential(credential)
+      if (!result.ok) {
+        setGoogleError(result.error)
+        return
+      }
+      navigate('/', { replace: true })
+    },
+    [loginWithGoogleCredential, navigate],
+  )
 
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -125,6 +147,25 @@ export function SignupPage() {
         <p className="mt-2 text-sm text-zinc-600">
           Register once and continue with a smoother checkout flow.
         </p>
+
+        {/*
+          The SAME button the login screen uses — there is no separate Google registration
+          flow. The backend decides whether the credential means a new account, an existing
+          Google account or an existing OTP account with that email; this screen only
+          handles the result. The email + OTP registration below is untouched.
+        */}
+        <div className="mt-6">
+          <GoogleSignInButton onCredential={onGoogleCredential} text="signup_with" />
+          <p aria-live="polite" className="min-h-0">
+            {googleError ? <span className="mt-3 block text-sm text-red-600">{googleError}</span> : null}
+          </p>
+
+          <div className="mt-5 flex items-center gap-3" aria-hidden>
+            <span className="h-px flex-1 bg-zinc-200" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-400">or</span>
+            <span className="h-px flex-1 bg-zinc-200" />
+          </div>
+        </div>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
 
