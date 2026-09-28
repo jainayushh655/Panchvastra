@@ -1,7 +1,10 @@
+import { useCallback, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AuthCarousel } from '@/components/AuthCarousel'
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { OtpAuthForm } from '@/components/auth/OtpAuthForm'
+import { useAuth } from '@/context/AuthProvider'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 /**
@@ -22,6 +25,30 @@ export function LoginPage() {
       ? ((location.state as { from: string }).from || '/')
       : '/'
 
+  const { loginWithGoogleCredential } = useAuth()
+  const [googleError, setGoogleError] = useState('')
+
+  /*
+   * Google's result feeds the SAME destination logic the OTP flow uses — nothing special.
+   *
+   * A brand-new Google account comes back without a phone number (Google never supplies
+   * one), but it is NOT diverted to the profile screen: signing in lands on the normal
+   * next path like any other login. The customer can add a phone number from their profile
+   * whenever they choose, and checkout still collects it where it is actually required.
+   */
+  const onGoogleCredential = useCallback(
+    async (credential: string) => {
+      setGoogleError('')
+      const result = await loginWithGoogleCredential(credential)
+      if (!result.ok) {
+        setGoogleError(result.error)
+        return
+      }
+      navigate(nextPath, { replace: true })
+    },
+    [loginWithGoogleCredential, navigate, nextPath],
+  )
+
   return (
     <AuthSplitLayout
       eyebrow="Panchvastra"
@@ -34,6 +61,19 @@ export function LoginPage() {
         emailHeading="Login"
         emailSubtitle="Sign in to continue shopping your saved picks."
         onAuthenticated={() => navigate(nextPath, { replace: true })}
+        aboveEmail={
+          <div>
+            <GoogleSignInButton onCredential={onGoogleCredential} />
+            {/*
+              Google errors are shown here rather than inside the button so a 409 ("already
+              linked to another Google account") sits directly above the email field the
+              message points the customer at.
+            */}
+            <p aria-live="polite" className="min-h-0">
+              {googleError ? <span className="mt-3 block text-sm text-red-600">{googleError}</span> : null}
+            </p>
+          </div>
+        }
         footer={
           <p className="mt-6 text-sm text-zinc-600">
             New here?{' '}

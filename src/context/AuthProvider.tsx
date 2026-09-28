@@ -1,5 +1,10 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
-import { loginUser as requestLoginOtp, verifyEmail as requestVerifyOtp } from '@/api/auth'
+import {
+  loginUser as requestLoginOtp,
+  loginWithGoogle as requestGoogleLogin,
+  readGoogleLoginError,
+  verifyEmail as requestVerifyOtp,
+} from '@/api/auth'
 import { readJwtPayload } from '@/lib/jwtPayload'
 
 const AUTH_TOKEN_STORAGE_KEY = 'pv_auth_token_v1'
@@ -27,6 +32,17 @@ type AuthContextValue = {
   isAuthenticated: boolean
   sendOtpForEmail: (input: { email: string }) => Promise<{ ok: true; message?: string } | { ok: false; error: string }>
   verifyOtpAndLogin: (input: { email: string; otp: string }) => Promise<{ ok: true; user: AuthUser } | { ok: false; error: string }>
+  /**
+   * Google sign-in. Takes the RAW Google ID token and returns the same kind of result the
+   * OTP flow does, plus whether this account still needs a phone number.
+   *
+   * It is the only Google-aware thing on this context: there is no googleToken, no
+   * googleSession and no second authentication state. The Panchvastra JWT the backend
+   * returns is stored by the same `persistSession` the OTP flow uses.
+   */
+  loginWithGoogleCredential: (
+    credential: string,
+  ) => Promise<{ ok: true; user: AuthUser; needsProfileCompletion: boolean } | { ok: false; error: string }>
   logout: () => void
 }
 
@@ -223,6 +239,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [persistSession])
 
+  /**
+   * Exchanges a Google ID token for the Panchvastra session.
+   *
+   * The Google credential is forwarded to the backend and then dropped — it is never
+   * stored, never decoded here, and never used as the application token. Only the JWT the
+   * backend returns reaches `persistSession`, which is byte-for-byte the same storage path
+   * the OTP flow uses, so there is exactly one session mechanism.
+   *
+   * `needsProfileCompletion` is true only for a freshly created account (HTTP 201) that
+   * came back without a phone number, since Google never supplies one. An existing account
+   * (200), or a 201 that already carries a mobile, is a normal sign-in.
+   */
+  const loginWithGoogleCredential = useCallback(
+    async (credential: string) => {
+      const raw = typeof credential === 'string' ? credential.trim() : ''
+      if (!raw) {
+        return { ok: false as const, error: 'Google sign-in failed, please try again.' }
+      }
+
+      try {
+        const { status, data } = await requestGoogleLogin(raw)
+        const nextToken = data?.token ?? null
+        const account = data?.user
+
+        if (!account?.email || !nextToken) {
+          return { ok: false as const, error: 'Google sign-in failed, please try again.' }
+        }
+
+        const fullName = [account.first_name, account.last_name]
+          .map((part) => (typeof part === 'string' ? part.trim() : ''))
+          .filter(Boolean)
+          .join(' ')
+
+        const nextUser: AuthUser = {
+          id: account.id != null ? String(account.id) : undefined,
+          name: fullName || account.email.split('@')[0] || account.email,
+          email: account.email,
+          // Role from the backend response/JWT only, exactly as the OTP path resolves it.
+          roleId: extractRoleId(data, nextToken),
+        }
+
+        persistSession(nextUser, nextToken)
+
+        const mobile = typeof account.mobile === 'string' ? account.mobile.trim() : ''
+        return {
+          ok: true as const,
+          user: nextUser,
+          needsProfileCompletion: status === 201 && !mobile,
+        }
+      } catch (error) {
+        return {
+          ok: false as const,
+          error: readGoogleLoginError(error, 'Google sign-in failed, please try again.'),
+        }
+      }
+    },
+    [persistSession],
+  )
+
   const value = useMemo(
     () => ({
       user,
@@ -230,9 +305,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: Boolean(user && token),
       sendOtpForEmail,
       verifyOtpAndLogin,
+      loginWithGoogleCredential,
       logout,
     }),
-    [logout, sendOtpForEmail, token, user, verifyOtpAndLogin],
+    [logout, loginWithGoogleCredential, sendOtpForEmail, token, user, verifyOtpAndLogin],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

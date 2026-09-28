@@ -16,6 +16,77 @@ export type KeyHighlight = {
   value: string
 }
 
+/** One predefined row: its label, the values offered, and the one selected up front. */
+export type KeyHighlightTemplate = {
+  label: string
+  options: string[]
+  defaultValue: string
+}
+
+/**
+ * The rows a NEW product starts with — the single source of truth for them.
+ *
+ * Nothing here is duplicated in JSX: the admin form seeds its state from
+ * `defaultKeyHighlightRows()` and picks its dropdown options with
+ * `keyHighlightOptionsFor()`. Adding or retiring a predefined row is an edit to this array
+ * alone.
+ *
+ * This is an authoring convenience only. It is applied when the admin opens the CREATE
+ * form and never when loading a saved product, so it can never merge itself into stored
+ * data. It is also unrelated to `productHighlights.ts`, which is the storefront's display
+ * fallback for products that have no stored highlights at all.
+ *
+ * Note: "Fabric" carries both `100% Cotton` and `Cotton` because the requested default
+ * (`100% Cotton`) is not itself one of the requested options (`Cotton`); a default that
+ * cannot be re-selected after changing it would be a trap, so both are offered.
+ */
+export const DEFAULT_KEY_HIGHLIGHTS: KeyHighlightTemplate[] = [
+  { label: 'Product Category', options: ['Topwear', 'Bottomwear'], defaultValue: 'Topwear' },
+  {
+    label: 'Product Type',
+    options: ['T-Shirt', 'Shorts', 'Hoodies', 'Full Sleeve T-Shirt'],
+    defaultValue: 'T-Shirt',
+  },
+  { label: 'Fit', options: ['Oversize', 'Regular Fit'], defaultValue: 'Regular Fit' },
+  { label: 'Fabric', options: ['100% Cotton', 'Cotton'], defaultValue: '100% Cotton' },
+  { label: 'GSM', options: ['240 GSM'], defaultValue: '240 GSM' },
+  { label: 'Returns', options: ['7 Days Exchange Policy'], defaultValue: '7 Days Exchange Policy' },
+]
+
+/**
+ * The starting rows for a new product, as ordinary `KeyHighlight`s.
+ *
+ * A fresh array of fresh objects every call, so two create-form sessions can never share
+ * (and mutate) the same row objects.
+ */
+export function defaultKeyHighlightRows(): KeyHighlight[] {
+  return DEFAULT_KEY_HIGHLIGHTS.map((entry) => ({ label: entry.label, value: entry.defaultValue }))
+}
+
+/**
+ * The suggested values for a row, or `null` when the row has no suggestions.
+ *
+ * These are SUGGESTIONS, not a closed set. The admin form renders every value as an
+ * ordinary text input and attaches these through a `<datalist>`, so a predefined row can
+ * always be typed over — "220 GSM" where the template suggests "240 GSM", a fabric blend
+ * that is not listed, and so on. Nothing here can constrain what is saved.
+ *
+ * Matching is case-insensitive on the trimmed label, so a predefined row keeps its
+ * suggestions regardless of how the label was typed or saved. Rows the template does not
+ * know — anything added with "+ Add highlight", and any label from a saved product —
+ * return `null` and simply get no suggestion list.
+ *
+ * A saved value needs no special handling: it lives in the input itself, so opening the
+ * editor cannot rewrite it whether or not the template happens to list it.
+ */
+export function keyHighlightOptionsFor(label: string): string[] | null {
+  const key = label.trim().toLowerCase()
+  if (!key) return null
+
+  const template = DEFAULT_KEY_HIGHLIGHTS.find((entry) => entry.label.toLowerCase() === key)
+  return template ? template.options : null
+}
+
 /** True for a `{ label, value }` pair with usable strings. */
 function asPair(entry: unknown): KeyHighlight | null {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null

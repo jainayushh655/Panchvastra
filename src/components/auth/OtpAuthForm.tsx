@@ -43,6 +43,7 @@ export function OtpAuthForm({
   emailSubtitle,
   onAuthenticated,
   footer,
+  aboveEmail,
 }: {
   /** Namespaces input ids so two instances could never collide. */
   idPrefix: string
@@ -51,6 +52,15 @@ export function OtpAuthForm({
   /** Called with the authenticated user once verification succeeds. */
   onAuthenticated: (user: AuthUser) => void
   footer?: React.ReactNode
+  /**
+   * Optional block rendered above the email field on the FIRST step only — the customer
+   * screens pass "Continue with Google" here.
+   *
+   * A slot rather than a built-in button because this form is shared with the admin login,
+   * which must stay email + OTP only. Omitting it leaves that screen byte-for-byte as it
+   * was, and it never appears on the OTP step where it would compete with the code input.
+   */
+  aboveEmail?: React.ReactNode
 }) {
   const { sendOtpForEmail, verifyOtpAndLogin } = useAuth()
 
@@ -304,6 +314,19 @@ export function OtpAuthForm({
       <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Welcome back</p>
       <h1 className="mt-2 text-3xl font-bold uppercase tracking-tight text-black">{emailHeading}</h1>
       <p className="mt-2 text-sm text-zinc-600">{emailSubtitle}</p>
+
+      {aboveEmail ? (
+        <div className="mt-7">
+          {aboveEmail}
+
+          {/* Hairline with a centred "OR", in the existing black/white language. */}
+          <div className="mt-5 flex items-center gap-3" aria-hidden>
+            <span className="h-px flex-1 bg-zinc-200" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-400">or</span>
+            <span className="h-px flex-1 bg-zinc-200" />
+          </div>
+        </div>
+      ) : null}
 
       <form onSubmit={onSendOtp} className="mt-7 space-y-4" noValidate>
         <div>
