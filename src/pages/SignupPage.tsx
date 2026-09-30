@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { registerUser } from '@/api/auth'
 import { AuthCarousel } from '@/components/AuthCarousel'
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
-import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
+import { GOOGLE_BUTTON_MAX_WIDTH, GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { OtpVerificationModal } from '@/components/auth/OtpVerificationModal'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthProvider'
@@ -134,7 +134,12 @@ export function SignupPage() {
       // Brand imagery only — the signup + OTP flow below is untouched.
       media={<AuthCarousel slideClassName="h-full" className="h-full" showSkeleton={false} />}
     >
-      <div className="pv-auth-rise">
+      {/*
+        Capped to the Google button's own 400px ceiling so CREATE ACCOUNT, the two-column
+        field grid and the Google button all share one left and right edge. Applied here
+        rather than in AuthSplitLayout, which is shared with the admin login.
+      */}
+      <div className="pv-auth-rise w-full" style={{ maxWidth: GOOGLE_BUTTON_MAX_WIDTH }}>
 
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">
           Create your account
@@ -149,25 +154,13 @@ export function SignupPage() {
         </p>
 
         {/*
-          The SAME button the login screen uses — there is no separate Google registration
-          flow. The backend decides whether the credential means a new account, an existing
-          Google account or an existing OTP account with that email; this screen only
-          handles the result. The email + OTP registration below is untouched.
+          Two columns from `sm` up, one below it, so First/Last and Email/Phone pair up on a
+          desktop panel but never get squeezed on a phone. `minmax(0,1fr)` twice via
+          `grid-cols-2` keeps the columns exactly equal; the full-width rows opt out with
+          `col-span-2`. Field markup, ids, state and validation are untouched — only the
+          container they sit in changed.
         */}
-        <div className="mt-6">
-          <GoogleSignInButton onCredential={onGoogleCredential} text="signup_with" />
-          <p aria-live="polite" className="min-h-0">
-            {googleError ? <span className="mt-3 block text-sm text-red-600">{googleError}</span> : null}
-          </p>
-
-          <div className="mt-5 flex items-center gap-3" aria-hidden>
-            <span className="h-px flex-1 bg-zinc-200" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-400">or</span>
-            <span className="h-px flex-1 bg-zinc-200" />
-          </div>
-        </div>
-
-        <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+        <form onSubmit={onSubmit} className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2" noValidate>
 
           {/* First Name */}
           <div>
@@ -258,15 +251,16 @@ export function SignupPage() {
           </div>
 
           {error && (
-            <p className="text-sm text-red-600">
+            <p className="text-sm text-red-600 sm:col-span-2">
               {error}
             </p>
           )}
 
+          {/* Spans the whole grid so its edges line up with the two-column block above. */}
           <Button
             type="submit"
             size="lg"
-            className="w-full !border-black !bg-black !text-white hover:!bg-zinc-800"
+            className="w-full !border-black !bg-black !text-white hover:!bg-zinc-800 sm:col-span-2"
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Creating...' : 'Create Account'}
@@ -283,6 +277,27 @@ export function SignupPage() {
             Login
           </Link>
         </p>
+
+        {/*
+          Google now closes the form rather than opening it, with the SAME single OR divider
+          moved down with it — the email registration above is the primary path and this is
+          the alternative. It is the same component and the same handler the login screen
+          uses; only its position in the page changed.
+        */}
+        <div className="mt-6">
+          <div className="flex items-center gap-3" aria-hidden>
+            <span className="h-px flex-1 bg-zinc-200" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-400">or</span>
+            <span className="h-px flex-1 bg-zinc-200" />
+          </div>
+
+          <div className="mt-5">
+            <GoogleSignInButton onCredential={onGoogleCredential} text="signup_with" />
+            <p aria-live="polite" className="min-h-0">
+              {googleError ? <span className="mt-3 block text-sm text-red-600">{googleError}</span> : null}
+            </p>
+          </div>
+        </div>
 
       </div>
 
