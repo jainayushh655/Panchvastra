@@ -6,6 +6,7 @@ import { ProductDetailAccordions } from '@/components/product/ProductDetailAccor
 import { ProductImageGallery } from '@/components/product/ProductImageGallery'
 import { ProductVariantPicker } from '@/components/product/ProductVariantPicker'
 import { SizeChart } from '@/components/product/SizeChart'
+import { getSizeChart } from '@/lib/sizeChart'
 import { useCart } from '@/context/CartProvider'
 import { useToast } from '@/context/ToastProvider'
 import { useWishlist, type WishlistItem } from '@/context/WishlistProvider'
@@ -296,6 +297,17 @@ export function ProductDetailPage() {
   const maxQty = selectedVariantSize ? Math.max(1, Math.min(selectedVariantSize.stock_quantity, 10)) : 1;
   const subtitle = [productDto?.category?.name, productDto?.sub_category?.name].filter(Boolean).join(' · ');
 
+  /*
+   * Which size chart this product gets, from the catalog relationship the admin maintains.
+   * `sub_category_name` is the flat mirror the detail response also carries, used only when
+   * the nested object is absent. Null means no chart is configured for this pairing, and
+   * the Size Chart control is then not rendered at all rather than showing a wrong one.
+   */
+  const sizeChart = getSizeChart(
+    productDto?.category?.name,
+    productDto?.sub_category?.name ?? productDto?.sub_category_name,
+  );
+
   // Only the sizes this variant is actually configured with are rendered, in the standard
   // run's order. Sizes the API does not return are simply not offered; a configured size
   // with zero stock is still shown, marked unavailable.
@@ -388,13 +400,16 @@ export function ProductDetailPage() {
           <div>
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
               <p className="font-sans text-sm font-semibold text-zinc-900 dark:text-white">Select Size</p>
-              <button
-                type="button"
-                onClick={() => setSizeChartOpen(true)}
-                className="inline-flex min-h-[32px] items-center font-sans text-xs font-semibold uppercase tracking-wide text-zinc-600 underline underline-offset-2 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white"
-              >
-                Size Chart
-              </button>
+              {/* Hidden entirely when this category/subcategory has no configured chart. */}
+              {sizeChart ? (
+                <button
+                  type="button"
+                  onClick={() => setSizeChartOpen(true)}
+                  className="inline-flex min-h-[32px] items-center font-sans text-xs font-semibold uppercase tracking-wide text-zinc-600 underline underline-offset-2 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white"
+                >
+                  Size Chart
+                </button>
+              ) : null}
             </div>
             <div className="mt-4 flex flex-wrap gap-3">
               {uiSizes.map((sz) => (
@@ -565,11 +580,13 @@ export function ProductDetailPage() {
         </div>
       </div>
 
-      <SizeChart
-        isOpen={sizeChartOpen}
-        onClose={() => setSizeChartOpen(false)}
-        sizes={[...UI_SIZE_OPTIONS]}
-      />
+      {sizeChart ? (
+        <SizeChart
+          isOpen={sizeChartOpen}
+          onClose={() => setSizeChartOpen(false)}
+          chart={sizeChart}
+        />
+      ) : null}
 
       <NotifyMeModal
         isOpen={notifyMeOpen}
