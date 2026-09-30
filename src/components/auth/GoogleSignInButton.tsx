@@ -20,6 +20,15 @@ const GSI_SRC = 'https://accounts.google.com/gsi/client'
 const MIN_BUTTON_WIDTH = 200
 const MAX_BUTTON_WIDTH = 400
 
+/**
+ * The widest this button can ever render, in px.
+ *
+ * Exported so the auth screens can size their own controls to match: Google enforces the
+ * 400px ceiling, so the email input and the submit buttons are capped to the same value
+ * rather than a copy of the number. Change it here and every control follows.
+ */
+export const GOOGLE_BUTTON_MAX_WIDTH = MAX_BUTTON_WIDTH
+
 type CredentialResponse = { credential?: string }
 
 type GoogleIdentity = {
