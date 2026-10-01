@@ -12,7 +12,7 @@ import {
 } from '@/components/shop/ShopFilterBar'
 import { Button } from '@/components/ui/Button'
 
-import { getProducts } from '@/api/product'
+import { getProducts, type ProductSortBy } from '@/api/product'
 import { getCategories } from '@/api/category'
 import type { Product } from '@/types'
 import { mapProduct } from '@/mappers/productMapper'
@@ -76,6 +76,17 @@ export function ShopPage() {
   const categoryRaw = searchParams.get('category')
   const category = categoryRaw && allowedCategorySlugs.has(categoryRaw) ? categoryRaw : 'all'
   const sort = parseSort(searchParams.get('sort'))
+
+  /*
+   * "Featured" is the existing `popular` option and the default. It now means the admin's
+   * curated order, which the backend produces with `sort_by=display_order` — re-verified
+   * live as a strictly ascending 1..N over the whole catalogue.
+   *
+   * It has to come from the query rather than a client sort: sorting only the page already
+   * loaded would be wrong as soon as the list is paginated. The other options stay exactly
+   * as they were, sorted client-side, so no sort param is sent for them.
+   */
+  const sortBy: ProductSortBy | undefined = sort === 'popular' ? 'display_order' : undefined
 
   const categoryHeading =
     category === 'all' ? 'All Products' : (categories.find((c) => categoryNameToSlug(c.name) === category)?.name ?? 'All Products')
@@ -143,7 +154,16 @@ export function ShopPage() {
     const sizeParam = size !== 'all' ? size : undefined
     const searchParam = q.trim() || undefined
 
-    const hasServerFilter = categoryId != null || subCategoryId != null || sizeParam != null || searchParam != null
+    /*
+     * A curated sort counts as a reason to query, exactly like a filter does.
+     *
+     * The bootstrap snapshot is fetched with no params, so reusing it for Featured would
+     * silently show the backend's default order instead of the admin's — and would only
+     * ever order the rows already loaded. Asking the server keeps the curated order
+     * correct across pagination.
+     */
+    const hasServerFilter =
+      categoryId != null || subCategoryId != null || sizeParam != null || searchParam != null || sortBy != null
 
     if (!hasServerFilter) {
       setProducts(catalogSnapshot)
@@ -156,6 +176,8 @@ export function ShopPage() {
       sub_category_id: subCategoryId,
       size: sizeParam,
       search: searchParam,
+      // Alongside every existing filter, never as a separate request.
+      ...(sortBy ? { sort_by: sortBy } : {}),
     })
       .then((dtos) => {
         if (cancelled) return
@@ -168,7 +190,9 @@ export function ShopPage() {
     return () => {
       cancelled = true
     }
-  }, [catalogReady, category, subcategory, size, q, categories, catalogSnapshot, subCategoryOptions])
+    // `sortBy` — not `sort` — is a dependency, so switching between the two client-sorted
+    // options never triggers a pointless refetch; only entering or leaving Featured does.
+  }, [catalogReady, category, subcategory, size, q, categories, catalogSnapshot, subCategoryOptions, sortBy])
 
   const priceRange = priceRangeFromBucket(priceBucket)
 
@@ -192,7 +216,10 @@ export function ShopPage() {
         filtered.sort((a, b) => b.reviewCount - a.reviewCount)
         break
       default:
-        filtered.sort((a, b) => b.popularity - a.popularity)
+        // Featured: the backend already returned the curated order, so it is preserved
+        // as received. Re-sorting here would override `sort_by=display_order` and would
+        // only ever be able to order the loaded page.
+        break
     }
 
     return filtered

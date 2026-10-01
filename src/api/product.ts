@@ -38,18 +38,32 @@ interface ProductDetailResponse {
   data: ProductDetailDto;
 }
 
+/** Backend-supported values for `sort_by`. `latest` is the backend's own default. */
+export type ProductSortBy =
+  | "latest"
+  | "oldest"
+  | "price_low_to_high"
+  | "price_high_to_low"
+  | "display_order";
+
 /**
  * Verified-real server-side filters on `/v1/products_management/` (confirmed
  * against the live backend — see category_id/sub_category_id SQL error leak,
- * and empty-vs-nonempty diffing for size/search). Price and sort are NOT
- * supported server-side (params are silently ignored), so those stay
- * client-side.
+ * and empty-vs-nonempty diffing for size/search). Price filtering is still NOT
+ * supported server-side, so that stays client-side.
+ *
+ * `sort_by` IS now supported — re-verified live: `oldest`, `price_low_to_high` and
+ * `price_high_to_low` each return a distinct order, and `sort_by=display_order` returns
+ * the catalogue strictly ascending by that field (1..22 across the full list). Sorting a
+ * curated order therefore belongs on the server, so it stays correct across pages rather
+ * than only within the page already loaded.
  */
 export interface ProductQueryParams {
   category_id?: number;
   sub_category_id?: number;
   size?: string;
   search?: string;
+  sort_by?: ProductSortBy;
 }
 
 export async function getProducts(params?: ProductQueryParams) {

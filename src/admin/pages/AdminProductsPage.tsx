@@ -47,6 +47,8 @@ type VariantForm = {
   mrp: string
   selling_price: string
   cost_price: string
+  /** Curated position, as typed. Blank means "let the backend decide / leave as is". */
+  display_order: string
   is_default: boolean
   is_active: boolean
   sizes: SizeForm[]
@@ -70,6 +72,8 @@ type ProductForm = {
   description: string
   fabric: string
   gsm: string
+  /** Curated position, as typed. Blank means "leave the stored order untouched". */
+  display_order: string
   key_highlights: KeyHighlight[]
   is_featured: boolean
   is_new_arrival: boolean
@@ -82,14 +86,34 @@ type ProductForm = {
   delete_variant_image_ids: number[]
 }
 
+/**
+ * Reads a typed display order into one of three outcomes.
+ *
+ *   `undefined` — blank. The caller OMITS the key entirely, which per the contract leaves
+ *                 a saved order untouched and lets the backend place a new row itself.
+ *                 Deliberately not `null`/`0`/`""`, any of which would overwrite.
+ *   `'invalid'` — present but not a positive whole number. Rejected with a message rather
+ *                 than coerced, so "1.5", "-2", "0" and "abc" can never be sent as numbers.
+ *   `number`    — a positive integer, sent as a number and never as a string.
+ */
+function readDisplayOrder(raw: string): number | undefined | 'invalid' {
+  const text = raw.trim()
+  if (!text) return undefined
+  // Rejects decimals, signs, spaces and anything non-numeric before Number() can round.
+  if (!/^\d+$/.test(text)) return 'invalid'
+  const value = Number(text)
+  if (!Number.isSafeInteger(value) || value < 1) return 'invalid'
+  return value
+}
+
 const emptySize = (): SizeForm => ({ id: null, size: '', stock_quantity: '0', is_active: true })
 const emptyVariant = (): VariantForm => ({
-  id: null, sku: '', color: '', mrp: '', selling_price: '', cost_price: '',
+  id: null, sku: '', color: '', mrp: '', selling_price: '', cost_price: '', display_order: '',
   is_default: false, is_active: true, sizes: [emptySize()],
   existingImages: [], newImages: [], imageOrder: [],
 })
 const emptyForm = (): ProductForm => ({
-  id: null, category_id: '', sub_category_id: '', name: '', description: '', fabric: '', gsm: '',
+  id: null, category_id: '', sub_category_id: '', name: '', description: '', fabric: '', gsm: '', display_order: '',
   key_highlights: [], is_featured: false, is_new_arrival: false, is_active: true,
   variants: [emptyVariant()], delete_variant_ids: [], delete_size_ids: [],
   delete_variant_image_ids: [],
@@ -269,6 +293,9 @@ export function AdminProductsPage() {
         description: detail.description ?? '',
         fabric: detail.fabric ?? '',
         gsm: detail.gsm == null ? '' : String(detail.gsm),
+        // Blank when the backend has no order for this product — never prefilled with 0,
+        // so an untouched field omits the key and the stored order survives the save.
+        display_order: detail.display_order == null ? '' : String(detail.display_order),
         // Straight from the array contract - no unwrapping, no JSON shown to the admin.
         key_highlights: readKeyHighlights(detail.key_highlights),
         is_featured: Boolean(detail.is_featured),
@@ -283,6 +310,8 @@ export function AdminProductsPage() {
           mrp: v.mrp == null ? '' : String(v.mrp),
           selling_price: v.selling_price == null ? '' : String(v.selling_price),
           cost_price: v.cost_price == null ? '' : String(v.cost_price),
+          // Same rule as the product field: absent stays blank, never 0.
+          display_order: v.display_order == null ? '' : String(v.display_order),
           is_default: Boolean(v.is_default),
           is_active: true,
           sizes: (v.sizes ?? []).map((s) => ({
@@ -337,9 +366,22 @@ export function AdminProductsPage() {
     setForm((prev) => {
       if (!prev) return prev
       const target = prev.variants[index]
+      const remaining = prev.variants.filter((_, i) => i !== index)
+      /*
+       * Close the gap the removal leaves: 1,2,3 minus the middle must become 1,2 — not
+       * 1,3. The orders no longer come from the array index, so this has to be written
+       * into the fields, exactly as a drag does.
+       *
+       * Only when at least one remaining variant actually HAS an order. On a create form
+       * where every field is blank, renumbering would invent orders the admin never asked
+       * for and take away the backend's own "number them by array position" behaviour.
+       */
+      const anyOrdered = remaining.some((v) => v.display_order.trim())
       return {
         ...prev,
-        variants: prev.variants.filter((_, i) => i !== index),
+        variants: anyOrdered
+          ? remaining.map((v, i) => ({ ...v, display_order: String(i + 1) }))
+          : remaining,
         // Existing children must be soft-deleted by the backend, not just dropped locally.
         delete_variant_ids: target?.id ? [...prev.delete_variant_ids, target.id] : prev.delete_variant_ids,
       }
@@ -362,7 +404,18 @@ export function AdminProductsPage() {
       const next = [...prev.variants]
       const [moved] = next.splice(from, 1)
       next.splice(to, 0, moved)
-      return { ...prev, variants: next }
+      /*
+       * Dragging now writes the new positions into each variant's Display Order field.
+       *
+       * Without this the fields would keep their old numbers while the rows moved, and the
+       * backend — which orders by the numbers, not by array position — would undo the drag
+       * on save. Renumbering keeps the visible field and the saved order in agreement, and
+       * leaves the field editable afterwards.
+       */
+      return {
+        ...prev,
+        variants: next.map((variant, index) => ({ ...variant, display_order: String(index + 1) })),
+      }
     })
 
   const removeSize = (vIndex: number, sIndex: number) =>
@@ -494,6 +547,19 @@ export function AdminProductsPage() {
     if (!name) return setFormError('Product name is required.')
     if (!form.category_id) return setFormError('Category is required.')
 
+    // Blank is legal everywhere (the key is then omitted); anything present must be a
+    // positive whole number, matching the backend's own requirement. Rejected rather than
+    // silently coerced, so "1.5" or "-2" never reaches the API as something else.
+    const productOrder = readDisplayOrder(form.display_order)
+    if (productOrder === 'invalid') {
+      return setFormError('Display order must be a positive whole number, or left blank.')
+    }
+    for (const [i, v] of form.variants.entries()) {
+      if (readDisplayOrder(v.display_order) === 'invalid') {
+        return setFormError(`Variant ${i + 1}: display order must be a positive whole number, or left blank.`)
+      }
+    }
+
     // Variants are optional overall, but any variant present must be complete.
     for (const [i, v] of form.variants.entries()) {
       const filled = v.sku.trim() || v.color.trim() || v.mrp.trim() || v.selling_price.trim()
@@ -510,6 +576,12 @@ export function AdminProductsPage() {
     // the two must be derived from the same filtered source.
     const selectedVariants = form.variants.filter((v) => v.sku.trim() && v.color.trim())
 
+    // Resolved once so the map below stays readable; every entry is already known valid.
+    const variantOrders = selectedVariants.map((v) => {
+      const parsed = readDisplayOrder(v.display_order)
+      return parsed === 'invalid' ? undefined : parsed
+    })
+
     const variants: ProductVariantWriteDto[] = selectedVariants
       .map((v, index) => ({
         ...(v.id ? { id: v.id } : {}),
@@ -521,14 +593,17 @@ export function AdminProductsPage() {
         is_default: v.is_default,
         is_active: v.is_active,
         /*
-         * The list the admin sees IS the order. Numbering from the index of
-         * `selectedVariants` — the array actually submitted, not `form.variants` — keeps
-         * this a contiguous 1..N even when a blank row is skipped or a variant was
-         * removed, so duplicates and gaps are impossible without relying on the backend.
-         * Every other field of the variant is still sent alongside it; this is never a
-         * standalone {id, display_order} reorder request.
+         * The variant's own typed order, OMITTED when the field is blank.
+         *
+         * This used to be an unconditional `index + 1`. It is now the field's value, so
+         * the admin can set an explicit order — and `moveVariant` rewrites these numbers
+         * whenever a row is dragged, which keeps drag-ordering persisting exactly as
+         * before while leaving the field as the single source of truth. Blank on a NEW
+         * variant lets the backend append it; blank on an existing one leaves its stored
+         * order alone. Every other field still travels with it, so this is never a bare
+         * {id, display_order} reorder request.
          */
-        display_order: index + 1,
+        ...(typeof variantOrders[index] === 'number' ? { display_order: variantOrders[index] } : {}),
         sizes: v.sizes
           .filter((s) => s.size.trim())
           .map((s) => ({
@@ -546,6 +621,9 @@ export function AdminProductsPage() {
       ...(form.description.trim() ? { description: form.description.trim() } : {}),
       ...(form.fabric.trim() ? { fabric: form.fabric.trim() } : {}),
       ...(form.gsm.trim() ? { gsm: Number(form.gsm) } : {}),
+      // Omitted when blank — an absent key preserves the stored order, while null/0/""
+      // would overwrite it.
+      ...(typeof productOrder === 'number' ? { display_order: productOrder } : {}),
       // ALWAYS sent, including an empty array - that is how the admin clears highlights,
       // so omitting the key would leave the stored ones in place.
       key_highlights: toKeyHighlightsPayload(form.key_highlights),
@@ -884,6 +962,27 @@ export function AdminProductsPage() {
                       placeholder="Optional"
                     />
                   </div>
+                  <div className="admin-form__field">
+                    <label htmlFor="product-display-order">Display Order</label>
+                    {/*
+                      `min=1 step=1` matches the backend's positive-integer rule. Leaving it
+                      blank omits the field on save, which keeps whatever order is stored.
+                    */}
+                    <input
+                      id="product-display-order"
+                      type="number"
+                      min="1"
+                      step="1"
+                      inputMode="numeric"
+                      value={form.display_order}
+                      onChange={(e) => patch({ display_order: e.target.value })}
+                      placeholder="Optional"
+                      aria-describedby="product-display-order-hint"
+                    />
+                    <p id="product-display-order-hint" className="admin-muted" style={{ fontSize: 11 }}>
+                      Lower numbers show first. Leave blank to keep the current order.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="admin-form__field">
@@ -1099,14 +1198,35 @@ export function AdminProductsPage() {
                       </div>
                     </div>
 
-                    <div className="admin-form__field">
-                      <label htmlFor={`variant-cost-${vIndex}`}>Cost Price</label>
-                      <input
-                        id={`variant-cost-${vIndex}`}
-                        value={variant.cost_price}
-                        onChange={(e) => patchVariant(vIndex, { cost_price: e.target.value })}
-                        placeholder="Optional"
-                      />
+                    <div className="admin-form__row">
+                      <div className="admin-form__field">
+                        <label htmlFor={`variant-cost-${vIndex}`}>Cost Price</label>
+                        <input
+                          id={`variant-cost-${vIndex}`}
+                          value={variant.cost_price}
+                          onChange={(e) => patchVariant(vIndex, { cost_price: e.target.value })}
+                          placeholder="Optional"
+                        />
+                      </div>
+
+                      <div className="admin-form__field">
+                        <label htmlFor={`variant-display-order-${vIndex}`}>Display Order</label>
+                        {/*
+                          Dragging the card rewrites this value, so the two never disagree.
+                          Blank omits the field: the backend then appends a new variant and
+                          leaves an existing one where it is.
+                        */}
+                        <input
+                          id={`variant-display-order-${vIndex}`}
+                          type="number"
+                          min="1"
+                          step="1"
+                          inputMode="numeric"
+                          value={variant.display_order}
+                          onChange={(e) => patchVariant(vIndex, { display_order: e.target.value })}
+                          placeholder="Optional"
+                        />
+                      </div>
                     </div>
 
                     <label className="admin-form__check">

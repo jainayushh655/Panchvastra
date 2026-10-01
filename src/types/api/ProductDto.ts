@@ -26,6 +26,13 @@ export interface ProductDto {
 
   created_at: string
 
+  /**
+   * Curated position in the catalogue, 1-based. Verified present on the live list response.
+   * Optional so a product without one is readable; a missing value is never read as 0, and
+   * nothing in the mappers sorts on it — the backend does that via `sort_by=display_order`.
+   */
+  display_order?: number | null
+
   variant_id: number
 
   sku: string
