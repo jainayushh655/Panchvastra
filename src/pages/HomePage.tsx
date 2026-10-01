@@ -31,7 +31,17 @@ export function HomePage() {
     let active = true
     setLoading(true)
 
-    Promise.all([getProducts(), getCategories()])
+    /*
+     * The homepage fetches its own product list — it does not share the Shop page's
+     * snapshot — and this call previously went out with NO params, so it received the
+     * backend's default order rather than the admin's curated one.
+     *
+     * Asking for `sort_by=display_order` fixes the actual data source. Neither homepage
+     * section sorts afterwards, so both simply inherit the curated order: the category
+     * grid shows it directly, and New Arrivals keeps its own "new first" grouping rule
+     * with each group internally in curated order. Still one request, as before.
+     */
+    Promise.all([getProducts({ sort_by: 'display_order' }), getCategories()])
       .then(([dtos, categoryList]) => {
         if (!active) return
         setProducts(dtos.map(mapProduct))

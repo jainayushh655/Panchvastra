@@ -59,6 +59,15 @@ export interface ProductCreateDto {
   is_new_arrival?: boolean
   is_active?: boolean
   /**
+   * Curated position in the catalogue — a positive integer.
+   *
+   * OMITTED, never nulled, when the admin leaves the field blank: per the contract an
+   * absent key leaves the stored order untouched, whereas `null`/`0`/`""` would overwrite
+   * it. Lives inside the `data` JSON alongside the other product fields, so the multipart
+   * image-upload behaviour is unchanged.
+   */
+  display_order?: number
+  /**
    * Sent as a real array inside the `data` JSON — never as a JSON string and never as a
    * separate multipart field. `[]` is meaningful: it clears the product's highlights.
    */
