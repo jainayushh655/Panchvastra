@@ -1,66 +1,96 @@
 import api from './axios'
 import { adminAuthConfig, MissingAdminSessionError } from './adminRequest'
-import { mapOrder, readOrderList, readPageInfo } from '@/mappers/orderMapper'
-import type { OrderQuery, UpdateOrderStatusDto } from '@/types/api/OrderDto'
-import type { CustomerOrder, CustomerOrderPage } from '@/types/customerOrder'
+import { mapNote, mapOrderDetail, mapOrderSummary, mapPagination } from '@/mappers/orderMapper'
+import type {
+  CreateOrderNoteDto,
+  OrderDetailDto,
+  OrderDto,
+  OrderNoteDto,
+  OrderPaginationDto,
+  OrderQuery,
+  UpdateOrderAddressDto,
+  UpdateOrderStatusDto,
+} from '@/types/api/OrderDto'
+import type { OrderDetail, OrderListResult, OrderNote } from '@/types/orderManagement'
 
 export { MissingAdminSessionError }
 
 /**
- * Order History API.
+ * Order management service — every `/v1/orders/...` call the three screens make.
  *
- * VERIFIED LIVE against /v1/orders/:
- *   - The endpoint exists and is authentication-gated: an unauthenticated GET returns
- *     401 {"success": false, "message": "Authorization token missing.", "data": {}}
- *     (a request to a non-existent path returns 404, so 401 confirms the route is real).
- *   - The backend's published OpenAPI schema (GET /api/schema/) defines a single GET
- *     operation on this path, accepting exactly `id`, `page`, `page_size` and `status`.
- *     Nothing outside that set is ever sent.
+ * AUTHORIZATION. Two distinct paths, and they never mix:
+ *   - Customer reads go through the shared `api` client, which attaches the signed-in
+ *     shopper's token. The backend decides what that token may see.
+ *   - Admin calls pass `adminAuthConfig()` explicitly. It reads the admin session key and
+ *     THROWS before any request when there isn't one, so an admin endpoint can never be
+ *     reached with a shopper's token and never silently falls back to one.
+ * No endpoint is "reused" across roles to sidestep that split: the admin list and the
+ * customer list hit the same URL through two separate functions with two separate configs.
  *
- * NOT VERIFIED: the 200 payload — the schema documents it as "No response body" and no
- * authenticated session was obtainable here. Response reading is therefore delegated to
- * `orderMapper`, which resolves each field from documented candidates over this backend's
- * confirmed `{ success, message, data }` envelope and leaves unmatched fields empty.
- *
- * Auth headers, base URL and interceptors all come from the shared `api` client — no new
- * HTTP layer, no separate token, no hardcoded base URL.
+ * DEPLOYMENT NOTE (verified 2026-10-03 against https://api.panchvastra.com): only
+ * `GET`/`PUT /v1/orders/` are live there. `/v1/orders/notes/`, `/v1/orders/address/` and
+ * `/v1/orders/invoice/` currently return 404 on that host, so the features built on them
+ * will surface the API's own error until the deployment catches up with this contract.
  */
 
-type OrderEnvelope = {
+type OrderEnvelope<T> = {
   success?: boolean
-  message?: string | Record<string, string[]>
-  data?: unknown
+  message?: unknown
+  data?: T
+  pagination?: OrderPaginationDto | null
 }
 
-/** Flattens this backend's two `message` shapes (string, or field→messages) into one line. */
+/* ------------------------------------------------------------------ messages */
+
+/** Flattens the two `message` shapes this backend uses (a string, or field→messages). */
 export function readOrderApiMessage(message: unknown, fallback: string): string {
-  if (typeof message === 'string' && message.trim()) return message
+  if (typeof message === 'string' && message.trim()) return message.trim()
+
   if (message && typeof message === 'object') {
     const parts: string[] = []
     for (const value of Object.values(message as Record<string, unknown>)) {
-      if (Array.isArray(value)) parts.push(...value.filter((v): v is string => typeof v === 'string'))
+      if (Array.isArray(value)) parts.push(...value.filter((entry): entry is string => typeof entry === 'string'))
       else if (typeof value === 'string') parts.push(value)
     }
     if (parts.length) return parts.join(' ')
   }
+
   return fallback
 }
 
-/** Turns any thrown request error into a user-safe message (never a raw stack/trace). */
+/**
+ * Turns a thrown request error into a message that is safe to put on screen.
+ *
+ * The contract states `message` is written for end users, so a 4xx body is surfaced
+ * verbatim. A 5xx body is NOT: those can carry a Django debug page or raw SQL, so they
+ * are replaced with a generic line. Nothing here logs or echoes the bearer token.
+ */
 export function readOrderApiError(error: unknown, fallback: string): string {
-  const response = (error as { response?: { status?: number; data?: OrderEnvelope } }).response
+  if (error instanceof MissingAdminSessionError) return error.message
 
+  const response = (error as { response?: { status?: number; data?: OrderEnvelope<unknown> } }).response
   if (!response) return 'Unable to connect to the server. Check your connection and try again.'
 
   const status = response.status
-  if (status === 401 || status === 403) return 'Your session has expired. Please sign in again.'
-  if (status === 404) return 'That order could not be found.'
   if (status && status >= 500) return 'The server is temporarily unavailable. Please try again shortly.'
 
-  return readOrderApiMessage(response.data?.message, fallback)
+  const message = readOrderApiMessage(response.data?.message, '')
+  if (message) return message
+
+  if (status === 401) return 'Your session has expired. Please sign in again.'
+  if (status === 403) return 'You do not have permission to do that.'
+  if (status === 404) return 'That order could not be found.'
+  if (status === 429) return 'Too many requests. Please try again in a moment.'
+
+  return fallback
 }
 
-/** Drops empty values so only parameters the caller actually set are sent. */
+/** Kept as a distinct name so admin call sites read clearly; same safety rules apply. */
+export const readAdminOrderApiError = readOrderApiError
+
+/* ------------------------------------------------------------------ query */
+
+/** Drops empty values so only parameters the caller actually set reach the wire. */
 function toParams(query: OrderQuery): Record<string, string | number> {
   const params: Record<string, string | number> = {}
   if (query.id !== undefined && query.id !== '') params.id = query.id
@@ -71,108 +101,189 @@ function toParams(query: OrderQuery): Record<string, string | number> {
   return params
 }
 
-/** Turns a thrown request error into a message safe to show an admin. */
-export function readAdminOrderApiError(error: unknown, fallback: string): string {
-  if (error instanceof MissingAdminSessionError) return error.message
-
-  const response = (error as { response?: { status?: number; data?: OrderEnvelope } }).response
-  if (!response) return 'Unable to connect to the server. Check your connection and try again.'
-
-  const status = response.status
-  if (status === 401) return 'Your admin session has expired. Please sign in again.'
-  if (status === 403) return 'You do not have permission to manage orders.'
-  if (status === 404) return 'That order could not be found.'
-  if (status === 429) return 'Too many requests. Please try again in a moment.'
-  // 5xx bodies can carry raw DB/exception text — never surface it.
-  if (status && status >= 500) return 'The server is temporarily unavailable. Please try again shortly.'
-
-  return readOrderApiMessage(response.data?.message, fallback)
+/** Shared list-response reading, so both roles interpret the envelope identically. */
+function readListResponse(
+  body: OrderEnvelope<OrderDto[]> | undefined,
+  requestedPage: number,
+): OrderListResult {
+  const data = Array.isArray(body?.data) ? body.data : []
+  return {
+    orders: data.map((dto, index) => mapOrderSummary(dto, index)),
+    pagination: mapPagination(body?.pagination, requestedPage),
+    // The contract's empty state uses the envelope's own wording ("Data not found.").
+    message: readOrderApiMessage(body?.message, ''),
+  }
 }
 
-/**
- * GET /v1/orders/ — the authenticated user's orders.
- *
- * Pass `page`/`page_size` to paginate or `status` to filter server-side; omitting them
- * sends a bare GET /v1/orders/.
- */
-export async function getOrders(query: OrderQuery = {}): Promise<CustomerOrderPage> {
-  const response = await api.get<OrderEnvelope>('/v1/orders/', { params: toParams(query) })
+/* ------------------------------------------------------------------ customer */
 
-  // Pagination metadata may sit alongside the list in `data`, or at the response root.
-  const payload = response.data?.data ?? response.data
-  const orders = readOrderList(payload).map((dto, index) => mapOrder(dto, index))
-  const pageInfo = readPageInfo(payload, query.page ?? 1)
-
-  return { orders, pageInfo }
+/** `GET /v1/orders/` — the signed-in customer's own orders. */
+export async function getOrders(query: OrderQuery = {}): Promise<OrderListResult> {
+  const response = await api.get<OrderEnvelope<OrderDto[]>>('/v1/orders/', { params: toParams(query) })
+  return readListResponse(response.data, query.page ?? 1)
 }
 
-/**
- * GET /v1/orders/?id=<id> — a single order.
- *
- * Exposed at the service level for the documented `id` parameter. The Orders page has no
- * order-detail interaction today, so no route or navigation was added for it.
- */
-export async function getOrderById(id: number | string): Promise<CustomerOrder | null> {
-  const response = await api.get<OrderEnvelope>('/v1/orders/', { params: { id } })
-  const payload = response.data?.data ?? response.data
-  const [order] = readOrderList(payload).map((dto, index) => mapOrder(dto, index))
-  return order ?? null
-}
-
-/* ------------------------------------------------------------------ admin (orders) */
+/* ------------------------------------------------------------------ admin: read */
 
 /**
- * GET /v1/orders/ as an ADMIN — orders across every customer.
+ * `GET /v1/orders/` as an ADMIN — orders across every customer.
  *
- * Same endpoint and same mapper as the customer read; the only difference is the token.
- * The admin token is passed explicitly through the shared `adminAuthConfig` helper (the
- * one Categories, Products, Coupons and Auth Carousel already use), so this call fails
- * closed without an admin session and never silently falls back to a shopper's token.
- * `getOrders` above is deliberately untouched.
+ * Same URL as `getOrders`, different token. `search_parameter` is admin-only and is only
+ * ever sent from here.
  */
-export async function getAdminOrders(query: OrderQuery = {}): Promise<CustomerOrderPage> {
-  const config = adminAuthConfig()
-  const response = await api.get<OrderEnvelope>('/v1/orders/', {
-    ...config,
+export async function getAdminOrders(query: OrderQuery = {}): Promise<OrderListResult> {
+  const response = await api.get<OrderEnvelope<OrderDto[]>>('/v1/orders/', {
+    ...adminAuthConfig(),
     params: toParams(query),
   })
-
-  const root = (response.data ?? {}) as Record<string, unknown>
-  const payload = root.data ?? root
-  const orders = readOrderList(payload).map((dto, index) => mapOrder(dto, index))
-
-  /*
-   * Where the pagination block lives.
-   *
-   * This backend's CONFIRMED convention (categories_management, sub_categories_management,
-   * products_management) is a `pagination` object at the response ROOT, beside `data` — so
-   * that is preferred. A block nested inside the payload, and DRF's own `next`/`count` on
-   * the payload itself, are both still accepted. `readPageInfo` reports a further page only
-   * when one of these actually says so, so an unrecognised shape simply yields no paging
-   * controls rather than an invented page count.
-   */
-  const nested =
-    payload && typeof payload === 'object' && !Array.isArray(payload)
-      ? (payload as Record<string, unknown>).pagination
-      : undefined
-  const paginationSource = root.pagination ?? nested ?? payload
-  const pageInfo = readPageInfo(paginationSource, query.page ?? 1)
-
-  return { orders, pageInfo }
+  return readListResponse(response.data, query.page ?? 1)
 }
 
+/** `GET /v1/orders/?id={id}` as an ADMIN — one order, with history, notes and address. */
+export async function getAdminOrderDetail(id: number | string): Promise<OrderDetail | null> {
+  const response = await api.get<OrderEnvelope<OrderDetailDto>>('/v1/orders/', {
+    ...adminAuthConfig(),
+    params: { id },
+  })
+  const data = response.data?.data
+  // An `?id=` read returns a single object. An array (or nothing) means the backend did
+  // not resolve the order, which is reported as "not found" rather than guessed at.
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+  return mapOrderDetail(data)
+}
+
+/* ------------------------------------------------------------------ admin: write */
+
 /**
- * PUT /v1/orders/ — admin only, updates an order's status.
+ * `PUT /v1/orders/` — update status (admin only).
  *
- * Sends ONLY the fields the published `UpdateOrderStatusRequest` defines: `id` and
- * `order_status` always, plus `tracking_id` / `courier_name` when the caller supplies
- * them. No customer, product, amount, address, payment or timestamp field is ever sent —
- * the backend stamps shipped_at / delivered_at / cancelled_at itself.
+ * Sends only the contract's own fields. Milestone timestamps are stamped server-side on
+ * first arrival at a status and are never sent from here. The response IS the updated
+ * detail, so callers re-render from it instead of issuing a second read.
  */
-export async function updateOrderStatus(payload: UpdateOrderStatusDto) {
+export async function updateOrderStatus(payload: UpdateOrderStatusDto): Promise<OrderDetail | null> {
   const body: UpdateOrderStatusDto = { id: payload.id, order_status: payload.order_status }
   if (payload.tracking_id !== undefined) body.tracking_id = payload.tracking_id
   if (payload.courier_name !== undefined) body.courier_name = payload.courier_name
+  if (payload.expected_delivery_date !== undefined) body.expected_delivery_date = payload.expected_delivery_date
+  if (payload.note !== undefined) body.note = payload.note
 
-  return api.put<OrderEnvelope>('/v1/orders/', body, adminAuthConfig())
+  const response = await api.put<OrderEnvelope<OrderDetailDto>>('/v1/orders/', body, adminAuthConfig())
+  const data = response.data?.data
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+  return mapOrderDetail(data)
+}
+
+/**
+ * `POST /v1/orders/notes/` — add an internal note (admin only).
+ *
+ * Returns 201 with the created note, which the caller appends to the panel directly.
+ */
+export async function addOrderNote(payload: CreateOrderNoteDto): Promise<OrderNote | null> {
+  const body: CreateOrderNoteDto = { order_id: payload.order_id, note: payload.note }
+  const response = await api.post<OrderEnvelope<OrderNoteDto>>('/v1/orders/notes/', body, adminAuthConfig())
+  const data = response.data?.data
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+  return mapNote(data)
+}
+
+/** `DELETE /v1/orders/notes/?id={note_id}` — soft delete (admin only). */
+export async function deleteOrderNote(noteId: number | string): Promise<void> {
+  await api.delete<OrderEnvelope<unknown>>('/v1/orders/notes/', {
+    ...adminAuthConfig(),
+    params: { id: noteId },
+  })
+}
+
+/**
+ * `PUT /v1/orders/address/` — edit this order's shipping address (admin only).
+ *
+ * `id` is the ORDER id. Only changed fields are sent; the backend keeps omitted ones.
+ * `customer_email` is never sent because the contract states it is not editable.
+ * Returns the full updated order detail.
+ */
+export async function updateOrderAddress(payload: UpdateOrderAddressDto): Promise<OrderDetail | null> {
+  const response = await api.put<OrderEnvelope<OrderDetailDto>>('/v1/orders/address/', payload, adminAuthConfig())
+  const data = response.data?.data
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+  return mapOrderDetail(data)
+}
+
+/* ------------------------------------------------------------------ invoice */
+
+/**
+ * `GET /v1/orders/invoice/?id={id}` — downloads the invoice PDF.
+ *
+ * The endpoint returns a PDF binary and requires an Authorization header, so a plain
+ * `<a href>` cannot be used: the file is fetched as a blob and handed to a temporary
+ * object URL. An error still comes back as JSON, which arrives here as a Blob, so the
+ * body is read back as text and its `message` thrown for the caller to display.
+ *
+ * `asAdmin` selects which credential signs the request — it does NOT widen access. The
+ * backend still enforces that a customer may only download their own invoice.
+ */
+export async function downloadOrderInvoice(
+  orderId: number | string,
+  orderNumber: string,
+  { asAdmin = false }: { asAdmin?: boolean } = {},
+): Promise<void> {
+  const config = asAdmin ? adminAuthConfig() : {}
+
+  let blob: Blob
+  try {
+    const response = await api.get<Blob>('/v1/orders/invoice/', {
+      ...config,
+      params: { id: orderId },
+      responseType: 'blob',
+    })
+    blob = response.data
+  } catch (error) {
+    throw await toInvoiceError(error)
+  }
+
+  // A JSON body that arrived with a 2xx is an error the server did not flag as one;
+  // saving it would hand the user a .pdf that is actually an error message.
+  if (blob.type && blob.type.includes('json')) {
+    throw new Error(readOrderApiMessage(await readBlobMessage(blob), 'Unable to download this invoice.'))
+  }
+
+  const href = URL.createObjectURL(blob)
+  try {
+    const link = document.createElement('a')
+    link.href = href
+    link.download = `invoice-${orderNumber || orderId}.pdf`
+    link.click()
+  } finally {
+    URL.revokeObjectURL(href)
+  }
+}
+
+/** Reads the `message` out of an error body that was received as a Blob. */
+async function readBlobMessage(blob: Blob): Promise<unknown> {
+  try {
+    return JSON.parse(await blob.text())?.message
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Rebuilds a blob-mode failure into a normal error.
+ *
+ * With `responseType: 'blob'` axios gives the error body as a Blob, so the usual
+ * `response.data.message` read finds nothing. The body is decoded first and then run
+ * through the same `readOrderApiError` rules, including the 5xx guard.
+ */
+async function toInvoiceError(error: unknown): Promise<Error> {
+  if (error instanceof MissingAdminSessionError) return error
+
+  const response = (error as { response?: { status?: number; data?: unknown } }).response
+  if (response?.data instanceof Blob) {
+    const message = await readBlobMessage(response.data)
+    return new Error(
+      readOrderApiError({ response: { status: response.status, data: { message } } }, 'Unable to download this invoice.'),
+    )
+  }
+
+  return new Error(readOrderApiError(error, 'Unable to download this invoice.'))
 }

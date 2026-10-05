@@ -16,6 +16,60 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useAuth } from '@/context/AuthProvider'
 import { Link, useNavigate } from 'react-router-dom'
 
+function IconCard({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+      <rect x="2.5" y="5" width="19" height="14" rx="2" strokeWidth={1.6} />
+      <path d="M2.5 9.5h19" strokeWidth={1.6} />
+      <path d="M6 14.5h4" strokeWidth={1.6} strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconCash({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+      <path d="M2.5 7h12v8h-12z" strokeWidth={1.6} strokeLinejoin="round" />
+      <circle cx="8.5" cy="11" r="2" strokeWidth={1.6} />
+      <path d="M14.5 10h4l3 3v2h-7z" strokeWidth={1.6} strokeLinejoin="round" />
+      <circle cx="17.5" cy="17" r="1.6" strokeWidth={1.6} />
+      <circle cx="6.5" cy="17" r="1.6" strokeWidth={1.6} />
+    </svg>
+  )
+}
+
+function IconLock({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+      <rect x="4.5" y="10.5" width="15" height="10" rx="2" strokeWidth={1.8} />
+      <path d="M8 10.5V7a4 4 0 118 0v3.5" strokeWidth={1.8} strokeLinecap="round" />
+    </svg>
+  )
+}
+
+/**
+ * The two payment routes, with the copy the customer reads for each.
+ *
+ * `upi` is the Razorpay flow and is labelled "Pay Online" rather than naming an
+ * instrument: Razorpay's own sheet offers UPI, cards, netbanking and wallets, and which
+ * one gets used is chosen there, not here. The internal value stays `upi` so the existing
+ * submit routing is untouched.
+ */
+const PAYMENT_METHODS = [
+  {
+    value: 'upi' as const,
+    title: 'Pay Online',
+    caption: 'UPI, Credit/Debit Cards & other supported methods',
+    Icon: IconCard,
+  },
+  {
+    value: 'cod' as const,
+    title: 'Cash on Delivery',
+    caption: 'Pay when your order is delivered',
+    Icon: IconCash,
+  },
+]
+
 export function CheckoutPage() {
   useDocumentTitle('Checkout')
   const navigate = useNavigate()
@@ -30,8 +84,23 @@ export function CheckoutPage() {
     updateAddress,
   } = useAddresses()
 
-  // Existing calculation, unchanged.
-  const shipping = subtotal > 0 ? (subtotal >= 1999 ? 0 : 99) : 0
+  /**
+   * Shipping is not being charged at the moment.
+   *
+   * This was previously decided here, in the storefront: ₹99 under a ₹1,999 cart and free
+   * above it. That was wrong in two ways. The storefront was inventing a commercial charge
+   * the backend knows nothing about, and the backend is what actually owns the payable
+   * amount — `createPaymentOrder` / `createCodOrder` are sent only an `address_id` and an
+   * optional `coupon_code`, and compute the total themselves — so this number never
+   * reached the charge. A customer could be shown a total ₹99 higher than the one Razorpay
+   * then asked them to pay.
+   *
+   * Pinned to 0 until the backend supplies the figure. The order contract already carries
+   * `price_summary.shipping_amount`, so that is where the real value will come from; it is
+   * one named constant here precisely so switching to it is a one-line change.
+   */
+  const SHIPPING_CHARGE = 0
+  const shipping = SHIPPING_CHARGE
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
   const [addressError, setAddressError] = useState<string | null>(null)
@@ -56,6 +125,8 @@ export function CheckoutPage() {
   // and is NOT subtracted again here — doing so would double-count it.
   const couponDiscount = appliedCoupon?.discountAmount ?? 0
   const total = subtotal + shipping - couponDiscount
+  /** What the customer saved overall: product-level reduction plus any coupon. */
+  const totalSavings = totalDiscount + couponDiscount
 
   /**
    * Online payment (UPI / Cards) via Razorpay.
@@ -273,7 +344,7 @@ export function CheckoutPage() {
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="type-page-title">Checkout</h1>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-        Review your delivery address and order, then choose your preferred payment method.
+        Review your delivery details and order before placing your order.
       </p>
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -291,32 +362,44 @@ export function CheckoutPage() {
           />
 
           <section className="border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-            <h2 className="type-section-title">Your Order</h2>
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <h2 className="type-section-title">Your Order</h2>
+              {/* Quantities and removals stay on the Cart page, which owns them — this is a
+                  review step, so it links there rather than duplicating those controls. */}
+              <Link
+                to="/cart"
+                className="inline-flex min-h-[32px] items-center font-sans text-xs font-semibold text-black underline underline-offset-2 dark:text-white"
+              >
+                Edit cart
+              </Link>
+            </div>
             <ul className="mt-5 divide-y divide-zinc-100 dark:divide-zinc-900">
               {items.map((i) => (
                 <li key={i.key} className="flex gap-4 py-4 first:pt-0 last:pb-0">
                   <img
                     src={i.image}
                     alt=""
-                    className="h-20 w-16 shrink-0 border border-zinc-200 object-cover dark:border-zinc-800"
+                    className="size-[88px] shrink-0 border border-zinc-200 object-cover dark:border-zinc-800"
                   />
+                  {/* Name, then the variant line, then the price — stacked, so the row reads
+                      top-to-bottom instead of splitting the price off to the far edge. */}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-sans text-sm font-semibold text-black dark:text-white">{i.name}</p>
-                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      Size {i.size}
-                      {i.color ? ` · ${i.color}` : ''} · Qty {i.quantity}
+                    <p className="font-sans text-sm font-bold text-black dark:text-white">{i.name}</p>
+                    <p className="mt-1 font-sans text-sm text-zinc-500 dark:text-zinc-400">
+                      Size: {i.size}
+                      {i.color ? ` · ${i.color}` : ''} · Qty: {i.quantity}
+                    </p>
+                    {/* Per-unit selling price with the MRP struck through — same pattern and
+                        same cart data as the Cart page. Order Summary totals are unaffected. */}
+                    <p className="mt-2 flex items-baseline gap-2">
+                      <span className="font-sans text-sm font-bold text-black dark:text-white">
+                        {formatInr(i.price)}
+                      </span>
+                      {(i.mrp ?? 0) > i.price ? (
+                        <span className="text-xs text-zinc-400 line-through">{formatInr(i.mrp ?? 0)}</span>
+                      ) : null}
                     </p>
                   </div>
-                  {/* Per-unit selling price with the MRP struck through — same pattern and
-                      same cart data as the Cart page. Order Summary totals are unaffected. */}
-                  <p className="flex shrink-0 items-baseline gap-2">
-                    <span className="font-sans text-sm font-semibold text-black dark:text-white">
-                      {formatInr(i.price)}
-                    </span>
-                    {(i.mrp ?? 0) > i.price ? (
-                      <span className="text-xs text-zinc-400 line-through">{formatInr(i.mrp ?? 0)}</span>
-                    ) : null}
-                  </p>
                 </li>
               ))}
             </ul>
@@ -332,29 +415,36 @@ export function CheckoutPage() {
         <aside className="h-fit space-y-6 border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
           <div>
             <h2 className="type-section-title">Order Summary</h2>
-            <div className="mt-4 space-y-2 text-sm">
-              {/* Total Price = the pre-discount MRP total, Discount = the product-level
-                  reduction, Subtotal = the selling-price total (already discounted, so the
-                  product Discount is never subtracted from it again). All from cart data. */}
-              {totalMrp > 0 ? (
-                <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
-                  <span>Total Price</span>
-                  <span>{formatInr(totalMrp)}</span>
-                </div>
-              ) : null}
-              {totalDiscount > 0 ? (
-                <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
-                  <span>Discount</span>
-                  <span>-{formatInr(totalDiscount)}</span>
-                </div>
-              ) : null}
-              <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
-                <span>Subtotal</span>
-                <span>{formatInr(subtotal)}</span>
+            {/* MRP = the pre-discount total, Product discount = the product-level reduction,
+                Subtotal = the selling-price total (already discounted, so the product
+                discount is never subtracted from it again). All from cart data. */}
+            <div className="mt-4 text-sm">
+              <div className="space-y-2">
+                {totalMrp > 0 ? (
+                  <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                    <span>MRP</span>
+                    <span>{formatInr(totalMrp)}</span>
+                  </div>
+                ) : null}
+                {totalDiscount > 0 ? (
+                  <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                    <span>Product discount</span>
+                    <span>-{formatInr(totalDiscount)}</span>
+                  </div>
+                ) : null}
               </div>
-              <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
-                <span>Shipping</span>
-                <span>{shipping === 0 ? 'Free' : formatInr(shipping)}</span>
+
+              {/* Subtotal and Shipping sit in their own group, so the eye reads "what the
+                  items cost" separately from "what was knocked off the sticker price". */}
+              <div className="mt-3 space-y-2">
+                <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                  <span>Subtotal</span>
+                  <span>{formatInr(subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                  <span>Shipping</span>
+                  <span>{shipping === 0 ? 'Free' : formatInr(shipping)}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -376,49 +466,74 @@ export function CheckoutPage() {
                 <span>-{formatInr(couponDiscount)}</span>
               </div>
             ) : null}
-            <div className="flex justify-between text-lg font-bold text-zinc-900 dark:text-white">
+            <div className="flex items-baseline justify-between gap-3 text-xl font-bold text-zinc-900 dark:text-white">
               <span>Total</span>
               <span>{formatInr(total)}</span>
             </div>
+            {/* Everything actually knocked off: the product-level reduction plus any coupon.
+                Shown only when there is a saving, so it never reads "You save ₹0". */}
+            {totalSavings > 0 ? (
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                You save {formatInr(totalSavings)} on this order.
+              </p>
+            ) : null}
           </div>
 
           <div className="border-t border-zinc-200 pt-5 dark:border-zinc-800">
-            <p className="type-label">Payment</p>
+            <p className="type-label">Payment Method</p>
             <div className="mt-3 space-y-2">
-              <label className="flex cursor-pointer items-center gap-3 border border-zinc-200 p-3 dark:border-zinc-800">
-                <input
-                  type="radio"
-                  name="pay"
-                  checked={pay === 'upi'}
-                  onChange={() => setPay('upi')}
-                  className="size-4 shrink-0 accent-black"
-                />
-                <span className="text-sm text-zinc-800 dark:text-zinc-100">UPI / Cards</span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-3 border border-zinc-200 p-3 dark:border-zinc-800">
-                <input
-                  type="radio"
-                  name="pay"
-                  checked={pay === 'cod'}
-                  onChange={() => setPay('cod')}
-                  className="size-4 shrink-0 accent-black"
-                />
-                <span className="text-sm text-zinc-800 dark:text-zinc-100">Cash on delivery</span>
-              </label>
+              {PAYMENT_METHODS.map((method) => {
+                const selected = pay === method.value
+                return (
+                  <label
+                    key={method.value}
+                    // The selected option carries a darker border, so the choice is legible
+                    // without relying on the radio dot alone.
+                    className={`flex cursor-pointer items-center gap-3 border p-3 transition-colors ${
+                      selected
+                        ? 'border-zinc-900 dark:border-zinc-100'
+                        : 'border-zinc-200 hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="pay"
+                      checked={selected}
+                      onChange={() => setPay(method.value)}
+                      className="size-4 shrink-0 accent-black"
+                    />
+                    <method.Icon className="size-5 shrink-0 text-zinc-500 dark:text-zinc-400" />
+                    <span className="min-w-0">
+                      <span className="block font-sans text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        {method.title}
+                      </span>
+                      <span className="mt-0.5 block font-sans text-xs text-zinc-500 dark:text-zinc-400">
+                        {method.caption}
+                      </span>
+                    </span>
+                  </label>
+                )
+              })}
             </div>
-            <p className="mt-2 text-[11px] text-zinc-500">
-              Choose your preferred payment method to complete your order.
+          </div>
+
+          <div>
+            {/* The amount is repeated on the button so the number being committed to is the
+                last thing read before the click. */}
+            <Button size="lg" type="button" onClick={submit} disabled={busy} className="w-full">
+              {busy ? 'Saving…' : `Place Order · ${formatInr(total)}`}
+            </Button>
+
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-zinc-500">
+              <IconLock className="size-3.5 shrink-0" />
+              Secure checkout <span aria-hidden>·</span> Easy returns
             </p>
           </div>
 
-          <Button size="lg" type="button" onClick={submit} disabled={busy} className="w-full">
-            {busy ? 'Saving…' : 'Place Order'}
-          </Button>
-
-          <p className="text-[11px] text-zinc-500">
-            Need help first?{' '}
+          <p className="border-t border-zinc-200 pt-5 text-center text-[11px] text-zinc-500 dark:border-zinc-800">
+            Need help with your order?{' '}
             <Link to="/contact" className="font-semibold text-black underline underline-offset-2 dark:text-white">
-              Contact
+              Contact us
             </Link>
           </p>
         </aside>
