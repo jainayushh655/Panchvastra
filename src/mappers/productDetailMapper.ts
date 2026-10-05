@@ -79,9 +79,9 @@ export function mapProductDetail(dto: ProductDetailDto): Product {
 
     tags: dto.tags.map((tag) => tag.name),
 
-    // The backend's own `{ label, value }` rows drive the PDP spec table. `resolveProductHighlights`
-    // keys rows by label, so an API row replaces the matching built-in default and any other
-    // label is added as-is — no label is hardcoded here.
+    // The backend's own `{ label, value }` rows ARE the PDP Key Highlights table — there
+    // are no built-in defaults for them to merge with or replace. A product with no stored
+    // rows gets an empty list here and the section is not rendered.
     highlights: readKeyHighlights(dto.key_highlights).map((row) => ({
       key: `api-${row.label.toLowerCase()}`,
       label: row.label,

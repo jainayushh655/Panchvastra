@@ -1,177 +1,211 @@
-import type { OrderDto, OrderItemDto } from '@/types/api/OrderDto'
-import type { CustomerOrder, CustomerOrderItem, OrderPageInfo } from '@/types/customerOrder'
+import type {
+  OrderAddressDto,
+  OrderDetailDto,
+  OrderDto,
+  OrderItemDto,
+  OrderNoteDto,
+  OrderPaginationDto,
+  OrderPriceSummaryDto,
+  OrderStatusHistoryDto,
+  OrderTimelineStepDto,
+} from '@/types/api/OrderDto'
+import type {
+  OrderAddress,
+  OrderDetail,
+  OrderItem,
+  OrderNote,
+  OrderPagination,
+  OrderPriceSummary,
+  OrderStatusHistoryEntry,
+  OrderSummary,
+  OrderTimelineStep,
+} from '@/types/orderManagement'
 
 /**
- * Maps GET /v1/orders/ responses onto the customer order-history model.
+ * Wire shapes → the order model the three screens consume.
  *
- * All backend-specific field resolution lives here so no component reaches into raw
- * response shapes. Because the 200 payload is not published (see `OrderDto`), each logical
- * field is read from a candidate list grounded in this backend's confirmed conventions,
- * and anything unmatched stays empty/null so the UI can omit it instead of inventing it.
+ * Every field is read by its real contract name. The only normalisation applied is type
+ * coercion (DRF serialises `Decimal` as a string) and turning blank strings into `null`
+ * so "absent" is a single, checkable value. No field is renamed, defaulted or invented:
+ * if the payload does not carry something, the model says `null` and the UI omits it.
  */
 
-function firstString(source: Record<string, unknown>, keys: string[]): string {
-  for (const key of keys) {
-    const value = source[key]
-    if (typeof value === 'string' && value.trim()) return value.trim()
-    if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+/** Trims and returns null for anything empty — `''` is treated as absent, not as a value. */
+function text(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed ? trimmed : null
   }
-  return ''
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  return null
 }
 
-/** Accepts numbers and numeric strings (DRF serialises Decimal fields as strings). */
-function firstNumber(source: Record<string, unknown>, keys: string[]): number | null {
-  for (const key of keys) {
-    const value = source[key]
-    if (typeof value === 'number' && Number.isFinite(value)) return value
-    if (typeof value === 'string' && value.trim()) {
-      const parsed = Number(value)
-      if (Number.isFinite(parsed)) return parsed
-    }
+/** Accepts numbers and numeric strings. Anything else is null, never 0. */
+function num(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
   }
   return null
 }
 
-function firstArray(source: Record<string, unknown>, keys: string[]): unknown[] {
-  for (const key of keys) {
-    const value = source[key]
-    if (Array.isArray(value)) return value
-  }
-  return []
+function list<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : []
 }
 
-const ITEM_NAME_KEYS = ['product_name', 'name', 'title']
-const ITEM_IMAGE_KEYS = ['primary_image', 'image', 'image_url', 'product_image']
-const ITEM_PRICE_KEYS = ['selling_price', 'price', 'unit_price', 'mrp']
+/* ------------------------------------------------------------------ pieces */
 
-function mapOrderItem(dto: OrderItemDto, index: number): CustomerOrderItem {
-  const record = dto as Record<string, unknown>
-  // An order item's own `id` is the LINE id, not the product's — linking with it would open
-  // the wrong product detail page. Only a product-specific key is accepted, so an item
-  // without one renders with no link rather than a wrong one.
-  const productId = firstString(record, ['product_id'])
-
+function mapItem(dto: OrderItemDto, index: number): OrderItem {
+  const productId = text(dto.product_id)
   return {
-    key: firstString(record, ['id', 'order_item_id', 'cart_item_id']) || `${productId || 'item'}-${index}`,
+    // The line id is a render key only. It is never used as a product link, because the
+    // two ids are different things and linking by line id opens the wrong product.
+    key: text(dto.id) ?? `${productId ?? 'item'}-${index}`,
     productId,
-    name: firstString(record, ITEM_NAME_KEYS),
-    imageUrl: firstString(record, ITEM_IMAGE_KEYS),
-    size: firstString(record, ['size']),
-    color: firstString(record, ['color']),
-    quantity: firstNumber(record, ['quantity', 'qty']),
-    price: firstNumber(record, ITEM_PRICE_KEYS),
+    variantId: text(dto.variant_id),
+    productName: text(dto.product_name) ?? '',
+    color: text(dto.color),
+    size: text(dto.size),
+    quantity: num(dto.quantity),
+    mrp: num(dto.mrp),
+    sellingPrice: num(dto.selling_price),
+    totalAmount: num(dto.total_amount),
+    sku: text(dto.sku),
+    imageUrl: text(dto.image_url),
   }
 }
-
-const ORDER_DATE_KEYS = ['created_at', 'order_date', 'placed_at', 'created', 'date']
-const ORDER_TOTAL_KEYS = ['total_amount', 'total_price', 'grand_total', 'final_amount', 'total', 'amount']
-const ORDER_ITEMS_KEYS = ['items', 'order_items', 'products']
 
 /**
- * Customer identity keys.
+ * One progress-bar node.
  *
- * The backend definitely holds a customer name and email on an order — admin search is
- * documented as matching on both — but the field names are not published, so these are
- * candidates and an unmatched value stays '' for the UI to omit.
+ * `completed` is read strictly: only a literal `true` marks a step done. A step the
+ * backend sends without the flag renders as not-yet-reached rather than optimistically
+ * filled. `at` is forced to null on an incomplete step so a stale timestamp can never
+ * appear under a grey node.
  */
-const ORDER_CUSTOMER_NAME_KEYS = ['customer_name', 'user_name', 'name', 'full_name']
-const ORDER_CUSTOMER_EMAIL_KEYS = ['customer_email', 'user_email', 'email']
-
-/** Reads a value that may sit on the order itself or inside a nested customer object. */
-function nestedString(record: Record<string, unknown>, keys: string[]): string {
-  const direct = firstString(record, keys)
-  if (direct) return direct
-
-  for (const wrapper of ['customer', 'user', 'created_by']) {
-    const value = record[wrapper]
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      const found = firstString(value as Record<string, unknown>, keys)
-      if (found) return found
-    }
+function mapTimelineStep(dto: OrderTimelineStepDto): OrderTimelineStep {
+  const completed = dto.completed === true
+  return {
+    status: text(dto.status) ?? '',
+    label: text(dto.label) ?? '',
+    at: completed ? text(dto.at) : null,
+    completed,
   }
-  return ''
 }
 
-/** API record → the model the Orders pages consume. */
-export function mapOrder(dto: OrderDto, index = 0): CustomerOrder {
-  const record = dto as Record<string, unknown>
-  const id = firstString(record, ['id', 'order_id'])
-  const reference = firstString(record, ['order_number', 'order_code']) || id || `#${index + 1}`
+function mapStatusHistory(dto: OrderStatusHistoryDto, index: number): OrderStatusHistoryEntry {
+  return {
+    id: text(dto.id) ?? `history-${index}`,
+    status: text(dto.order_status) ?? '',
+    label: text(dto.label) ?? '',
+    note: text(dto.note),
+    createdAt: text(dto.created_at),
+    createdBy: text(dto.created_by),
+  }
+}
 
+export function mapNote(dto: OrderNoteDto, index = 0): OrderNote {
+  return {
+    id: text(dto.id) ?? `note-${index}`,
+    note: text(dto.note) ?? '',
+    createdAt: text(dto.created_at),
+    createdBy: text(dto.created_by),
+  }
+}
+
+function mapAddress(dto: OrderAddressDto | null | undefined): OrderAddress | null {
+  if (!dto || typeof dto !== 'object') return null
+  return {
+    customerName: text(dto.customer_name),
+    customerEmail: text(dto.customer_email),
+    customerMobile: text(dto.customer_mobile),
+    addressLine1: text(dto.address_line_1),
+    addressLine2: text(dto.address_line_2),
+    landmark: text(dto.landmark),
+    city: text(dto.city),
+    state: text(dto.state),
+    country: text(dto.country),
+    pincode: text(dto.pincode),
+  }
+}
+
+function mapPriceSummary(dto: OrderPriceSummaryDto | null | undefined): OrderPriceSummary | null {
+  if (!dto || typeof dto !== 'object') return null
+  return {
+    subtotal: num(dto.subtotal),
+    discountAmount: num(dto.discount_amount),
+    shippingAmount: num(dto.shipping_amount),
+    taxAmount: num(dto.tax_amount),
+    grandTotal: num(dto.grand_total),
+  }
+}
+
+/* ------------------------------------------------------------------ orders */
+
+export function mapOrderSummary(dto: OrderDto, index = 0): OrderSummary {
+  const id = text(dto.id) ?? ''
   return {
     id,
-    reference,
-    date: firstString(record, ORDER_DATE_KEYS),
-    status: firstString(record, ['status', 'order_status']),
-    total: firstNumber(record, ORDER_TOTAL_KEYS),
-    items: firstArray(record, ORDER_ITEMS_KEYS).map((item, itemIndex) =>
-      mapOrderItem((item ?? {}) as OrderItemDto, itemIndex),
-    ),
-    customerName: nestedString(record, ORDER_CUSTOMER_NAME_KEYS),
-    customerEmail: nestedString(record, ORDER_CUSTOMER_EMAIL_KEYS),
-    // Confirmed names: `payment_method`/`payment_status` from the observed COD order
-    // response, `tracking_id`/`courier_name` from the published PUT contract.
-    paymentMethod: firstString(record, ['payment_method']),
-    paymentStatus: firstString(record, ['payment_status']),
-    trackingId: firstString(record, ['tracking_id']),
-    courierName: firstString(record, ['courier_name']),
+    userId: text(dto.user_id),
+    // The order number is the human reference. Falling back to the id keeps a row
+    // identifiable rather than blank; it is never fabricated into a fake "ORD-…".
+    orderNumber: text(dto.order_number) ?? id ?? `#${index + 1}`,
+    customerName: text(dto.customer_name),
+    customerEmail: text(dto.customer_email),
+    customerMobile: text(dto.customer_mobile),
+    status: text(dto.order_status) ?? '',
+    // Display text is the backend's, always. When it sends no label there is simply no
+    // badge — the raw value is not reformatted into one.
+    statusLabel: text(dto.status_label) ?? '',
+    paymentStatus: text(dto.payment_status),
+    paymentMethod: text(dto.payment_method),
+    grandTotal: num(dto.grand_total),
+    totalItems: num(dto.total_items),
+    expectedDeliveryDate: text(dto.expected_delivery_date),
+    orderedAt: text(dto.ordered_at),
+    processingAt: text(dto.processing_at),
+    shippedAt: text(dto.shipped_at),
+    outForDeliveryAt: text(dto.out_for_delivery_at),
+    deliveredAt: text(dto.delivered_at),
+    cancelledAt: text(dto.cancelled_at),
+    trackingId: text(dto.tracking_id),
+    courierName: text(dto.courier_name),
+    timeline: list(dto.timeline).map(mapTimelineStep),
+    items: list(dto.items).map(mapItem),
   }
 }
 
+export function mapOrderDetail(dto: OrderDetailDto): OrderDetail {
+  return {
+    ...mapOrderSummary(dto),
+    statusHistory: list(dto.status_history).map(mapStatusHistory),
+    // Always [] for a customer token; the Notes panel is only rendered by the admin UI.
+    notes: list(dto.notes).map(mapNote),
+    transactionId: text(dto.transaction_id),
+    paidAt: text(dto.paid_at),
+    address: mapAddress(dto.address),
+    priceSummary: mapPriceSummary(dto.price_summary),
+  }
+}
+
+/* ------------------------------------------------------------------ envelope */
+
 /**
- * Locates the order array inside the response.
+ * Reads the `pagination` block.
  *
- * This backend wraps payloads in `{ success, message, data }` and puts list payloads
- * directly in `data` (confirmed on categories_management). DRF's own pagination instead
- * nests them under `results`, so both are accepted, plus one level of nesting, so an
- * unexpected wrapper degrades to an empty list rather than crashing the page.
+ * `has_next` is read strictly, so an unexpected shape yields no "next page" control
+ * rather than an invented one. `totalRecords` stays null when the backend reports none —
+ * the empty state keys off an explicit 0, never off a missing field.
  */
-export function readOrderList(payload: unknown): OrderDto[] {
-  if (Array.isArray(payload)) return payload as OrderDto[]
-  if (!payload || typeof payload !== 'object') return []
-
-  const record = payload as Record<string, unknown>
-  for (const key of ['results', 'orders', 'data']) {
-    const value = record[key]
-    if (Array.isArray(value)) return value as OrderDto[]
+export function mapPagination(dto: OrderPaginationDto | null | undefined, requestedPage: number): OrderPagination {
+  const source = dto && typeof dto === 'object' ? dto : {}
+  return {
+    page: num(source.page) ?? requestedPage,
+    pageSize: num(source.page_size),
+    totalRecords: num(source.total_records),
+    totalPages: num(source.total_pages),
+    hasNext: source.has_next === true,
+    hasPrevious: source.has_previous === true,
   }
-
-  // A single-order response (GET /v1/orders/?id=<id>) is a bare order object. This must be
-  // checked before the generic array scan below, otherwise such an order's own `items`
-  // array would be mistaken for the order list.
-  if ('id' in record || 'order_id' in record) return [record as OrderDto]
-
-  for (const value of Object.values(record)) {
-    if (Array.isArray(value)) return value as OrderDto[]
-  }
-
-  return []
-}
-
-/**
- * Reads pagination metadata, reporting a further page ONLY when the response explicitly
- * says so. Nothing is inferred: when the backend sends no pagination fields this returns
- * `hasNextPage: false` and the page shows no pagination control at all.
- */
-export function readPageInfo(payload: unknown, requestedPage: number): OrderPageInfo {
-  const empty: OrderPageInfo = { hasNextPage: false, totalCount: null }
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return empty
-
-  const record = payload as Record<string, unknown>
-
-  // DRF PageNumberPagination: `next` is a URL string, or null on the last page.
-  if (typeof record.next === 'string' && record.next.trim()) return { hasNextPage: true, totalCount: firstNumber(record, ['count', 'total_count', 'total_records', 'total']) }
-  if (record.next === null) return { hasNextPage: false, totalCount: firstNumber(record, ['count', 'total_count', 'total_records', 'total']) }
-
-  if (typeof record.has_next === 'boolean') {
-    return { hasNextPage: record.has_next, totalCount: firstNumber(record, ['count', 'total_count', 'total_records', 'total']) }
-  }
-
-  const totalPages = firstNumber(record, ['total_pages', 'num_pages', 'page_count'])
-  if (totalPages !== null) {
-    const current = firstNumber(record, ['page', 'current_page']) ?? requestedPage
-    return { hasNextPage: current < totalPages, totalCount: firstNumber(record, ['count', 'total_count', 'total_records', 'total']) }
-  }
-
-  return empty
 }

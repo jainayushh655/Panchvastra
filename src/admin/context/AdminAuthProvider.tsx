@@ -21,6 +21,36 @@ import { ADMIN_ROLE_ID, useAuth } from '@/context/AuthProvider'
 
 const ADMIN_TOKEN_STORAGE_KEY = 'panchvastra-admin-token'
 
+/**
+ * Writes or clears the mirrored admin key.
+ *
+ * Called during render as well as from an effect, and that is deliberate. React runs
+ * effects children-first, so this provider's effect fires AFTER the mount effect of
+ * whichever admin page is being shown — which means that on a hard refresh of an admin
+ * URL the page's own first request reached `adminAuthConfig()` before the key existed and
+ * failed closed with "Your admin session has expired", despite a perfectly valid session.
+ * Nothing retried, so the page simply sat on an error state.
+ *
+ * Writing during render closes that one-tick gap. It is idempotent and only touches
+ * storage when the value actually differs, so a double render (StrictMode) is a no-op.
+ * This does NOT widen access: the key is still written only for a role-1 user and removed
+ * for everyone else, so a shopper never has an admin key to send.
+ */
+function syncAdminToken(token: string | null) {
+  if (typeof window === 'undefined') return
+
+  try {
+    const current = window.localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY)
+    if (token) {
+      if (current !== token) window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, token)
+    } else if (current !== null) {
+      window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY)
+    }
+  } catch {
+    // Storage unavailable: admin requests fail closed, which is the safe outcome.
+  }
+}
+
 type AdminUser = {
   email: string
 }
@@ -45,23 +75,18 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const roleId = user?.roleId ?? null
   const isSignedIn = Boolean(user && token)
   const isAdmin = isSignedIn && roleId === ADMIN_ROLE_ID
+  const mirroredToken = isAdmin && token ? token : null
+
+  // Synchronous, so the key is already in place before any child page's mount effect
+  // issues its first admin request. See `syncAdminToken`.
+  syncAdminToken(mirroredToken)
 
   // Keep the admin key in step with the session, including across refreshes. Any
   // non-admin state removes it, so admin CRUD fails closed rather than inheriting a
   // shopper's token.
   useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    try {
-      if (isAdmin && token) {
-        window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, token)
-      } else {
-        window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY)
-      }
-    } catch {
-      // Storage unavailable: admin requests will fail closed, which is the safe outcome.
-    }
-  }, [isAdmin, token])
+    syncAdminToken(mirroredToken)
+  }, [mirroredToken])
 
   /** Ends the single shared session and drops the mirrored admin key with it. */
   const logout = useCallback(() => {

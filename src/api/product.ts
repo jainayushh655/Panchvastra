@@ -17,8 +17,16 @@ type ProductEnvelope = {
   data?: unknown;
 };
 
+/**
+ * The `pagination` block the list endpoint returns beside `data`.
+ *
+ * Field names verified live against GET /v1/products_management/ (2026-10-05):
+ * `{"page":1,"page_size":20,"total_records":21,"total_pages":2,"has_next":true,
+ * "has_previous":false}`. The current page is `page` — this interface previously declared
+ * `current_page`, which the backend has never sent; nothing read it, so no caller changes.
+ */
 export interface ProductPagination {
-  current_page: number;
+  page: number;
   page_size: number;
   total_pages: number;
   total_records: number;
@@ -30,6 +38,7 @@ interface ProductListResponse {
   success: boolean;
   message: string;
   data: ProductDto[];
+  pagination?: ProductPagination;
 }
 
 interface ProductDetailResponse {
@@ -64,15 +73,85 @@ export interface ProductQueryParams {
   size?: string;
   search?: string;
   sort_by?: ProductSortBy;
+  /**
+   * 1-based page. Omitting it gets the backend's first page.
+   *
+   * THIS IS THE FIX for "the shop only ever shows 20 products": the list endpoint has
+   * always paginated at a default `page_size` of 20 and reported `has_next` in its
+   * `pagination` block, but no storefront caller ever sent `page`, so page 2 was never
+   * requested and the 21st product was unreachable. Verified live (2026-10-05):
+   * `?page=2` returns the remainder, and `page`/`page_size` compose correctly with
+   * `category_id`, `sub_category_id`, `size`, `search` and every `sort_by` value.
+   */
+  page?: number;
+  /** Rows per page. Omitting it uses the backend's default of 20. */
+  page_size?: number;
+}
+
+/** A single page of the list endpoint, with the paging metadata the caller needs. */
+export interface ProductListPage {
+  products: ProductDto[];
+  /** null when the response carried no `pagination` block — never fabricated. */
+  pagination: ProductPagination | null;
+}
+
+/**
+ * GET /v1/products_management/ — one page, with its pagination metadata.
+ *
+ * Prefer this over `getProducts` anywhere the full result set matters: `getProducts`
+ * discards `pagination`, so a caller using it silently sees only the first page.
+ */
+export async function getProductsPageList(
+  params: ProductQueryParams = {}
+): Promise<ProductListPage> {
+  const response = await api.get<ProductListResponse>(
+    "/v1/products_management/",
+    Object.keys(params).length ? { params } : undefined
+  );
+
+  return {
+    products: Array.isArray(response.data?.data) ? response.data.data : [],
+    pagination: response.data?.pagination ?? null,
+  };
 }
 
 export async function getProducts(params?: ProductQueryParams) {
-  const response = await api.get<ProductListResponse>(
-    "/v1/products_management/",
-    params && Object.keys(params).length ? { params } : undefined
-  );
+  const { products } = await getProductsPageList(params ?? {});
+  return products;
+}
 
-  return response.data.data;
+/**
+ * Every product matching `params`, by following `has_next` across pages.
+ *
+ * Used where a partial catalogue would give a wrong ANSWER rather than just a short list —
+ * the Shop page derives its Sub Category filter options this way, and deriving them from
+ * page 1 alone would hide any sub-category whose only products sit on a later page.
+ *
+ * `page_size` is deliberately large so this is one request for a catalogue of this size,
+ * and `maxPages` is a hard stop so a backend that always reported `has_next` could never
+ * spin here.
+ */
+export async function getAllProducts(
+  params: ProductQueryParams = {},
+  { pageSize = 100, maxPages = 20 }: { pageSize?: number; maxPages?: number } = {}
+): Promise<ProductDto[]> {
+  const all: ProductDto[] = [];
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const { products, pagination } = await getProductsPageList({
+      ...params,
+      page,
+      page_size: pageSize,
+    });
+
+    all.push(...products);
+
+    // Stop on an explicit "no more", and also on a short/empty page so a response with no
+    // pagination block ends the loop instead of being paged forever.
+    if (pagination?.has_next !== true || products.length === 0) break;
+  }
+
+  return all;
 }
 
 export async function getProductById(id: string | number) {

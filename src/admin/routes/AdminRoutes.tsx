@@ -8,6 +8,7 @@ import { AdminCouponsPage } from '@/admin/pages/AdminCouponsPage'
 import { AdminDashboardPage } from '@/admin/pages/AdminDashboardPage'
 import { AdminLoginPage } from '@/admin/pages/AdminLoginPage'
 import { AdminNotifyMePage } from '@/admin/pages/AdminNotifyMePage'
+import { AdminOrderDetailPage } from '@/admin/pages/AdminOrderDetailPage'
 import { AdminOrdersPage } from '@/admin/pages/AdminOrdersPage'
 import { AdminProductsPage } from '@/admin/pages/AdminProductsPage'
 
@@ -26,6 +27,10 @@ export function AdminRoutes() {
           <Route path="dashboard" element={<AdminDashboardPage />} />
 
           <Route path="orders" element={<AdminOrdersPage />} />
+
+          {/* Order detail. Sits inside the same ProtectedAdminRoute as the list, so it
+              is never reachable without an admin session. */}
+          <Route path="orders/:orderId" element={<AdminOrderDetailPage />} />
 
           <Route path="products" element={<AdminProductsPage />} />
 
