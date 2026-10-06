@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { AddressCard } from '@/components/profile/AddressCard'
 import { AddressForm } from '@/components/profile/AddressForm'
@@ -31,6 +31,8 @@ export function AddressSection({
   const [editingAddress, setEditingAddress] = useState<ProfileAddress | undefined>(undefined)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  /** Synchronous twin of `deleting` — see handleConfirmDelete. */
+  const deletingRef = useRef(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [busyDefaultId, setBusyDefaultId] = useState<string | null>(null)
@@ -63,15 +65,28 @@ export function AddressSection({
 
   const handleConfirmDelete = async () => {
     if (!pendingDeleteId) return
+    // `deleting` disables the button, but state is not applied synchronously — a fast
+    // double click (or a held Enter) can re-enter before React re-renders and fire a
+    // second DELETE for the same id. The ref closes that window immediately, matching the
+    // guard the coupon, checkout and admin-order flows already use.
+    if (deletingRef.current) return
+    deletingRef.current = true
+
     setDeleting(true)
     setDeleteError(null)
-    const failure = await onDelete(pendingDeleteId)
-    setDeleting(false)
-    if (failure) {
-      setDeleteError(failure)
-      return
+    try {
+      const failure = await onDelete(pendingDeleteId)
+      if (failure) {
+        // The address stays on screen and the dialog stays open carrying the reason — a
+        // refused delete is never reported as success.
+        setDeleteError(failure)
+        return
+      }
+      setPendingDeleteId(null)
+    } finally {
+      deletingRef.current = false
+      setDeleting(false)
     }
-    setPendingDeleteId(null)
   }
 
   return (

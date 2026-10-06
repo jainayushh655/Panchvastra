@@ -90,7 +90,6 @@ export function ShopPage() {
   const [hasNext, setHasNext] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [sortMenuOpen, setSortMenuOpen] = useState(false)
 
   /** Newest request wins — a slow page-2 append can never land after a filter change. */
   const requestIdRef = useRef(0)
@@ -392,7 +391,10 @@ export function ShopPage() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="type-page-title">{categoryHeading}</h1>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+      {/* `items-start` so the Sort control lines up with the filter selects: the filter
+          bar carries its own `pb-6` + bottom rule, so centring the row pushed Sort ~12px
+          below the others. */}
+      <div className="mt-6 flex flex-wrap items-start justify-between gap-4">
         <ShopFilterBar
           categories={categories}
           category={category}
@@ -416,12 +418,7 @@ export function ShopPage() {
           onReset={resetAllFilters}
         />
 
-        <ShopSortPicker
-          sort={sort}
-          open={sortMenuOpen}
-          onOpenChange={setSortMenuOpen}
-          onSelect={setSort}
-        />
+        <ShopSortPicker sort={sort} onSelect={setSort} />
       </div>
 
       <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">

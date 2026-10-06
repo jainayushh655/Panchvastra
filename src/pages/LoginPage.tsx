@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { AuthCarousel } from '@/components/AuthCarousel'
+import { AuthPoster } from '@/components/auth/AuthPoster'
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
 import { GOOGLE_BUTTON_MAX_WIDTH, GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { OtpAuthForm } from '@/components/auth/OtpAuthForm'
@@ -51,10 +51,10 @@ export function LoginPage() {
 
   return (
     <AuthSplitLayout
-      eyebrow="Panchvastra"
-      headline={<>New<br />Arrivals</>}
-      // Brand imagery only — the OTP flow below is untouched.
-      media={<AuthCarousel slideClassName="h-full" className="h-full" showSkeleton={false} />}
+      // The brand poster stands alone: no overlaid wording, no scrim, no backend carousel.
+      // The OTP flow below is untouched.
+      media={<AuthPoster />}
+      mediaOnly
     >
       {/*
         Google enforces a 400px ceiling on its own button, so the column is capped to that

@@ -17,19 +17,28 @@ export function AuthSplitLayout({
   headline,
   tagline = 'Premium essentials, made to be worn every day.',
   media,
+  mediaOnly = false,
   children,
 }: {
-  /** Small uppercase label above the headline in the brand panel. */
-  eyebrow: string
-  /** Large editorial headline in the brand panel. */
-  headline: ReactNode
-  /** Supporting line under the headline. */
+  /** Small uppercase label above the headline in the brand panel. Unused when `mediaOnly`. */
+  eyebrow?: string
+  /** Large editorial headline in the brand panel. Unused when `mediaOnly`. */
+  headline?: ReactNode
+  /** Supporting line under the headline. Unused when `mediaOnly`. */
   tagline?: string
   /**
    * Optional imagery for the brand panel, rendered behind the headline. Opt-in, so the
    * screens that do not pass it (admin login) keep the CSS-only panel exactly as before.
    */
   media?: ReactNode
+  /**
+   * Shows the artwork on its own: no scrim, no CSS texture, no sweep, no frame and no
+   * overlaid wording. For a finished poster that already carries the brand mark and its
+   * own composition, every one of those layers is something painted on top of a designed
+   * image. The customer login and signup screens use this; the admin login does not, and
+   * keeps the CSS-only panel it has always had.
+   */
+  mediaOnly?: boolean
   /** The authentication form. */
   children: ReactNode
 }) {
@@ -37,50 +46,58 @@ export function AuthSplitLayout({
     <div className="min-h-svh bg-[#f7f7f5] lg:grid lg:grid-cols-2">
       {/* ---------------------------------------------------------- brand panel */}
       <aside
-        className="relative flex min-h-[168px] items-end overflow-hidden bg-black px-6 py-8 sm:min-h-[200px] lg:min-h-svh lg:px-12 lg:py-14"
-        // Purely decorative when it is CSS only. With imagery the panel holds real content,
-        // so it is exposed and the decorative layers below carry their own `aria-hidden`.
-        aria-hidden={media ? undefined : true}
+        className={`relative overflow-hidden bg-black ${
+          mediaOnly
+            ? // The poster is 16:9, so on a phone the panel takes that exact ratio and the
+              // whole composition is visible rather than cropped into a letterbox strip.
+              'flex aspect-[16/9] w-full items-center justify-center lg:aspect-auto lg:min-h-svh'
+            : 'flex min-h-[168px] items-end px-6 py-8 sm:min-h-[200px] lg:min-h-svh lg:px-12 lg:py-14'
+        }`}
+        // Decorative: the form beside it carries every piece of information on the screen.
+        aria-hidden={mediaOnly || !media ? true : undefined}
       >
-        {media ? (
+        {media ? <div className="absolute inset-0">{media}</div> : null}
+
+        {mediaOnly ? null : (
           <>
-            <div className="absolute inset-0">{media}</div>
-            {/* Scrim so the headline stays legible over any photograph. */}
+            {media ? (
+              /* Scrim so the headline stays legible over any photograph. */
+              <div
+                className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25"
+                aria-hidden
+              />
+            ) : null}
+
+            {/* Very slow, very faint diagonal weave — the "fabric" texture, drawn in CSS. */}
             <div
-              className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25"
+              className="pv-auth-drift pointer-events-none absolute inset-0 opacity-[0.13]"
               aria-hidden
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(135deg, #ffffff 0 1px, transparent 1px 22px), repeating-linear-gradient(45deg, #ffffff 0 1px, transparent 1px 22px)',
+              }}
             />
+
+            {/* Single soft light pass, so the panel is never completely static. */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+              <div className="pv-auth-sweep absolute inset-x-0 h-1/2 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
+            </div>
+
+            {/* Hairline frame, echoing the thin borders used across the site. */}
+            <div className="pointer-events-none absolute inset-4 border border-white/15 lg:inset-8" aria-hidden />
+
+            <div className="pointer-events-none relative">
+              <p className="text-[10px] font-bold uppercase tracking-[0.34em] text-white/60">{eyebrow}</p>
+              <p className="mt-3 text-3xl font-bold uppercase leading-[0.95] tracking-tight text-white sm:text-4xl lg:text-6xl">
+                {headline}
+              </p>
+              <div className="mt-5 hidden h-px w-16 bg-white/40 lg:block" />
+              <p className="mt-5 hidden max-w-xs text-sm leading-relaxed text-white/55 lg:block">
+                {tagline}
+              </p>
+            </div>
           </>
-        ) : null}
-
-        {/* Very slow, very faint diagonal weave — the "fabric" texture, drawn in CSS. */}
-        <div
-          className="pv-auth-drift pointer-events-none absolute inset-0 opacity-[0.13]"
-          aria-hidden
-          style={{
-            backgroundImage:
-              'repeating-linear-gradient(135deg, #ffffff 0 1px, transparent 1px 22px), repeating-linear-gradient(45deg, #ffffff 0 1px, transparent 1px 22px)',
-          }}
-        />
-
-        {/* Single soft light pass, so the panel is never completely static. */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-          <div className="pv-auth-sweep absolute inset-x-0 h-1/2 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
-        </div>
-
-        {/* Hairline frame, echoing the thin borders used across the site. */}
-        <div className="pointer-events-none absolute inset-4 border border-white/15 lg:inset-8" aria-hidden />
-
-        <div className="pointer-events-none relative">
-          <p className="text-[10px] font-bold uppercase tracking-[0.34em] text-white/60">{eyebrow}</p>
-          <p className="mt-3 text-3xl font-bold uppercase leading-[0.95] tracking-tight text-white sm:text-4xl lg:text-6xl">
-            {headline}
-          </p>
-          <div className="mt-5 hidden h-px w-16 bg-white/40 lg:block" />
-          <p className="mt-5 hidden max-w-xs text-sm leading-relaxed text-white/55 lg:block">
-            {tagline}
-          </p>
-        </div>
+        )}
       </aside>
 
       {/* ---------------------------------------------------------- form side */}

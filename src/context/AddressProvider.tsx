@@ -116,6 +116,20 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
       await load()
       return null
     } catch (err) {
+      /*
+       * A refused delete still re-reads the list.
+       *
+       * Without this the screen keeps showing whatever it had before, so a "that address
+       * could not be found" error sat directly above the address it claimed was missing —
+       * the one state guaranteed to look broken. Re-reading makes the list agree with the
+       * server: if the record really had already gone, the card disappears and the error
+       * explains why; if it is genuinely still there, the shopper sees that too, and the
+       * problem is the server's answer rather than a stale screen.
+       *
+       * Only when the server actually answered. A dropped connection says nothing about
+       * what the server holds, so the list is left alone rather than being cleared.
+       */
+      if ((err as { response?: unknown }).response) await load()
       return readAddressApiError(err, 'Unable to delete this address.')
     }
   }, [load])
