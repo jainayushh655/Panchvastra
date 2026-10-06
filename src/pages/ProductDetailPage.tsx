@@ -35,6 +35,13 @@ function isSizeAvailable(sz: { in_stock: boolean; stock_quantity: number }): boo
   return sz.in_stock !== false && sz.stock_quantity > 0
 }
 
+/**
+ * At or below this many units left, the selected size shows a red "N left" warning.
+ * Above it nothing is shown — a running count on every size reads as inventory data
+ * rather than scarcity, and stops meaning anything when it matters.
+ */
+const LOW_STOCK_THRESHOLD = 3
+
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
     <svg
@@ -93,7 +100,7 @@ export function ProductDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated } = useAuth();
-  const { items: cartItems, refreshCart } = useCart();
+  const { refreshCart } = useCart();
   const { showToast } = useToast();
   const { isWishlisted, toggleWishlist } = useWishlist();
 
@@ -194,29 +201,37 @@ export function ProductDetailPage() {
   );
   useDocumentTitle(product?.name ?? 'Product')
 
-  // Keep quantity within the real stock available for whichever size is selected.
+  /*
+   * Whether THIS visit has just added this size to the cart.
+   *
+   * Deliberately a transient local flag rather than a lookup against the cart contents.
+   * The button is a step in a flow — add, then go to the cart — so it has to reset once
+   * the shopper comes back, even though the item is of course still in their cart. Leaving
+   * the route unmounts this page, so returning from the cart naturally starts over at
+   * "Add to cart"; nothing has to watch for the navigation.
+   */
+  const [justAdded, setJustAdded] = useState(false);
+
+  // A different size (or colour — the id covers both) is a different line, so it is offered
+  // fresh. Quantity restarts at 1 for the same reason.
   useEffect(() => {
     setQuantity(1);
+    setJustAdded(false);
   }, [selectedVariantSizeId]);
 
-  // This exact product/variant/size combo is already a line in the cart — the single
-  // source of truth for "already added" is the cart itself, not a locally-guessed flag,
-  // so it stays correct across a fresh page load, a back-navigation, or another tab.
-  const alreadyInCart = cartItems.some(
-    (item) =>
-      item.productId === product?.id &&
-      item.size === size &&
-      (item.color ?? '') === (currentVariant?.color ?? ''),
-  );
+  const canAdd = Boolean(product) && Boolean(selectedVariantSizeId) && !adding;
 
-  const canAdd =
-    Boolean(product) &&
-    Boolean(selectedVariantSizeId) &&
-    !adding &&
-    !alreadyInCart;
+  /** Units left for the selected size, but only while that count is 3, 2 or 1. */
+  const lowStockRemaining =
+    selectedVariantSize &&
+    selectedVariantSize.in_stock &&
+    selectedVariantSize.stock_quantity > 0 &&
+    selectedVariantSize.stock_quantity <= LOW_STOCK_THRESHOLD
+      ? selectedVariantSize.stock_quantity
+      : null;
 
   const handleAddToCart = async () => {
-    if (!product || !selectedVariantSizeId || adding || alreadyInCart) return;
+    if (!product || !selectedVariantSizeId || adding) return;
 
     if (!isAuthenticated) {
       navigate('/login', { replace: false, state: { from: `${location.pathname}${location.search}` } })
@@ -225,8 +240,15 @@ export function ProductDetailPage() {
 
     setAdding(true);
     try {
+      /*
+       * Re-adding the same size is intentional and additive: the backend documents this
+       * POST as "Adds a specific variant size product to the user's cart. If it already
+       * exists, increments quantity." So a second add raises the line's quantity and the
+       * cart badge rather than erroring or overwriting — no client-side merging needed.
+       */
       await addToCart(selectedVariantSizeId, quantity);
       await refreshCart();
+      setJustAdded(true);
       showToast('Added to cart', { description: 'Product added successfully' });
     } catch (error) {
       console.error("Failed to add product to cart", error);
@@ -234,6 +256,15 @@ export function ProductDetailPage() {
     } finally {
       setAdding(false);
     }
+  };
+
+  /** One control, two steps: add the item, then take the shopper to the cart. */
+  const handlePrimaryAction = () => {
+    if (justAdded) {
+      navigate('/cart');
+      return;
+    }
+    void handleAddToCart();
   };
 
   const handleWishlistToggle = () => {
@@ -444,9 +475,15 @@ export function ProductDetailPage() {
                 </button>
               ))}
             </div>
-            {selectedVariantSize && selectedVariantSize.in_stock && selectedVariantSize.stock_quantity > 0 && selectedVariantSize.stock_quantity <= 10 ? (
-              <p className="mt-3 font-sans text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400">
-                {selectedVariantSize.stock_quantity} left
+            {/*
+              Low-stock warning for the SELECTED size only, and only once it is genuinely
+              scarce — 3, 2 or 1 remaining. Below that bar it is urgency the shopper can
+              act on; above it ("8 left") it is just inventory noise on every size. Red,
+              because it is a warning rather than a spec.
+            */}
+            {lowStockRemaining !== null ? (
+              <p className="mt-3 font-sans text-xs font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">
+                {lowStockRemaining} left
               </p>
             ) : null}
             {/* Shown only when there is a size the user can actually subscribe to, so the
@@ -478,7 +515,7 @@ export function ProductDetailPage() {
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  disabled={quantity <= 1 || alreadyInCart}
+                  disabled={quantity <= 1 || justAdded}
                   aria-label="Decrease quantity"
                   className="flex size-9 items-center justify-center text-lg font-semibold text-black transition disabled:opacity-30 sm:size-8 dark:text-white"
                 >
@@ -488,7 +525,7 @@ export function ProductDetailPage() {
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
-                  disabled={quantity >= maxQty || alreadyInCart}
+                  disabled={quantity >= maxQty || justAdded}
                   aria-label="Increase quantity"
                   className="flex size-9 items-center justify-center text-lg font-semibold text-black transition disabled:opacity-30 sm:size-8 dark:text-white"
                 >
@@ -502,12 +539,14 @@ export function ProductDetailPage() {
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={handleAddToCart}
+                onClick={handlePrimaryAction}
+                // Stays ENABLED after a successful add — it becomes the route to the cart
+                // rather than a dead "Added to cart" label.
                 disabled={!canAdd}
                 aria-busy={adding}
                 className="type-btn flex-1 rounded-xl bg-black px-6 py-4 text-sm text-white transition hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-black"
               >
-                {adding ? 'ADDING…' : alreadyInCart ? 'ADDED TO CART' : 'ADD TO CART'}
+                {adding ? 'ADDING…' : justAdded ? 'GO TO CART' : 'ADD TO CART'}
               </button>
               <button
                 type="button"

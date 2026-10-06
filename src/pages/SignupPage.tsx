@@ -2,7 +2,7 @@ import type { FormEvent } from 'react'
 import { useCallback, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { registerUser } from '@/api/auth'
-import { AuthCarousel } from '@/components/AuthCarousel'
+import { AuthPoster } from '@/components/auth/AuthPoster'
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
 import { GOOGLE_BUTTON_MAX_WIDTH, GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { OtpVerificationModal } from '@/components/auth/OtpVerificationModal'
@@ -129,10 +129,10 @@ export function SignupPage() {
 
   return (
     <AuthSplitLayout
-      eyebrow="Panchvastra"
-      headline={<>Join<br />The Label</>}
-      // Brand imagery only — the signup + OTP flow below is untouched.
-      media={<AuthCarousel slideClassName="h-full" className="h-full" showSkeleton={false} />}
+      // The brand poster stands alone: no overlaid wording, no scrim, no backend carousel.
+      // The signup + OTP flow below is untouched.
+      media={<AuthPoster />}
+      mediaOnly
     >
       {/*
         Capped to the Google button's own 400px ceiling so CREATE ACCOUNT, the two-column
