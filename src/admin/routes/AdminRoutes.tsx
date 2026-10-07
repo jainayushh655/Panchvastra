@@ -7,6 +7,7 @@ import { AdminSubCategoriesPage } from '@/admin/pages/AdminSubCategoriesPage'
 import { AdminCouponsPage } from '@/admin/pages/AdminCouponsPage'
 import { AdminDashboardPage } from '@/admin/pages/AdminDashboardPage'
 import { AdminLoginPage } from '@/admin/pages/AdminLoginPage'
+import { AdminHelpDeskPage } from '@/admin/pages/AdminHelpDeskPage'
 import { AdminNotifyMePage } from '@/admin/pages/AdminNotifyMePage'
 import { AdminOrderDetailPage } from '@/admin/pages/AdminOrderDetailPage'
 import { AdminOrdersPage } from '@/admin/pages/AdminOrdersPage'
@@ -41,6 +42,9 @@ export function AdminRoutes() {
           <Route path="coupons" element={<AdminCouponsPage />} />
 
           <Route path="notify-me" element={<AdminNotifyMePage />} />
+
+          {/* Inside the same ProtectedAdminRoute as every other admin screen. */}
+          <Route path="help-desk" element={<AdminHelpDeskPage />} />
 
           <Route path="auth-carousel" element={<AdminAuthCarouselPage />} />
 

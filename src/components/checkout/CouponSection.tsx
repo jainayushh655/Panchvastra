@@ -8,7 +8,7 @@ export type AppliedCoupon = {
   code: string
   /** Additional discount from this coupon, on top of the product-level discount. */
   discountAmount: number
-  /** The coupon record the backend returned, used to show its terms. */
+  /** The coupon record the backend returned for this code, kept as the source of the discount. */
   coupon?: CouponDto
 }
 
@@ -21,35 +21,6 @@ type CouponSectionProps = {
   appliedCoupon: AppliedCoupon | null
   onApplied: (coupon: AppliedCoupon) => void
   onRemoved: () => void
-}
-
-function toNumber(value: string | number | null | undefined): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return null
-}
-
-/** Describes the coupon using only fields the backend actually returned. */
-function describeCoupon(coupon: CouponDto | undefined): string {
-  if (!coupon) return ''
-
-  const value = toNumber(coupon.discount_value)
-  const type = (coupon.discount_type ?? '').toUpperCase()
-  const parts: string[] = []
-
-  if (value !== null && type === 'PERCENTAGE') parts.push(`${value}% off`)
-  else if (value !== null && type === 'FLAT') parts.push(`${formatInr(value)} off`)
-
-  const minimum = toNumber(coupon.minimum_order_amount)
-  if (minimum !== null && minimum > 0) parts.push(`on orders above ${formatInr(minimum)}`)
-
-  const cap = toNumber(coupon.maximum_discount_amount)
-  if (cap !== null && cap > 0) parts.push(`up to ${formatInr(cap)}`)
-
-  return parts.join(' ')
 }
 
 export function CouponSection({ cartTotal, appliedCoupon, onApplied, onRemoved }: CouponSectionProps) {
@@ -100,8 +71,6 @@ export function CouponSection({ cartTotal, appliedCoupon, onApplied, onRemoved }
     setError(null)
   }
 
-  const terms = describeCoupon(appliedCoupon?.coupon)
-
   return (
     <div>
       <p className="type-label">{appliedCoupon ? 'Coupon' : 'Coupon Code'}</p>
@@ -121,10 +90,16 @@ export function CouponSection({ cartTotal, appliedCoupon, onApplied, onRemoved }
               ✕ Remove
             </button>
           </div>
+          {/*
+            Only the saving is shown once the coupon is on. Its terms — the minimum spend,
+            the percentage, the cap — describe whether the code COULD be used, which is
+            settled the moment it is applied; restating them next to a discount that is
+            already in the total just invites a re-reading of arithmetic the shopper can
+            see on the Coupon Discount line below.
+          */}
           <p className="mt-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
             ✓ {formatInr(appliedCoupon.discountAmount)} extra off with this coupon
           </p>
-          {terms ? <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-500">{terms}</p> : null}
         </>
       ) : null}
 

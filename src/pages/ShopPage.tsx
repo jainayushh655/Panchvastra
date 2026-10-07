@@ -421,7 +421,9 @@ export function ShopPage() {
         <ShopSortPicker sort={sort} onSelect={setSort} />
       </div>
 
-      <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Extra top margin now that the toolbar has no bottom rule: the separation between
+          filters and products is carried by whitespace instead of a line. */}
+      <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {showProductLoading ? (
           <ProductGridSkeleton count={8} />
         ) : showEmptyState ? (

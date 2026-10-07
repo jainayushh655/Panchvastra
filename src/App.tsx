@@ -5,7 +5,7 @@ import { MainLayout } from '@/components/layout/MainLayout'
 import { AboutPage } from '@/pages/AboutPage'
 import { CartPage } from '@/pages/CartPage'
 import { CheckoutPage } from '@/pages/CheckoutPage'
-import { ContactPage } from '@/pages/ContactPage'
+import { HelpDeskPage } from '@/pages/HelpDeskPage'
 import { HomePage } from '@/pages/HomePage'
 import { LoginPage } from '@/pages/LoginPage'
 import { ProductDetailPage } from '@/pages/ProductDetailPage'
@@ -30,7 +30,11 @@ export default function App() {
           <Route path="shop" element={<ShopPage />} />
           <Route path="product/:id" element={<ProductDetailPage />} />
           <Route path="about" element={<AboutPage />} />
-          <Route path="contact" element={<ContactPage />} />
+          {/* The Help Desk replaces the old mock Contact page. `/contact` is kept as the
+              canonical path so the footer and every existing link keep working, with
+              `/help-desk` as an alias for the name the page actually carries. */}
+          <Route path="contact" element={<HelpDeskPage />} />
+          <Route path="help-desk" element={<HelpDeskPage />} />
 
           {/* Legal / policy pages — public, inside the shared layout. */}
           <Route path="policies/refund-policy" element={<RefundPolicyPage />} />

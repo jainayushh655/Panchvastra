@@ -34,3 +34,26 @@ export function instagramPageUrl(): string {
   if (u) return u
   return 'https://www.instagram.com/panchvastra_'
 }
+
+/**
+ * Panchvastra's support inbox.
+ *
+ * The same address the policy pages publish, kept here so the Help Desk and anything added
+ * later read it from one place rather than each repeating the literal. Overridable with
+ * `VITE_SUPPORT_EMAIL` for a staging inbox.
+ */
+const SUPPORT_EMAIL = 'panchvastra9@gmail.com'
+
+export function supportEmail(): string {
+  return import.meta.env.VITE_SUPPORT_EMAIL?.trim() || SUPPORT_EMAIL
+}
+
+export function supportEmailUrl(): string {
+  return `mailto:${supportEmail()}`
+}
+
+/** The Instagram handle shown beside the link, derived from the profile URL. */
+export function instagramHandle(): string {
+  const path = instagramPageUrl().replace(/\/+$/, '').split('/').pop()
+  return path ? `@${path}` : '@panchvastra_'
+}

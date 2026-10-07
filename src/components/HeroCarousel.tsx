@@ -163,13 +163,15 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
       </div>
     ) : null
 
-  /**
-   * The scrim that keeps the action legible over any admin-uploaded artwork.
+  /*
+   * There is no scrim over the artwork. The dark left-to-right gradient that used to sit on
+   * top of every slide has been removed, so an admin-uploaded image is shown exactly as it
+   * was uploaded, at full strength, on both the mobile and desktop branches.
    *
-   * Values unchanged (85/65/40 -> 60/40/15 was a previous task). The button is white-filled
-   * with black text, so it stays readable anywhere along the ramp now that it is centred.
+   * What it was there for was contrast behind the call to action. That button is its own
+   * white fill with black text, so it carries its own contrast rather than borrowing it
+   * from a darkened image.
    */
-  const scrimClass = 'pointer-events-none absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-black/15'
 
   return (
     <>
@@ -250,7 +252,6 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
                     aria-hidden
                   />
                 ) : null}
-                <div className={scrimClass} aria-hidden />
                 <div className="relative">
                   {renderActions(s)}
                 </div>
@@ -298,18 +299,19 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.45 }}
-                // No grayscale: these are admin-uploaded carousel images from
-                // /v1/auth_carousel/, so they show in their real colours. The scrim below
-                // still keeps the actions legible over them.
+                // No grayscale and nothing laid over the top: these are admin-uploaded
+                // carousel images from /v1/auth_carousel/, so they show in their real
+                // colours at full strength. The `opacity` here is the crossfade between
+                // slides only — it animates to 1 and stays there.
                 className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
                 style={{ backgroundImage: `url(${JSON.stringify(bgImage)})` }}
                 aria-hidden
               />
             ) : null}
           </AnimatePresence>
-          {bgImage ? (
-            <div className={scrimClass} aria-hidden />
-          ) : (
+          {/* Nothing is laid over the artwork. The faint diagonal hatch is only the
+              no-artwork fallback, so it never touches a real carousel image. */}
+          {bgImage ? null : (
             <div
               className="pointer-events-none absolute inset-0 opacity-[0.05]"
               style={{
