@@ -1230,3 +1230,57 @@
   .admin-order-head__actions { width: 100%; }
   .admin-order-head__actions .admin-btn { flex: 1; }
 }
+
+/* ---------------- Help Desk (admin inbox) ---------------- */
+
+/*
+ * Message preview in the table: capped at two lines so a long query cannot stretch the row
+ * taller than the rest of the inbox, while still showing enough to triage from.
+ */
+.admin-helpdesk__preview {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 420px;
+  min-width: 220px;
+  color: var(--admin-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * The full message in the detail dialog. `pre-wrap` preserves the sender's own line breaks
+ * without the text ever being treated as markup, and `overflow-wrap` stops an unbroken
+ * string widening the dialog.
+ */
+.admin-helpdesk__message {
+  margin: 16px 0 0;
+  padding: 14px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/*
+ * A sender's name rendered as a link.
+ *
+ * `.admin-link-button` is built for ACTIONS ("View", "Invoice") and so forces uppercase at
+ * 0.7rem with wide tracking. Applied to a person's name that produced "ASHA RAO" for a
+ * linked sender beside "Asha Rao" for an unlinked one — the same column rendering the same
+ * data two different ways. This keeps the link affordance and restores the name's own
+ * casing and size.
+ */
+.admin-link-button--name {
+  margin-right: 0;
+  font-size: inherit;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+}

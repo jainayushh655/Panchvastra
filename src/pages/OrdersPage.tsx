@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { OrderProgress } from '@/components/orders/OrderProgress'
-import { EmptyOrdersHero } from '@/components/orders/EmptyOrdersHero'
+import { EmptyOrders } from '@/components/orders/EmptyOrders'
 import { downloadOrderInvoice, getOrders, readOrderApiError } from '@/api/order'
 import { formatInr, formatOrderDate, formatOrderDateTime } from '@/lib/format'
 import { paymentMethodLabel, paymentStatusLabel, paymentStatusTone } from '@/lib/orderDisplay'
@@ -49,38 +49,6 @@ function PaymentBadge({ status }: { status: string | null }) {
     >
       {label}
     </span>
-  )
-}
-
-/**
- * Page breadcrumb. "My Account" points at the existing `/profile` route — the same
- * destination the account menu uses — so it is a real trail, not decoration.
- */
-function Breadcrumb() {
-  return (
-    <nav aria-label="Breadcrumb" className="text-xs text-zinc-500">
-      <ol className="flex flex-wrap items-center gap-2">
-        <li>
-          <Link to="/" className="transition-colors hover:text-black">
-            Home
-          </Link>
-        </li>
-        <li aria-hidden className="text-zinc-300">
-          ›
-        </li>
-        <li>
-          <Link to="/profile" className="transition-colors hover:text-black">
-            My Account
-          </Link>
-        </li>
-        <li aria-hidden className="text-zinc-300">
-          ›
-        </li>
-        <li aria-current="page" className="font-semibold text-black">
-          Orders
-        </li>
-      </ol>
-    </nav>
   )
 }
 
@@ -338,10 +306,11 @@ export function OrdersPage() {
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-5xl flex-col gap-6 px-4 py-10">
-      <Breadcrumb />
-
       {hasNeverOrdered ? (
-        <EmptyOrdersHero />
+        <>
+          <h1 className="type-page-title">My Orders</h1>
+          <EmptyOrders />
+        </>
       ) : (
       <div className="border border-zinc-200 bg-white p-5 shadow-[0_24px_60px_-36px_rgba(0,0,0,0.15)] sm:p-7">
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Orders</p>
