@@ -6,6 +6,7 @@ import { AboutPage } from '@/pages/AboutPage'
 import { CartPage } from '@/pages/CartPage'
 import { CheckoutPage } from '@/pages/CheckoutPage'
 import { HelpDeskPage } from '@/pages/HelpDeskPage'
+import { CustomPiecePage } from '@/pages/CustomPiecePage'
 import { HomePage } from '@/pages/HomePage'
 import { LoginPage } from '@/pages/LoginPage'
 import { ProductDetailPage } from '@/pages/ProductDetailPage'
@@ -30,11 +31,15 @@ export default function App() {
           <Route path="shop" element={<ShopPage />} />
           <Route path="product/:id" element={<ProductDetailPage />} />
           <Route path="about" element={<AboutPage />} />
-          {/* The Help Desk replaces the old mock Contact page. `/contact` is kept as the
-              canonical path so the footer and every existing link keep working, with
-              `/help-desk` as an alias for the name the page actually carries. */}
-          <Route path="contact" element={<HelpDeskPage />} />
+          {/* The Help Desk replaces the old mock Contact page, and `/help-desk` is now the
+              path every link in the app points at. `/contact` stays mapped to the same page
+              so bookmarks, old links and anything already indexed keep working. */}
           <Route path="help-desk" element={<HelpDeskPage />} />
+          <Route path="contact" element={<HelpDeskPage />} />
+
+          {/* Public: the builder can be explored signed out. Only the SUBMIT needs a
+              session, which the page handles with the app's own login redirect. */}
+          <Route path="custom-piece" element={<CustomPiecePage />} />
 
           {/* Legal / policy pages — public, inside the shared layout. */}
           <Route path="policies/refund-policy" element={<RefundPolicyPage />} />

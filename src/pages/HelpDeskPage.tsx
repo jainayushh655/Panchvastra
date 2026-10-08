@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { createSupportQuery, readSupportApiError, readSupportFieldErrors } from '@/api/supportQuery'
 import { SUPPORT_CATEGORIES } from '@/types/api/SupportQueryDto'
@@ -25,6 +25,9 @@ const NAME_MAX = 100
 const EMAIL_MAX = 254
 const MESSAGE_MAX = 2000
 
+/** How long the confirmation stays on screen before the form returns to its resting state. */
+const SUCCESS_VISIBLE_MS = 3000
+
 function IconMail({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
@@ -34,21 +37,18 @@ function IconMail({ className }: { className?: string }) {
   )
 }
 
+/**
+ * The official WhatsApp mark, the same path the site footer already uses.
+ *
+ * It replaces a hand-drawn outline approximation that did not read as the WhatsApp logo:
+ * the handset inside the bubble was the wrong shape. A brand mark is not something to
+ * redraw by eye — this is the real glyph, solid-filled as the brand is always set, which is
+ * also why it does not take the 1.6 stroke the mail and Instagram icons beside it use.
+ */
 function IconWhatsApp({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-      <path
-        strokeWidth={1.6}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M20.5 11.6a8.4 8.4 0 0 1-12.4 7.4L3.5 20.5l1.6-4.5a8.4 8.4 0 1 1 15.4-4.4z"
-      />
-      <path
-        strokeWidth={1.6}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9 9.2c.3-.7.6-.7.9-.7h.5c.2 0 .4 0 .6.5l.7 1.6c.1.3 0 .5-.1.6l-.4.5c-.1.2-.2.3 0 .6a6 6 0 0 0 2.7 2.3c.3.1.4 0 .6-.1l.5-.6c.2-.2.4-.1.6 0l1.5.8c.3.2.4.3.4.5 0 .5-.3 1.3-1 1.6-.5.2-1.2.3-2.6-.2a9.3 9.3 0 0 1-4.6-4.1c-.6-1-.8-1.9-.8-2.5 0-.4.2-.7.5-.8z"
-      />
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
     </svg>
   )
 }
@@ -89,7 +89,7 @@ function IconSpinner({ className }: { className?: string }) {
 }
 
 const FIELD =
-  'w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-3 text-sm text-black outline-none transition-colors placeholder:text-zinc-400 focus:border-black disabled:cursor-not-allowed disabled:opacity-60'
+  'w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-black outline-none transition-colors placeholder:text-zinc-400 focus:border-black disabled:cursor-not-allowed disabled:opacity-60'
 const FIELD_INVALID = 'border-red-500 focus:border-red-600'
 /*
  * Labels are visually hidden, not removed. The field itself shows its name in the
@@ -118,6 +118,21 @@ export function HelpDeskPage() {
   const ids = useId()
   const fid = (name: string) => `${ids}-${name}`
   const errId = (name: string) => `${ids}-${name}-error`
+
+  /*
+   * The confirmation is transient: it shows for three seconds and then clears itself,
+   * leaving the already-emptied form at rest and ready for another message. A full page
+   * reload would do the same thing far more expensively — the fields were cleared the
+   * moment the POST succeeded, so there is no stale state left to reload away.
+   *
+   * The timer is torn down when the banner changes or the page unmounts, so it can never
+   * fire against a later submission or set state on an unmounted component.
+   */
+  useEffect(() => {
+    if (!success) return
+    const timer = window.setTimeout(() => setSuccess(null), SUCCESS_VISIBLE_MS)
+    return () => window.clearTimeout(timer)
+  }, [success])
 
   /** Updating a field clears only that field's error, leaving the others in place. */
   const set = (key: keyof Draft, value: string) => {
@@ -226,21 +241,30 @@ export function HelpDeskPage() {
   ]
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12">
+    /*
+     * Sized to be read without scrolling. Every gap on this page was tuned so the heading,
+     * all four fields and the submit button fit inside one viewport on a short laptop
+     * screen — previously the button sat below the fold and the form could not be
+     * completed without scrolling to find it.
+     */
+    <div className="mx-auto max-w-5xl px-4 py-7">
       {/*
         Two columns on desktop with a hairline between them; below `lg` the columns stack
         and the divider disappears, because a vertical rule between stacked blocks is just
         a stray line. `divide-x` handles both without a separate border element.
       */}
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-0 lg:divide-x lg:divide-zinc-200">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-0 lg:divide-x lg:divide-zinc-200">
         {/* ------------------------------------------------------------ form */}
-        <div className="min-w-0 lg:pr-12">
+        <div className="min-w-0 lg:pr-10">
           <h1 className="type-page-title">Help Desk</h1>
-          <p className="mt-2 text-sm text-zinc-600">
+          <p className="mt-1 text-sm text-zinc-600">
             Questions, orders, or anything else? We&rsquo;re here to help.
           </p>
 
-          <form onSubmit={onSubmit} noValidate className="mt-8 space-y-5">
+          {/* `space-y` only, with no top margin on the inputs themselves: the labels are
+              `sr-only` and take no layout space, so a margin above each one was adding a
+              gap that nothing visible sat in. */}
+          <form onSubmit={onSubmit} noValidate className="mt-5 space-y-3">
             <div>
               <label htmlFor={fid('name')} className={LABEL}>
                 Name
@@ -257,7 +281,7 @@ export function HelpDeskPage() {
                 aria-invalid={Boolean(fieldErrors.name)}
                 aria-describedby={describedBy('name')}
                 placeholder="Name"
-                className={`mt-2 ${FIELD} ${fieldErrors.name ? FIELD_INVALID : ''}`}
+                className={`${FIELD} ${fieldErrors.name ? FIELD_INVALID : ''}`}
               />
               {fieldErrors.name ? (
                 <p id={errId('name')} className="mt-1.5 text-xs font-semibold text-red-600" role="alert">
@@ -282,7 +306,7 @@ export function HelpDeskPage() {
                 aria-invalid={Boolean(fieldErrors.email)}
                 aria-describedby={describedBy('email')}
                 placeholder="Email"
-                className={`mt-2 ${FIELD} ${fieldErrors.email ? FIELD_INVALID : ''}`}
+                className={`${FIELD} ${fieldErrors.email ? FIELD_INVALID : ''}`}
               />
               {fieldErrors.email ? (
                 <p id={errId('email')} className="mt-1.5 text-xs font-semibold text-red-600" role="alert">
@@ -295,7 +319,7 @@ export function HelpDeskPage() {
               <label htmlFor={fid('category')} className={LABEL}>
                 Category
               </label>
-              <div className="relative mt-2">
+              <div className="relative">
                 <select
                   id={fid('category')}
                   name="category"
@@ -341,7 +365,7 @@ export function HelpDeskPage() {
               <textarea
                 id={fid('message')}
                 name="message"
-                rows={6}
+                rows={4}
                 value={draft.message}
                 onChange={(e) => set('message', e.target.value)}
                 maxLength={MESSAGE_MAX}
@@ -349,7 +373,7 @@ export function HelpDeskPage() {
                 aria-invalid={Boolean(fieldErrors.message)}
                 aria-describedby={describedBy('message')}
                 placeholder="Message"
-                className={`mt-2 resize-y ${FIELD} ${fieldErrors.message ? FIELD_INVALID : ''}`}
+                className={`resize-y ${FIELD} ${fieldErrors.message ? FIELD_INVALID : ''}`}
               />
               {/*
                 The counter sits under the field now that the label row above it is hidden.
@@ -388,7 +412,7 @@ export function HelpDeskPage() {
                 was sent, because only the backend knows what it did. */}
             {success ? (
               <p
-                className="rounded-xl border border-emerald-600 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"
+                className="rounded-xl border border-emerald-600 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800"
                 role="status"
               >
                 {success}
@@ -397,7 +421,7 @@ export function HelpDeskPage() {
 
             {formError ? (
               <p
-                className="rounded-xl border border-red-500 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+                className="rounded-xl border border-red-500 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700"
                 role="alert"
               >
                 {formError}
@@ -407,19 +431,19 @@ export function HelpDeskPage() {
         </div>
 
         {/* ------------------------------------------------------- contact rows */}
-        <aside className="min-w-0 lg:pl-12">
+        <aside className="min-w-0 lg:pl-10">
           <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-500">Other ways to reach us</h2>
 
-          <ul className="mt-5 space-y-2">
+          <ul className="mt-3 space-y-1">
             {contactRows.map((row) => (
               <li key={row.key}>
                 <a
                   href={row.href}
                   {...(row.external ? { target: '_blank', rel: 'noreferrer noopener' } : {})}
-                  className="group flex items-center gap-4 rounded-xl border border-transparent px-3 py-3 transition-colors hover:border-zinc-200 hover:bg-zinc-50"
+                  className="group flex items-center gap-3.5 rounded-xl border border-transparent px-3 py-2.5 transition-colors hover:border-zinc-200 hover:bg-zinc-50"
                 >
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-black transition-colors group-hover:border-black">
-                    <row.Icon className="size-5" />
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-black transition-colors group-hover:border-black">
+                    <row.Icon className="size-[18px]" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-bold text-black">{row.title}</span>

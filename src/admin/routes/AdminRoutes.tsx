@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedAdminRoute } from '@/admin/components/ProtectedAdminRoute'
 import { AdminLayout } from '@/admin/layout/AdminLayout'
 import { AdminAuthCarouselPage } from '@/admin/pages/AdminAuthCarouselPage'
+import { AdminCustomOptionsPage } from '@/admin/pages/AdminCustomOptionsPage'
+import { AdminCustomRequestsPage } from '@/admin/pages/AdminCustomRequestsPage'
 import { AdminCategoriesPage } from '@/admin/pages/AdminCategoriesPage'
 import { AdminSubCategoriesPage } from '@/admin/pages/AdminSubCategoriesPage'
 import { AdminCouponsPage } from '@/admin/pages/AdminCouponsPage'
@@ -45,6 +47,11 @@ export function AdminRoutes() {
 
           {/* Inside the same ProtectedAdminRoute as every other admin screen. */}
           <Route path="help-desk" element={<AdminHelpDeskPage />} />
+
+          {/* Custom Piece. Inside the same ProtectedAdminRoute as every other admin
+              screen, so neither is reachable without an admin session. */}
+          <Route path="custom-options" element={<AdminCustomOptionsPage />} />
+          <Route path="custom-requests" element={<AdminCustomRequestsPage />} />
 
           <Route path="auth-carousel" element={<AdminAuthCarouselPage />} />
 

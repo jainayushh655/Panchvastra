@@ -532,8 +532,8 @@ export function CheckoutPage() {
 
           <p className="border-t border-zinc-200 pt-5 text-center text-[11px] text-zinc-500 dark:border-zinc-800">
             Need help with your order?{' '}
-            <Link to="/contact" className="font-semibold text-black underline underline-offset-2 dark:text-white">
-              Contact us
+            <Link to="/help-desk" className="font-semibold text-black underline underline-offset-2 dark:text-white">
+              Help Desk
             </Link>
           </p>
         </aside>

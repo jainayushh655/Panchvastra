@@ -44,7 +44,7 @@ export function PrivacyPolicyPage() {
             </>,
             <>
               <strong>Messages you send us</strong> — what you write to us by email, WhatsApp,
-              phone or the contact form.
+              phone or the Help Desk.
             </>,
           ]}
         />
