@@ -21,7 +21,7 @@ export function whatsAppPageUrl(): string {
  * Click-to-call — uses the same number as WhatsApp when configured.
  *
  * Falls back to the business number so the icon always opens the device dialer. Without
- * one, an unset `VITE_WHATSAPP_NUMBER` sent the phone icon to the Contact page instead.
+ * one, an unset `VITE_WHATSAPP_NUMBER` sent the phone icon to the Help Desk instead.
  */
 export function phoneCallUrl(): string {
   const n = (import.meta.env.VITE_WHATSAPP_NUMBER ?? '').replace(/\D/g, '')

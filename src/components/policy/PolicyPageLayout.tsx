@@ -124,8 +124,8 @@ function ContactBlock() {
         </li>
         <li className="text-zinc-600 dark:text-zinc-400">
           Or use the{' '}
-          <Link to="/contact" className="font-semibold text-zinc-900 underline underline-offset-2 dark:text-white">
-            contact form
+          <Link to="/help-desk" className="font-semibold text-zinc-900 underline underline-offset-2 dark:text-white">
+            Help Desk
           </Link>
           .
         </li>

@@ -13,7 +13,7 @@ const shopLinks = [
 
 const companyLinks = [
   { label: 'About Us', to: '/about' },
-  { label: 'Contact', to: '/contact' },
+  { label: 'Help Desk', to: '/help-desk' },
 ]
 
 const legalLinks = [

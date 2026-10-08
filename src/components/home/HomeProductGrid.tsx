@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ProductCard } from '@/components/ProductCard'
+import { CustomPieceBanner } from '@/components/home/CustomPieceBanner'
 import { ProductGridSkeleton } from '@/components/shop/ProductGridSkeleton'
 import type { Product } from '@/types'
 
@@ -36,6 +37,12 @@ export function HomeProductGrid({ products, loading }: { products: Product[]; lo
             </Link>
           </div>
         ) : null}
+
+        {/* Directly below VIEW ALL and inside the same `max-w-6xl` container, so it is full
+            width within the page's content column. Rendered unconditionally — the VIEW ALL
+            button only appears when there are products to view, and the Custom Piece offer
+            still stands when the catalogue is empty or still loading. */}
+        <CustomPieceBanner />
       </div>
     </section>
   )

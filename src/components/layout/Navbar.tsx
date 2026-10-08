@@ -157,11 +157,11 @@ export function Navbar() {
               About Us
             </Link>
             <Link
-              to="/contact"
+              to="/help-desk"
               className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-zinc-200 hover:bg-zinc-900"
               onClick={() => setOpen(false)}
             >
-              Contact
+              Help Desk
             </Link>
           </nav>
         </div>
