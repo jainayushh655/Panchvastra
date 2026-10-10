@@ -230,24 +230,22 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
                  * directly beneath it. A fixed offset (rather than a percentage of width)
                  * so that spacing stays constant instead of drifting as the ratio changes.
                  */
-                className="relative flex aspect-[4/3] w-full shrink-0 snap-start flex-col justify-end px-4 pb-16 pt-5 sm:aspect-[16/9] sm:pt-4"
+                className="relative flex aspect-[16/9] w-full shrink-0 snap-start flex-col justify-end px-4 pb-16 pt-5 sm:pt-4"
               >
                 {bg ? (
                   <div
                     /*
-                     * Phones only: the 4:3 box is narrower than the 16:9 artwork, so `cover`
-                     * discards 25% of its width. Centring split that evenly and ate into the
-                     * brand typography, which this artwork sets in the LEFT third. Moving the
-                     * focal point to 25% takes 6.3% off the left instead of 12.5% and 18.8%
-                     * off the right, where the frame is background. Same crop amount, so the
-                     * box — and therefore the hero height — is unchanged; only which part of
-                     * the image survives. A percentage, not a pixel offset, so it holds at
-                     * every width and for any image size.
+                     * One ratio at every width: the artwork's own 16:9.
                      *
-                     * From `sm` up the box is already the artwork's own 16:9, so nothing is
-                     * cropped and `bg-center` is restored — tablet and desktop are untouched.
+                     * This box used to be 4:3 below `sm`, which made the hero taller on a
+                     * phone but cost 25% of each slide's WIDTH to the crop — measured, not
+                     * estimated. A focal shift to 25% only chose which quarter was thrown
+                     * away; it never stopped the throwing away. Admin-uploaded artwork is
+                     * laid out as a full banner, so losing a quarter of it is losing part of
+                     * the message. Matching the source ratio means `cover` is an exact fit
+                     * and nothing is cropped on any screen.
                      */
-                    className="pointer-events-none absolute inset-0 bg-cover bg-[position:25%_center] bg-no-repeat sm:bg-center"
+                    className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
                     style={{ backgroundImage: `url(${JSON.stringify(bg)})` }}
                     aria-hidden
                   />

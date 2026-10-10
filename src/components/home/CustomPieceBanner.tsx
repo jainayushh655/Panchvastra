@@ -24,7 +24,9 @@ export function CustomPieceBanner() {
   return (
     <Link
       to="/custom-piece"
-      className="mt-12 block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
+      // Same gap the category grid leaves under its own heading, so the two homepage
+      // sections keep one vertical rhythm.
+      className="mt-6 block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black sm:mt-8"
     >
       <img
         src="/images/custom-piece-banner.jpeg"

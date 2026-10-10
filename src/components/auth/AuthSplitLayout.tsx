@@ -43,7 +43,19 @@ export function AuthSplitLayout({
   children: ReactNode
 }) {
   return (
-    <div className="min-h-svh bg-[#f7f7f5] lg:grid lg:grid-cols-2">
+    /*
+     * 50/50 at `lg`, then 60/40 from `xl` up.
+     *
+     * The poster is 16:9 and the panel is full viewport height, so the wider the panel the
+     * more of its height the artwork covers without being cropped. At 1280 the 50/50 split
+     * left the poster filling only 40% of the panel; 60/40 takes that to roughly half, and
+     * on a 1920 screen from 60% to about 72%.
+     *
+     * The step waits until `xl` on purpose: at 1024 a 40% form column is only ~410px wide
+     * before padding, which would squeeze the sign-in form. Between `lg` and `xl` the split
+     * therefore stays even, and nothing about the form changes at any width.
+     */
+    <div className="min-h-svh bg-[#f7f7f5] lg:grid lg:grid-cols-2 xl:grid-cols-[3fr_2fr]">
       {/* ---------------------------------------------------------- brand panel */}
       <aside
         className={`relative overflow-hidden bg-black ${
