@@ -767,7 +767,17 @@
 
 .admin-form { display: grid; gap: 14px; margin-top: 18px; }
 
-.admin-form__row { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+/*
+ * minmax(0, 1fr), not 1fr.
+ *
+ * A grid column's default minimum is `auto`, which resolves to the item's MIN-CONTENT
+ * width — and a native datetime-local reports roughly 230px for that. Two of them in a
+ * 420px modal therefore refused to shrink: the row stayed 474px wide, pushed the form
+ * sideways, clipped the left edge off every label and pushed the calendar button out of
+ * sight past the right edge. Letting the columns go below min-content is what allows the
+ * form to fit whatever container it is in.
+ */
+.admin-form__row { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 
 .admin-form__field { display: grid; gap: 6px; min-width: 0; }
 
@@ -783,6 +793,9 @@
 .admin-form__field select,
 .admin-form__field textarea {
   width: 100%;
+  /* Lets a control shrink with its column. `width: 100%` alone does not override the
+     intrinsic min-content width that inputs like datetime-local report. */
+  min-width: 0;
   padding: 9px 11px;
   background: var(--admin-surface);
   border: 1px solid var(--admin-border);

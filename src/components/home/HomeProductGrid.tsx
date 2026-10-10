@@ -41,7 +41,16 @@ export function HomeProductGrid({ products, loading }: { products: Product[]; lo
         {/* Directly below VIEW ALL and inside the same `max-w-6xl` container, so it is full
             width within the page's content column. Rendered unconditionally — the VIEW ALL
             button only appears when there are products to view, and the Custom Piece offer
-            still stands when the catalogue is empty or still loading. */}
+            still stands when the catalogue is empty or still loading.
+
+            The heading reuses the exact treatment of "Shop By Category" in
+            `HomeCategoryGrid`, so the two homepage section titles read as a pair. */}
+        <div className="mt-14 text-center">
+          <h2 className="font-display text-3xl font-bold uppercase tracking-tight text-black sm:text-4xl">
+            The Custom Studio
+          </h2>
+        </div>
+
         <CustomPieceBanner />
       </div>
     </section>
