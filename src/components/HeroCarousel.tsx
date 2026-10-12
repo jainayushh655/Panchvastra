@@ -130,9 +130,19 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
    * every width. `s.secondaryCta` is left untouched on the slide type and the API payload —
    * it is simply no longer rendered here.
    */
+  /*
+   * The button is smaller below `sm` and full size from there up.
+   *
+   * It used to be a fixed 140x42 at every width. Against a 720px desktop hero that reads
+   * as a neat label; against a 180px hero on a 320px phone it is a quarter of the picture.
+   * The smaller step is phones only, so tablet and desktop are untouched.
+   */
   const renderActions = (s: HeroCarouselSlide) => (
     <div className="flex w-full justify-center">
-      <Link to={s.primaryCta.to} className={'inline-flex items-center justify-center border border-white/70 bg-white/80 px-7 py-3 text-xs font-extrabold uppercase tracking-[0.14em] text-black backdrop-blur-md transition-colors hover:bg-white/95'}>
+      <Link
+        to={s.primaryCta.to}
+        className="inline-flex items-center justify-center border border-white/70 bg-white/80 px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-black backdrop-blur-md transition-colors hover:bg-white/95 sm:px-7 sm:py-3 sm:text-xs sm:tracking-[0.14em]"
+      >
         {s.primaryCta.label}
       </Link>
     </div>
@@ -230,7 +240,7 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
                  * directly beneath it. A fixed offset (rather than a percentage of width)
                  * so that spacing stays constant instead of drifting as the ratio changes.
                  */
-                className="relative flex aspect-[16/9] w-full shrink-0 snap-start flex-col justify-end px-4 pb-16 pt-5 sm:pt-4"
+                className="relative flex aspect-[16/9] w-full shrink-0 snap-start flex-col justify-end px-4 pb-11 pt-5 sm:pb-16 sm:pt-4"
               >
                 {bg ? (
                   <div
@@ -265,7 +275,7 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
           the track's height — which is exactly the artwork's height. That is what removes
           the black band; nothing is being covered up.
         */}
-        <div className="absolute inset-x-0 bottom-0 flex items-center justify-center px-4 pb-4">
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-center px-4 pb-2 sm:pb-4">
           {renderDots()}
         </div>
       </section>
