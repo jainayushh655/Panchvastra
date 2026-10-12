@@ -110,6 +110,57 @@ function chartForGarment(name: string | null | undefined) {
   return null
 }
 
+/* ------------------------------------------------------------------------ sanitisers */
+
+/**
+ * Keeps a typed value to the characters its field can actually hold, as it is typed.
+ *
+ * Filtering on the way in rather than only complaining on submit means a name can never
+ * end up as "7777777777aDADD" and a phone number can never carry letters — which the
+ * backend would reject anyway, after a round trip.
+ *
+ * `\p{L}` with the `u` flag, not `[A-Za-z]`: names here are not all Latin, and an ASCII
+ * range would quietly delete every character of a name written in Devanagari.
+ */
+const sanitizeName = (value: string, max: number) =>
+  value.replace(/[^\p{L}\p{M}\s'’.-]/gu, '').replace(/\s{2,}/g, ' ').replace(/^\s+/, '').slice(0, max)
+
+/**
+ * Digits only, capped AFTER stripping.
+ *
+ * The cap belongs here rather than on the input's `maxLength`, because `maxLength` counts
+ * the raw text. Pasting "+91 (98765) 43210" is 17 characters, so the browser would cut it
+ * to 15 before any of the punctuation was removed — and the number would silently lose its
+ * last digits. Stripping first and capping second keeps a pasted, formatted number intact.
+ */
+const sanitizeDigits = (value: string, max?: number) => {
+  const digits = value.replace(/\D/g, '')
+  return max === undefined ? digits : digits.slice(0, max)
+}
+
+/** A dialling code is a leading `+` and digits, nothing else. */
+const sanitizeCountryCode = (value: string) => {
+  const digits = value.replace(/\D/g, '').slice(0, 4)
+  return `+${digits}`
+}
+
+/**
+ * How many digits a subscriber number may have, by dialling code.
+ *
+ * India is exactly ten, so `+91` is held to that — both as a typing cap and as a
+ * validation rule. Every other code falls back to the ITU range of 7–15, which is also
+ * the contract's own maximum for the field. Only the one code the store actually sells
+ * into is special-cased: inventing a length table for the rest of the world would mean
+ * guessing, and a wrong guess would block a legitimate number.
+ */
+const INDIA_DIALLING_CODE = '91'
+const PHONE_MIN_DIGITS = 7
+
+const phoneRules = (countryCode: string) =>
+  sanitizeDigits(countryCode) === INDIA_DIALLING_CODE
+    ? { min: 10, max: 10 }
+    : { min: PHONE_MIN_DIGITS, max: PHONE_NUMBER_MAX }
+
 /* ----------------------------------------------------------------------------- icons */
 
 const S = { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' } as const
@@ -384,6 +435,27 @@ export function CustomPiecePage() {
     })
   }
 
+  /**
+   * Changing the dialling code can change how long the number may be, so the number is
+   * re-trimmed to the new code's limit in the same update. Switching to +91 with fifteen
+   * digits already typed leaves ten, rather than a value that would only fail on submit.
+   */
+  const setCountryCode = (raw: string) => {
+    const countryCode = sanitizeCountryCode(raw)
+    setDraft((current) => ({
+      ...current,
+      countryCode,
+      phone: sanitizeDigits(current.phone, phoneRules(countryCode).max),
+    }))
+    setFieldErrors((current) => {
+      if (!current.phone_country_code && !current.phone_number) return current
+      const next = { ...current }
+      delete next.phone_country_code
+      delete next.phone_number
+      return next
+    })
+  }
+
   /** Checks the file the same way the backend does, so a bad pick costs no round trip. */
   const onPickFile = (picked: File | null) => {
     setFileError(null)
@@ -411,8 +483,17 @@ export function CustomPiecePage() {
     if (!draft.sizeId) errors.size_id = 'Choose a size.'
     if (!draft.printTypeId) errors.print_type_id = 'Choose a print type.'
     if (!draft.fullName.trim()) errors.full_name = 'Please enter your full name.'
-    if (!draft.countryCode.trim()) errors.phone_country_code = 'Required.'
-    if (!draft.phone.trim()) errors.phone_number = 'Please enter your phone number.'
+    else if (!/\p{L}/u.test(draft.fullName)) errors.full_name = 'Please enter your name in letters.'
+
+    const code = sanitizeDigits(draft.countryCode)
+    if (!code) errors.phone_country_code = 'Required.'
+
+    const digits = sanitizeDigits(draft.phone)
+    const { min, max } = phoneRules(draft.countryCode)
+    if (!digits) errors.phone_number = 'Please enter your phone number.'
+    else if (min === max && digits.length !== min) errors.phone_number = `Enter a ${min}-digit phone number.`
+    else if (digits.length < min) errors.phone_number = 'That phone number looks too short.'
+    else if (digits.length > max) errors.phone_number = 'That phone number looks too long.'
     if (draft.description.length > DESIGN_DESCRIPTION_MAX) {
       errors.design_description = `Keep this under ${DESIGN_DESCRIPTION_MAX} characters.`
     }
@@ -839,7 +920,7 @@ export function CustomPiecePage() {
                         maxLength={FULL_NAME_MAX}
                         disabled={sending}
                         autoComplete="name"
-                        onChange={(e) => set('fullName', e.target.value)}
+                        onChange={(e) => set('fullName', sanitizeName(e.target.value, FULL_NAME_MAX))}
                         aria-invalid={Boolean(fieldErrors.full_name)}
                         aria-describedby={described('full_name')}
                         placeholder="Full Name"
@@ -853,23 +934,32 @@ export function CustomPiecePage() {
                     <label htmlFor={fid('phone')} className="sr-only">
                       Phone number
                     </label>
-                    <div className="relative flex items-stretch rounded-xl border border-[#e4ddd2] bg-white focus-within:border-black">
-                      <IconPhone className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-zinc-400" />
+                    {/*
+                      The icon is a real flex item now, not absolutely positioned over a
+                      padded input. With the old arrangement the code field had to reserve
+                      ~86px of left padding for the icon, so "+91" was left-aligned in the
+                      middle of nowhere and sat a long way from the number — clearest on a
+                      phone. Laying the three parts out in a row, and right-aligning the
+                      code against the divider, closes that gap at every width while still
+                      leaving room for a four-digit dialling code.
+                    */}
+                    <div className="flex items-stretch rounded-xl border border-[#e4ddd2] bg-white focus-within:border-black">
+                      <span className="flex shrink-0 items-center pl-3.5 pr-2 text-zinc-400" aria-hidden>
+                        <IconPhone className="size-[18px]" />
+                      </span>
                       <label htmlFor={fid('code')} className="sr-only">
                         Country code
                       </label>
-                      {/* `basis-*`, not `w-*`: a width utility here can lose to another one
-                          depending on stylesheet order, which would push the number field
-                          off a narrow screen. flex-basis sets the main size regardless. */}
                       <input
                         id={fid('code')}
                         name="phone_country_code"
                         type="text"
+                        inputMode="tel"
                         value={draft.countryCode}
                         maxLength={PHONE_COUNTRY_CODE_MAX}
                         disabled={sending}
-                        onChange={(e) => set('countryCode', e.target.value)}
-                        className="shrink-0 grow-0 basis-[86px] border-none bg-transparent py-3 pl-10 pr-1 text-sm text-black outline-none disabled:opacity-60 sm:basis-24 sm:pl-11 sm:pr-2"
+                        onChange={(e) => setCountryCode(e.target.value)}
+                        className="w-[46px] shrink-0 grow-0 border-none bg-transparent py-3 pr-1.5 text-right text-sm text-black outline-none disabled:opacity-60"
                       />
                       <span className="my-2.5 w-px shrink-0 bg-[#ece6dc]" aria-hidden />
                       <input
@@ -878,14 +968,15 @@ export function CustomPiecePage() {
                         type="tel"
                         inputMode="numeric"
                         value={draft.phone}
-                        maxLength={PHONE_NUMBER_MAX}
                         disabled={sending}
                         autoComplete="tel-national"
-                        onChange={(e) => set('phone', e.target.value)}
+                        // No `maxLength`: the 15-digit cap is applied by the sanitiser, after
+                        // punctuation is stripped. See `sanitizeDigits`.
+                        onChange={(e) => set('phone', sanitizeDigits(e.target.value, phoneRules(draft.countryCode).max))}
                         aria-invalid={Boolean(fieldErrors.phone_number)}
                         aria-describedby={described('phone_number')}
                         placeholder="Phone Number (WhatsApp)"
-                        className="min-w-0 flex-1 border-none bg-transparent px-3.5 py-3 text-sm text-black outline-none placeholder:text-zinc-400 disabled:opacity-60"
+                        className="min-w-0 flex-1 border-none bg-transparent px-3 py-3 text-sm text-black outline-none placeholder:text-zinc-400 disabled:opacity-60"
                       />
                     </div>
                     <FieldError
