@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { MainLayout } from '@/components/layout/MainLayout'
@@ -15,10 +15,16 @@ import { ShopPage } from '@/pages/ShopPage'
 import { SignupPage } from '@/pages/SignupPage'
 import { OrdersPage } from '@/pages/OrdersPage'
 import { WishlistPage } from '@/pages/WishlistPage'
-import { AdminApp } from '@/admin'
 import { RefundPolicyPage } from '@/pages/policies/RefundPolicyPage'
 import { PrivacyPolicyPage } from '@/pages/policies/PrivacyPolicyPage'
 import { TermsOfServicePage } from '@/pages/policies/TermsOfServicePage'
+
+/*
+ * The admin panel is the largest area of the app and no shopper ever loads it, so it is
+ * split out of the customer bundle and fetched only when an `/admin/*` route is opened.
+ * The entry also imports `admin.css`, which leaves the customer stylesheet along with it.
+ */
+const AdminApp = lazy(() => import('@/admin').then((m) => ({ default: m.AdminApp })))
 
 export default function App() {
   return (
@@ -56,7 +62,17 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Route>
-        <Route path="/admin/*" element={<AdminApp />} />
+        {/* Suspense is scoped to this one route, so nothing on a customer route can be
+            held up by it. The fallback is deliberately blank: the admin shell paints its
+            own chrome, and a spinner here would flash on every admin navigation. */}
+        <Route
+          path="/admin/*"
+          element={(
+            <Suspense fallback={null}>
+              <AdminApp />
+            </Suspense>
+          )}
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Fragment>

@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { onSessionExpired, resetSessionExpiryLatch } from '@/api/sessionExpiry'
 import {
   loginUser as requestLoginOtp,
   loginWithGoogle as requestGoogleLogin,
@@ -159,6 +160,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setUser(normalizedUser)
     setToken(normalizedToken)
+    // A fresh session re-arms the one-shot expiry latch, so if THIS token later expires
+    // the signal fires again rather than being swallowed by the previous expiry.
+    resetSessionExpiryLatch()
 
     if (typeof window === 'undefined') return
 
@@ -175,7 +179,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
     setToken(null)
     clearStoredSession()
+    // Re-arm, so a later expiry on the next session is signalled again.
+    resetSessionExpiryLatch()
   }, [])
+
+  /**
+   * The backend has stopped accepting the stored token.
+   *
+   * Clearing the session is all that happens here. The existing `ProtectedRoute` and
+   * `ProtectedAdminRoute` already send an unauthenticated visitor to their login screen —
+   * `ProtectedRoute` carrying the current path as `state.from`, which the login page
+   * already returns them to. Navigating from this effect as well would race those guards
+   * and throw away that return path, so it does not.
+   *
+   * A visitor on a PUBLIC page simply loses the stale token and stays where they are:
+   * public pages and public API calls keep working, which is the point of only clearing.
+   *
+   * `clearStoredSession` touches the two auth keys and nothing else, so the wishlist —
+   * stored per email under its own key — and every other persisted value survive. The cart
+   * lives on the server and is re-read for whoever signs in next.
+   */
+  useEffect(() => onSessionExpired(() => {
+    setUser(null)
+    setToken(null)
+    clearStoredSession()
+  }), [])
 
   const sendOtpForEmail = useCallback(async (input: { email: string }) => {
     const email = normalizeEmail(input.email)
