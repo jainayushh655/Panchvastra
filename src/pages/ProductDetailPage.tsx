@@ -6,7 +6,8 @@ import { ProductDetailAccordions } from '@/components/product/ProductDetailAccor
 import { ProductImageGallery } from '@/components/product/ProductImageGallery'
 import { ProductVariantPicker } from '@/components/product/ProductVariantPicker'
 import { SizeChart } from '@/components/product/SizeChart'
-import { getSizeChart } from '@/lib/sizeChart'
+import { getSizeChartForProduct } from '@/lib/sizeChart'
+import { readKeyHighlights } from '@/lib/keyHighlights'
 import { useCart } from '@/context/CartProvider'
 import { useToast } from '@/context/ToastProvider'
 import { useWishlist, type WishlistItem } from '@/context/WishlistProvider'
@@ -334,9 +335,10 @@ export function ProductDetailPage() {
    * the nested object is absent. Null means no chart is configured for this pairing, and
    * the Size Chart control is then not rendered at all rather than showing a wrong one.
    */
-  const sizeChart = getSizeChart(
+  const sizeChart = getSizeChartForProduct(
     productDto?.category?.name,
     productDto?.sub_category?.name ?? productDto?.sub_category_name,
+    readKeyHighlights(productDto?.key_highlights),
   );
 
   // Only the sizes this variant is actually configured with are rendered, in the standard

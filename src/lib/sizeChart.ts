@@ -128,3 +128,101 @@ export function getSizeChart(
 
   return { key, src: SIZE_CHART_IMAGES[key], alt: CHART_ALT[key] }
 }
+
+/* ------------------------------------------------------- charts from key highlights */
+
+/**
+ * Why a second source exists.
+ *
+ * `getSizeChart` reads category + subcategory, and for T-shirts it deliberately refuses to
+ * answer on the category alone: the block depends on the FIT, and showing regular-fit
+ * measurements for an oversize tee would be worse than showing none. That worked while
+ * subcategories WERE fits ("Oversize", "Regular Fit").
+ *
+ * The catalogue's subcategories are now print methods — "Print" and "Embroidery" — which
+ * say nothing about fit. So every T-shirt resolves to `null` and loses its Size Chart
+ * button, while Shorts keeps one through the category table.
+ *
+ * The fit did not disappear with it: the product still carries it, in the key highlight the
+ * admin form already fills in from its predefined rows — `{ label: "Fit", value: "Regular
+ * Fit" }` alongside `{ label: "Product Type", value: "T-Shirt" }`. These tables read that,
+ * so the chart follows the product's own description instead of a taxonomy that no longer
+ * describes shape.
+ */
+
+/** Garments with their own block, whatever fit is recorded against them. */
+const GARMENT_TYPE_CHARTS: Record<string, SizeChartKey> = {
+  shorts: 'shorts',
+  hoodie: 'oversize',
+  hoodies: 'oversize',
+  sweatshirt: 'oversize',
+  sweatshirts: 'oversize',
+}
+
+/** Fit, which is what separates the two top blocks. */
+const FIT_CHARTS: Record<string, SizeChartKey> = {
+  oversize: 'oversize',
+  oversized: 'oversize',
+  regularfit: 'regular',
+  regular: 'regular',
+}
+
+/** Remaining product types, used only when no fit was recorded. */
+const PRODUCT_TYPE_CHARTS: Record<string, SizeChartKey> = {
+  tshirt: 'regular',
+  tshirts: 'regular',
+  fullsleevetshirt: 'regular',
+  fullsleeve: 'regular',
+  fullsleeves: 'regular',
+  polo: 'regular',
+  polos: 'regular',
+}
+
+/** The `{ label, value }` rows this resolver needs. The product's own highlights fit. */
+export type SizeChartHighlight = {
+  label: string
+  value: string
+}
+
+function chartFor(key: SizeChartKey | undefined): SizeChart | null {
+  if (!key) return null
+  return { key, src: SIZE_CHART_IMAGES[key], alt: CHART_ALT[key] }
+}
+
+/**
+ * The chart for a product, from its taxonomy first and its key highlights second.
+ *
+ * Order is deliberate:
+ *   1. category + subcategory, unchanged — anything that resolves today keeps resolving,
+ *      including Shorts and any legacy fit-named subcategory;
+ *   2. product type, where the garment has its own block (shorts, hoodie, sweatshirt);
+ *   3. fit, which decides between the two top blocks;
+ *   4. the remaining product types, for a product with no fit recorded.
+ *
+ * Still `null` when nothing matches, so a product that genuinely has no configured chart
+ * shows no button rather than the wrong measurements — the original rule is intact.
+ */
+export function getSizeChartForProduct(
+  category: string | null | undefined,
+  subCategory: string | null | undefined,
+  highlights: readonly SizeChartHighlight[] | null | undefined,
+): SizeChart | null {
+  const byTaxonomy = getSizeChart(category, subCategory)
+  if (byTaxonomy) return byTaxonomy
+
+  const rows = highlights ?? []
+  const valueOf = (label: string) => {
+    const wanted = toKey(label)
+    const row = rows.find((entry) => toKey(entry.label) === wanted)
+    return toKey(row?.value)
+  }
+
+  const productType = valueOf('Product Type')
+  const fit = valueOf('Fit')
+
+  return (
+    chartFor(GARMENT_TYPE_CHARTS[productType]) ??
+    chartFor(FIT_CHARTS[fit]) ??
+    chartFor(PRODUCT_TYPE_CHARTS[productType])
+  )
+}
