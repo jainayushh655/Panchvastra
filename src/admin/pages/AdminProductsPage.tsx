@@ -29,6 +29,7 @@ import {
   validateKeyHighlights,
   type KeyHighlight,
 } from '@/lib/keyHighlights'
+import { DEFAULT_SIZES, validateSizes } from '@/lib/productSizes'
 import { listSubCategories } from '@/api/subCategory'
 import { formatCurrency } from '@/admin/utils/formatters'
 import type { CategoryDto } from '@/types/api/CategoryDto'
@@ -107,10 +108,27 @@ function readDisplayOrder(raw: string): number | undefined | 'invalid' {
 }
 
 const emptySize = (): SizeForm => ({ id: null, size: '', stock_quantity: '0', is_active: true })
+
+/**
+ * A variant seeded with the default size ladder, each at zero stock.
+ *
+ * Used ONLY where a variant is genuinely new — the create form and "+ Add variant". It is
+ * deliberately not folded into `emptyVariant()`, for the same reason the key-highlight
+ * defaults are not in `emptyForm()`: `openEdit` uses those as its placeholder while the
+ * detail request is in flight, so seeding there would flash S–XXL over a saved product
+ * and, if the request failed, leave the admin looking at default sizes for a product that
+ * has its own.
+ *
+ * Fresh row objects every call, so two variants can never share (and mutate) the same rows.
+ */
 const emptyVariant = (): VariantForm => ({
   id: null, sku: '', color: '', mrp: '', selling_price: '', cost_price: '', display_order: '',
   is_default: false, is_active: true, sizes: [emptySize()],
   existingImages: [], newImages: [], imageOrder: [],
+})
+const variantWithDefaultSizes = (): VariantForm => ({
+  ...emptyVariant(),
+  sizes: DEFAULT_SIZES.map((size) => ({ ...emptySize(), size })),
 })
 const emptyForm = (): ProductForm => ({
   id: null, category_id: '', sub_category_id: '', name: '', description: '', fabric: '', gsm: '', display_order: '',
@@ -269,7 +287,11 @@ export function AdminProductsPage() {
    * rest of the session instead of being re-added on the next render.
    */
   const openCreate = () => {
-    setForm({ ...emptyForm(), key_highlights: defaultKeyHighlightRows() })
+    setForm({
+      ...emptyForm(),
+      key_highlights: defaultKeyHighlightRows(),
+      variants: [variantWithDefaultSizes()],
+    })
     setFormError(null)
   }
 
@@ -567,9 +589,11 @@ export function AdminProductsPage() {
       if (!v.sku.trim() || !v.color.trim() || !v.mrp.trim() || !v.selling_price.trim()) {
         return setFormError(`Variant ${i + 1} needs SKU, colour, MRP and selling price.`)
       }
-      if (!v.sizes.some((s) => s.size.trim())) {
-        return setFormError(`Variant ${i + 1} needs at least one size.`)
-      }
+      // Names present and unique within THIS variant, and every stock a whole number of
+      // zero or more. Runs before anything is sent, so a bad row is caught here rather
+      // than coming back as a 400 — and nothing is saved until Save Product is pressed.
+      const sizeError = validateSizes(v.sizes, `Variant ${i + 1}`)
+      if (sizeError) return setFormError(sizeError)
     }
 
     // The variants actually sent, in order. Files are keyed by position in THIS list, so
@@ -1257,6 +1281,12 @@ export function AdminProductsPage() {
                               id={`stock-${vIndex}-${sIndex}`}
                               type="number"
                               min="0"
+                              // Whole units only. `step` makes the spinner and the browser's
+                              // own validity check agree with `validateSizes`, which is what
+                              // actually enforces it; `inputMode` gets a numeric keypad on a
+                              // phone instead of a full keyboard.
+                              step="1"
+                              inputMode="numeric"
                               value={size.stock_quantity}
                               onChange={(e) => patchSize(vIndex, sIndex, { stock_quantity: e.target.value })}
                             />
@@ -1298,7 +1328,7 @@ export function AdminProductsPage() {
                 <button
                   type="button"
                   className="admin-link-button"
-                  onClick={() => patch({ variants: [...form.variants, emptyVariant()] })}
+                  onClick={() => patch({ variants: [...form.variants, variantWithDefaultSizes()] })}
                 >
                   + Add variant
                 </button>
