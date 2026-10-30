@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ProductCard } from '@/components/ProductCard'
 import { ShopSortPicker } from '@/components/shop/ShopSortPicker'
 import { ProductGridSkeleton } from '@/components/shop/ProductGridSkeleton'
@@ -66,6 +66,26 @@ const SERVER_SORTS: Partial<Record<SortKey, ProductSortBy>> = {
 function appendUnique(previous: Product[], incoming: Product[]): Product[] {
   const seen = new Set(previous.map((p) => p.id))
   return [...previous, ...incoming.filter((p) => !seen.has(p.id))]
+}
+
+/**
+ * A hanging garment tag, for the "coming soon" state.
+ *
+ * Drawn in the same thin-stroke, monochrome language as the other icons on the storefront
+ * rather than being a stock illustration, so it carries no colour of its own and inherits
+ * the page's text colour in both themes.
+ */
+function IconComingSoon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 48 48" fill="none" stroke="currentColor" aria-hidden>
+      <path
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+        d="M26.5 6.5h9a6 6 0 0 1 6 6v9a3 3 0 0 1-.88 2.12L24.6 39.65a3 3 0 0 1-4.24 0L8.35 27.64a3 3 0 0 1 0-4.24L24.38 7.38a3 3 0 0 1 2.12-.88z"
+      />
+      <circle cx="33.5" cy="14.5" r="2.6" strokeWidth={1.6} />
+    </svg>
+  )
 }
 
 export function ShopPage() {
@@ -387,6 +407,24 @@ export function ShopPage() {
   /** "Nothing matched" is only true once there is nothing left to load. */
   const showEmptyState = !showProductLoading && list.length === 0 && !hasNext && !loadError
 
+  /**
+   * An empty result because the CATEGORY itself is empty, rather than because a filter
+   * narrowed everything away.
+   *
+   * The difference matters: "no product for this choice" invites you to loosen a filter,
+   * which is useless advice when there is no filter to loosen and the category simply has
+   * not been stocked yet. So this is true only when a category is selected and nothing
+   * else — no search, no subcategory, no size, no price band — is narrowing the list.
+   * Sort is excluded deliberately: reordering an empty list cannot make it non-empty.
+   */
+  const categoryNotStockedYet =
+    showEmptyState &&
+    category !== 'all' &&
+    !q.trim() &&
+    subcategory === 'all' &&
+    size === 'all' &&
+    priceBucket === 'all'
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="type-page-title">{categoryHeading}</h1>
@@ -426,6 +464,32 @@ export function ShopPage() {
       <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {showProductLoading ? (
           <ProductGridSkeleton count={8} />
+        ) : categoryNotStockedYet ? (
+          <div className="col-span-full flex flex-col items-center px-4 py-14 text-center sm:py-20">
+            <IconComingSoon className="size-12 text-black dark:text-white" />
+
+            <p className="mt-6 font-sans text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">
+              {categoryHeading}
+            </p>
+            <h2 className="mt-2 font-display text-3xl font-bold uppercase tracking-tight text-black sm:text-4xl dark:text-white">
+              Coming Soon
+            </h2>
+            <p className="mt-3 max-w-sm text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+              We&rsquo;re putting this collection together. It&rsquo;ll land here first.
+            </p>
+
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+              <Button type="button" onClick={resetAllFilters}>
+                Browse everything
+              </Button>
+              <Link
+                to="/custom-piece"
+                className="inline-flex min-h-[42px] items-center justify-center border border-black px-6 text-xs font-bold uppercase tracking-[0.14em] text-black transition-colors hover:bg-black hover:text-white dark:border-white dark:text-white dark:hover:bg-white dark:hover:text-black"
+              >
+                Design your own
+              </Link>
+            </div>
+          </div>
         ) : showEmptyState ? (
           <div className="col-span-full px-4 py-12 text-center">
             <p className="font-medium text-zinc-900 dark:text-zinc-100">No product for this choice.</p>
