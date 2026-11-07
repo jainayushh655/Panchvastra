@@ -1,15 +1,63 @@
-import { Fragment, useId, useState } from 'react'
+import { Fragment, useEffect, useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { getCategories } from '@/api/category'
+import { categoryNameToSlug } from '@/lib/categorySlug'
+import type { CategoryDto } from '@/types/api/CategoryDto'
 import { instagramPageUrl, phoneCallUrl, whatsAppPageUrl } from '@/lib/siteUrls'
 
-const shopLinks = [
-  { label: 'T-Shirts', to: '/shop?category=regular-tee' },
-  { label: 'Shorts', to: '/shop?category=shorts' },
-  { label: 'Track Pants', to: '/shop?category=track-pants' },
-  { label: 'Hoodies', to: '/shop?category=hoodies' },
-  { label: 'New Arrivals', to: '/shop?sort=new-arrival' },
-]
+/**
+ * "New Arrivals" is a SORT of the whole catalogue, not a category, so it is the one entry
+ * in this column that is legitimately fixed. Every other entry comes from the categories
+ * the admin has actually created — see `useShopLinks`.
+ */
+const NEW_ARRIVALS_LINK = { key: 'new-arrivals', label: 'New Arrivals', to: '/shop?sort=new-arrival' }
+
+/**
+ * The Shop column, built from the live category list.
+ *
+ * This used to be a hardcoded array, which drifted away from the catalogue the moment the
+ * categories changed: it advertised Shorts and Track Pants that no longer exist, and its
+ * "Hoodies" entry linked to `?category=hoodies` while the real category is named "Hoodie"
+ * and slugs to `hoodie`, so that link landed on an empty Shop page. Reading the real list
+ * is what keeps this correct as categories are added and removed, with no further edits
+ * here.
+ *
+ * Slugs are built with `categoryNameToSlug`, the same helper the homepage tiles and the
+ * Shop page's own filter use, so a footer link and a tile for the same category always
+ * agree.
+ *
+ * A failed request leaves the list empty rather than falling back to guesses: showing no
+ * category is honest, showing one that may not exist is not.
+ */
+function useShopLinks() {
+  const [categories, setCategories] = useState<CategoryDto[]>([])
+
+  useEffect(() => {
+    let active = true
+
+    getCategories()
+      .then((data) => {
+        if (active) setCategories(Array.isArray(data) ? data : [])
+      })
+      .catch(() => {
+        // Decorative navigation: the footer must never break a page it sits under.
+        if (active) setCategories([])
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  return [
+    ...categories.map((category) => {
+      const slug = categoryNameToSlug(category.name)
+      return { key: slug, label: category.name, to: `/shop?category=${slug}` }
+    }),
+    NEW_ARRIVALS_LINK,
+  ]
+}
 
 const companyLinks = [
   { label: 'About Us', to: '/about' },
@@ -111,6 +159,7 @@ function FooterLinkGroup({ title, children }: { title: string; children: ReactNo
 }
 
 export function Footer() {
+  const shopLinks = useShopLinks()
   const wa = whatsAppPageUrl()
   const ig = instagramPageUrl()
   const tel = phoneCallUrl()
@@ -156,7 +205,7 @@ export function Footer() {
 
           <FooterLinkGroup title="Shop">
             {shopLinks.map((l) => (
-              <li key={l.label}>
+              <li key={l.key}>
                 <Link to={l.to} className={linkClass}>
                   {l.label}
                 </Link>

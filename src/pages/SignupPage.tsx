@@ -5,7 +5,7 @@ import { registerUser } from '@/api/auth'
 import { AuthPoster } from '@/components/auth/AuthPoster'
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
 import { GOOGLE_BUTTON_MAX_WIDTH, GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
-import { OtpVerificationModal } from '@/components/auth/OtpVerificationModal'
+import { OtpVerifyStep } from '@/components/auth/OtpVerifyStep'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthProvider'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -43,7 +43,13 @@ export function SignupPage() {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false)
+  /**
+   * Registration is a two-step flow in one column: the details form, then the code. The
+   * second step REPLACES the first in the same panel — the same place the login screen
+   * shows it — rather than opening a modal over it.
+   */
+  const [showOtpStep, setShowOtpStep] = useState(false)
+  const [otp, setOtp] = useState('')
   const [otpError, setOtpError] = useState<string | null>(null)
   const [isOtpVerifying, setIsOtpVerifying] = useState(false)
 
@@ -95,11 +101,12 @@ export function SignupPage() {
         // }
 
       if (response.success) {
-    setOtpError(null);
-    setIsOtpModalOpen(true);
-} else {
-    setError(response.message ?? "Registration failed.");
-}  
+        setOtpError(null)
+        setOtp('')
+        setShowOtpStep(true)
+      } else {
+        setError(response.message ?? 'Registration failed.')
+      }
     } catch (error: unknown) {
       const message =
         typeof error === 'object' && error && 'response' in error
@@ -111,7 +118,14 @@ export function SignupPage() {
     }
   }
 
-  const handleOtpVerify = async (otp: string) => {
+  const handleOtpVerify = async (event: FormEvent) => {
+    event.preventDefault()
+
+    if (otp.length !== 6) {
+      setOtpError('Enter the 6-digit OTP.')
+      return
+    }
+
     setOtpError(null)
     setIsOtpVerifying(true)
 
@@ -123,7 +137,7 @@ export function SignupPage() {
       return
     }
 
-    setIsOtpModalOpen(false)
+    setShowOtpStep(false)
     navigate('/', { replace: true })
   }
 
@@ -139,7 +153,41 @@ export function SignupPage() {
         field grid and the Google button all share one left and right edge. Applied here
         rather than in AuthSplitLayout, which is shared with the admin login.
       */}
-      <div className="pv-auth-rise w-full" style={{ maxWidth: GOOGLE_BUTTON_MAX_WIDTH }}>
+      <div className="w-full" style={{ maxWidth: GOOGLE_BUTTON_MAX_WIDTH }}>
+      {showOtpStep ? (
+        /*
+         * Step two, in the same column the form occupied — the registration details are
+         * kept in state behind it, so going back does not retype them.
+         *
+         * No resend is offered: the only send path here is the registration call itself,
+         * and there is no documented endpoint to re-issue the code for a pending signup.
+         * Going back and submitting again is the honest route, rather than a button that
+         * cannot do what it says.
+         */
+        <OtpVerifyStep
+          idPrefix="signup"
+          eyebrow="One more step"
+          heading="Verify Your Email"
+          message="Enter the 6-digit OTP sent to"
+          email={email}
+          otp={otp}
+          onOtpChange={(next) => {
+            setOtp(next)
+            setOtpError(null)
+          }}
+          error={otpError}
+          isVerifying={isOtpVerifying}
+          canVerify={otp.length === 6 && !isOtpVerifying}
+          onSubmit={handleOtpVerify}
+          backLabel="Back to sign up"
+          onBack={() => {
+            setShowOtpStep(false)
+            setOtp('')
+            setOtpError(null)
+          }}
+        />
+      ) : (
+      <div className="pv-auth-rise">
 
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">
           Create your account
@@ -300,18 +348,8 @@ export function SignupPage() {
         </div>
 
       </div>
-
-      <OtpVerificationModal
-        isOpen={isOtpModalOpen}
-        email={email}
-        title="Verify Your Email"
-        message="Enter the 6-digit OTP sent to your email."
-        error={otpError}
-        isVerifying={isOtpVerifying}
-        submitLabel="Verify OTP"
-        onVerify={handleOtpVerify}
-        onCancel={() => setIsOtpModalOpen(false)}
-      />
+      )}
+      </div>
     </AuthSplitLayout>
   )
 }

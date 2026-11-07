@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
+import { OtpVerifyStep } from '@/components/auth/OtpVerifyStep'
 import { type AuthUser, useAuth } from '@/context/AuthProvider'
 import { validateEmail } from '@/lib/formValidation'
 
@@ -79,7 +80,6 @@ export function OtpAuthForm({
   // initial send and the resend because both hit the same endpoint.
   const sendingRef = useRef(false)
   const verifyingRef = useRef(false)
-  const otpInputRefs = useRef<Array<HTMLInputElement | null>>([])
 
   const emailError = emailTouched ? validateEmail(email) : null
   const canSend = !emailError && !isSending
@@ -103,10 +103,8 @@ export function OtpAuthForm({
     return () => window.clearTimeout(timer)
   }, [notice])
 
-  // Move focus to the OTP field as the step changes, so keyboard users aren't stranded.
-  useEffect(() => {
-    if (otpSent) otpInputRefs.current[0]?.focus()
-  }, [otpSent])
+  // Focus moves to the first OTP box as the step appears (the input's own `autoFocus`),
+  // so keyboard users aren't stranded.
 
   /** Shared by the first Send OTP and every Resend — one request path, one guard. */
   const requestOtp = useCallback(
@@ -197,103 +195,32 @@ export function OtpAuthForm({
   if (otpSent) {
     return (
       <>
-        <div className="pv-auth-rise" key="otp-step">
-        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Welcome back</p>
-        <h1 className="mt-2 text-3xl font-bold uppercase tracking-tight text-black">Verify OTP</h1>
-        <p className="mt-2 text-sm text-zinc-600">
-          We sent a verification code to
-          <br />
-          <span className="font-semibold text-black">{email}</span>
-        </p>
-
-        <form onSubmit={onVerifyOtp} className="mt-7 space-y-4" noValidate>
-          <div>
-            <label htmlFor={`${idPrefix}-otp`} className={labelClass}>
-              OTP
-            </label>
-            <div className="mt-1 flex max-w-sm gap-2" role="group" aria-label="6-digit OTP">
-              {Array.from({ length: 6 }, (_, index) => (
-                <input
-                  key={index}
-                  id={`${idPrefix}-otp-${index + 1}`}
-                  ref={(element) => {
-                    otpInputRefs.current[index] = element
-                  }}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete={index === 0 ? 'one-time-code' : 'off'}
-                  maxLength={1}
-                  value={otp[index] ?? ''}
-                  onChange={(event) => {
-                    const digit = event.target.value.replace(/\D/g, '').slice(-1)
-                    const nextOtp = otp.slice(0, index) + digit + otp.slice(index + 1)
-                    setOtp(nextOtp.slice(0, 6))
-                    setError('')
-                    setNotice('')
-                    if (digit && index < 5) otpInputRefs.current[index + 1]?.focus()
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Backspace' && !otp[index] && index > 0) {
-                      otpInputRefs.current[index - 1]?.focus()
-                    }
-                  }}
-                  onPaste={(event) => {
-                    event.preventDefault()
-                    const pastedOtp = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
-                    if (!pastedOtp) return
-                    setOtp(pastedOtp)
-                    setError('')
-                    setNotice('')
-                    otpInputRefs.current[Math.min(pastedOtp.length, 6) - 1]?.focus()
-                  }}
-                  aria-label={`OTP digit ${index + 1}`}
-                  aria-describedby={`${idPrefix}-otp-status`}
-                  aria-invalid={error ? true : undefined}
-                  className={`${inputClass} h-12 min-w-0 flex-1 px-1 text-center text-lg font-semibold`}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div id={`${idPrefix}-otp-status`} aria-live="polite" className="min-h-0">
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          </div>
-
-          <Button type="submit" size="lg" className={`${primaryButton} max-w-sm`} disabled={!canVerify}>
-            {isVerifying ? 'Verifying...' : 'Verify OTP'}
-          </Button>
-
-          <div className="pt-1 text-center text-sm">
-            {countdown > 0 ? (
-              <span className="text-zinc-500">Resend OTP in {countdown}s</span>
-            ) : (
-              <button
-                type="button"
-                onClick={onResend}
-                disabled={isSending}
-                className="font-semibold text-black underline underline-offset-4 transition-colors hover:text-zinc-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isSending ? 'Sending...' : 'Resend OTP'}
-              </button>
-            )}
-          </div>
-        </form>
-
-        <button
-          type="button"
-          onClick={() => {
+        <OtpVerifyStep
+          idPrefix={idPrefix}
+          eyebrow="Welcome back"
+          heading="Verify OTP"
+          message="We sent a verification code to"
+          email={email}
+          otp={otp}
+          onOtpChange={(next) => {
+            setOtp(next)
+            setError('')
+            setNotice('')
+          }}
+          error={error}
+          isVerifying={isVerifying}
+          canVerify={canVerify}
+          onSubmit={onVerifyOtp}
+          resend={{ countdown, isSending, onResend }}
+          backLabel="Use a different email"
+          onBack={() => {
             setOtpSent(false)
             setOtp('')
             setError('')
             setNotice('')
             setCountdown(0)
           }}
-          className="mt-6 text-sm text-zinc-500 underline underline-offset-4 transition-colors hover:text-black"
-        >
-          Use a different email
-        </button>
-
-        </div>
+        />
 
         {notice ? (
           <div
