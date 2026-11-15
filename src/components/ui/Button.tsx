@@ -1,13 +1,13 @@
 import type { ButtonHTMLAttributes } from 'react'
 
 const variants = {
-  primary: 'bg-black text-white hover:bg-zinc-800 border border-black',
+  primary: 'bg-chocolate text-cream hover:bg-espresso border border-chocolate',
   ghost:
-    'bg-transparent border border-zinc-300 text-zinc-900 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-900/80',
+    'bg-transparent border border-sand text-espresso hover:bg-soft-beige dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-900/80',
   ghostLight:
-    'bg-transparent border border-zinc-300 text-zinc-900 hover:bg-zinc-100/80',
+    'bg-transparent border border-sand text-espresso hover:bg-soft-beige',
   outline:
-    'bg-transparent border-2 border-zinc-700 text-zinc-900 hover:border-black dark:border-zinc-500 dark:text-white dark:hover:border-white',
+    'bg-transparent border-2 border-chocolate text-espresso hover:border-espresso dark:border-zinc-500 dark:text-white dark:hover:border-white',
 }
 
 const sizes = {

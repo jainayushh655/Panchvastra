@@ -159,7 +159,7 @@ export function CartPage() {
 
           <Link
             to="/shop"
-            className="mt-7 inline-flex items-center justify-center gap-2 bg-black px-7 py-3.5 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-zinc-800"
+            className="mt-7 inline-flex items-center justify-center gap-2 bg-chocolate px-7 py-3.5 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-zinc-800"
           >
             Shop the collection
             <IconArrowRight className="size-4" />
@@ -255,7 +255,7 @@ export function CartPage() {
                             onClick={() => handleUpdateQuantity(line, line.quantity - 1)}
                             disabled={line.quantity <= 1 || pendingIds.has(line.cartItemId)}
                             aria-label="Decrease quantity"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white text-base font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white text-base font-semibold text-zinc-700 transition hover:bg-soft-beige disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
                           >
                             −
                           </button>
@@ -276,7 +276,7 @@ export function CartPage() {
                             onClick={() => handleUpdateQuantity(line, line.quantity + 1)}
                             disabled={line.availableStock <= 0 || pendingIds.has(line.cartItemId)}
                             aria-label="Increase quantity"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white text-base font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white text-base font-semibold text-zinc-700 transition hover:bg-soft-beige disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
                           >
                             +
                           </button>

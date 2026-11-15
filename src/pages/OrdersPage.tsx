@@ -27,7 +27,7 @@ function StatusBadge({ label }: { label: string }) {
   // Text is always the backend's `status_label`; nothing is derived from `order_status`.
   if (!label) return null
   return (
-    <span className="shrink-0 border border-black bg-black px-2.5 py-1 font-sans text-[10px] font-bold uppercase tracking-[0.12em] text-white">
+    <span className="shrink-0 border border-chocolate bg-chocolate px-2.5 py-1 font-sans text-[10px] font-bold uppercase tracking-[0.12em] text-cream">
       {label}
     </span>
   )
@@ -37,7 +37,7 @@ const PAYMENT_TONES: Record<string, string> = {
   success: 'border-emerald-600 bg-emerald-50 text-emerald-700',
   pending: 'border-amber-500 bg-amber-50 text-amber-700',
   failed: 'border-red-600 bg-red-50 text-red-700',
-  neutral: 'border-zinc-300 bg-zinc-50 text-zinc-600',
+  neutral: 'border-sand bg-soft-beige text-zinc-600',
 }
 
 function PaymentBadge({ status }: { status: string | null }) {
@@ -214,7 +214,7 @@ function OrderCard({ order, defaultOpen }: { order: OrderSummary; defaultOpen: b
             </ul>
           ) : null}
 
-          <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 bg-[#fafafa] px-4 py-3.5 sm:px-5">
+          <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 bg-soft-beige px-4 py-3.5 sm:px-5">
             <div className="flex flex-wrap items-center gap-2">
               <PaymentBadge status={order.paymentStatus} />
               {paymentMethodLabel(order.paymentMethod) ? (
@@ -329,8 +329,8 @@ export function OrdersPage() {
               onClick={() => switchTab(entry.key)}
               className={`border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors ${
                 tab === entry.key
-                  ? 'border-black bg-black text-white'
-                  : 'border-zinc-300 bg-white text-zinc-700 hover:border-black hover:text-black'
+                  ? 'border-burgundy bg-burgundy text-cream'
+                  : 'border-sand bg-cream text-zinc-700 hover:border-burgundy hover:text-espresso'
               }`}
             >
               {entry.label}
@@ -340,14 +340,14 @@ export function OrdersPage() {
 
         {loading ? (
           <div
-            className="mt-6 border border-zinc-200 bg-[#f7f7f5] p-6 text-sm text-zinc-600"
+            className="mt-6 border border-zinc-200 bg-soft-beige p-6 text-sm text-zinc-600"
             role="status"
             aria-live="polite"
           >
             Loading your orders…
           </div>
         ) : error ? (
-          <div className="mt-6 border border-zinc-200 bg-[#f7f7f5] p-6" role="alert">
+          <div className="mt-6 border border-zinc-200 bg-soft-beige p-6" role="alert">
             <p className="font-semibold text-black">Unable to load your orders.</p>
             <p className="mt-1.5 text-sm text-zinc-600">{error}</p>
             <Button className="mt-5" onClick={load}>
@@ -355,7 +355,7 @@ export function OrdersPage() {
             </Button>
           </div>
         ) : orders.length === 0 ? (
-          <div className="mt-6 border border-zinc-200 bg-[#f7f7f5] px-6 py-10 text-center">
+          <div className="mt-6 border border-zinc-200 bg-soft-beige px-6 py-10 text-center">
             <p className="font-sans text-sm font-bold uppercase tracking-[0.16em] text-black">No orders yet</p>
             {/* The envelope's own `message` is written for end users, so it is shown as-is. */}
             <p className="mx-auto mt-2 max-w-sm text-sm text-zinc-600">
@@ -363,7 +363,7 @@ export function OrdersPage() {
             </p>
             <Link
               to="/shop"
-              className="mt-6 inline-block border border-black bg-black px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-white transition-colors hover:bg-zinc-800"
+              className="mt-6 inline-block border border-chocolate bg-chocolate px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-white transition-colors hover:bg-zinc-800"
             >
               Shop Now
             </Link>

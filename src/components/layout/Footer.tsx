@@ -115,7 +115,7 @@ const socialLinks = [
 ] as const
 
 const linkClass =
-  'inline-flex items-center transition-colors hover:text-white max-sm:min-h-[32px]'
+  'inline-flex items-center transition-colors hover:text-cream max-sm:min-h-[32px]'
 
 /**
  * One footer link column.
@@ -129,8 +129,15 @@ function FooterLinkGroup({ title, children }: { title: string; children: ReactNo
   const [open, setOpen] = useState(false)
   const panelId = useId()
 
+  /*
+   * From `sm` up this column carries the hairline that separates it from the one before.
+   * The rule sits on the column's left edge and `pl` matches the grid's `gap-x` at each
+   * breakpoint, so the line lands optically centred in the channel rather than hugging the
+   * column it belongs to. The brand column has no rule, which is why this lives here and
+   * not on the grid.
+   */
   return (
-    <div className="border-t border-zinc-800 py-4 sm:border-t-0 sm:py-0">
+    <div className="border-t border-cream/15 py-4 sm:border-t-0 sm:border-l sm:border-l-cream/20 sm:py-0 sm:pl-5 lg:pl-8">
       {/* Mobile: the heading is the accordion toggle. */}
       <button
         type="button"
@@ -139,18 +146,18 @@ function FooterLinkGroup({ title, children }: { title: string; children: ReactNo
         aria-controls={panelId}
         className="flex w-full items-center justify-between gap-4 py-1 text-left sm:hidden"
       >
-        <span className="text-xs font-bold uppercase tracking-[0.22em] text-white">{title}</span>
+        <span className="text-xs font-bold uppercase tracking-[0.22em] text-cream">{title}</span>
         <IconChevronDown
-          className={`size-4 shrink-0 text-zinc-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          className={`size-4 shrink-0 text-cream/70 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
         />
       </button>
 
       {/* Desktop: a plain heading, never interactive. */}
-      <p className="hidden text-xs font-bold uppercase tracking-[0.22em] text-white sm:block">{title}</p>
+      <p className="hidden text-xs font-bold uppercase tracking-[0.22em] text-cream sm:block">{title}</p>
 
       <ul
         id={panelId}
-        className={`space-y-2.5 text-sm text-zinc-400 ${open ? 'mt-3 block' : 'hidden'} sm:mt-5 sm:block`}
+        className={`space-y-2.5 text-sm text-cream/85 ${open ? 'mt-3 block' : 'hidden'} sm:mt-5 sm:block`}
       >
         {children}
       </ul>
@@ -165,19 +172,60 @@ export function Footer() {
   const tel = phoneCallUrl()
 
   return (
-    <footer className="mt-auto border-t border-zinc-800 bg-black px-4 py-10 text-white">
-      <div className="mx-auto max-w-6xl">
+    /*
+     * Textured fabric background.
+     *
+     * Both layers ride on this one element, so no wrapper is added and the layout below is
+     * untouched: a flat chocolate wash sits above the photo and holds cream text at AA
+     * contrast over the fabric's brightest sheen, while 35% of the fold contrast still
+     * reads through. `bg-chocolate` stays as the background-COLOUR beneath both, so a
+     * failed image request leaves the footer on brand rather than bare.
+     */
+    <footer
+      className="relative mt-auto bg-chocolate bg-cover bg-center bg-no-repeat px-4 pb-10 pt-14 text-cream sm:pt-16"
+      style={{
+        backgroundImage:
+          "linear-gradient(rgba(59, 33, 24, 0.55), rgba(59, 33, 24, 0.55)), url('/images/pexels-karola-g-4863035.jpg')",
+      }}
+    >
+      {/*
+        The torn top edge, where the fabric meets the page.
+
+        A cream shape painted over the top of the footer, so the chocolate appears to begin
+        on an uneven line instead of a ruled one — which is why the straight `border-t` is
+        gone. `preserveAspectRatio="none"` lets the path stretch to any viewport width
+        while its height stays fixed, so the edge never grows teeth on a wide monitor or
+        flattens out on a phone. It is painted, not laid out: `absolute` keeps it off the
+        flow, `pt` above clears the deepest dip, and `fill-cream` ties it to the page
+        colour behind the footer rather than hard-coding a hex.
+      */}
+      <svg
+        className="pointer-events-none absolute inset-x-0 top-0 h-7 w-full sm:h-10"
+        viewBox="0 0 1440 56"
+        preserveAspectRatio="none"
+        aria-hidden
+        focusable="false"
+      >
+        <path
+          className="fill-cream"
+          d="M0 0h1440v24c-26 13-53 5-79 9-41 7-78 20-119 15-39-5-72-24-111-26-45-3-86 17-131 19-38 2-74-11-112-14-43-4-83 11-126 13-40 2-78-12-118-13-45-1-87 17-132 15-37-2-71-18-108-19-30-1-59 9-89 9-41 0-80-14-121-11-28 2-54 13-82 12-29-1-57-11-86-12-9 0-18 1-26 3V0Z"
+        />
+      </svg>
+
+      <div className="relative mx-auto max-w-6xl">
         {/*
           Four equal columns inside the site's standard centred container, so the group
           reads as one balanced block rather than the brand taking all the slack and
           pushing Shop/Company/Support together on the right. Below `sm` everything stacks
           into one column and the link groups stay accordions — mobile is unchanged.
         */}
-        <div className="grid grid-cols-1 gap-y-0 sm:grid-cols-4 sm:gap-x-8 sm:gap-y-9 lg:gap-x-10">
+        <div className="grid grid-cols-1 gap-y-0 sm:grid-cols-[1.3fr_1fr_1fr_1fr] sm:gap-x-5 sm:gap-y-9 lg:gap-x-8">
           {/* BRAND */}
           <div className="pb-6 sm:pb-0">
-            <p className="font-display text-lg font-bold uppercase tracking-[0.18em] text-white">Panchvastra</p>
-            <p className="mt-3 max-w-xs text-sm leading-relaxed text-zinc-400">
+            {/* Same `font-display` serif as the navbar wordmark and every section
+                heading, so the two wordmarks cannot drift apart. */}
+            <p className="font-display text-lg font-bold uppercase tracking-[0.18em] text-cream">Panchvastra</p>
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-cream/70">
               Modular streetwear built for the feed and for everyday rotation.
             </p>
             <div className="mt-5 flex items-center gap-3">
@@ -188,7 +236,7 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className="flex size-9 items-center justify-center border border-zinc-700 text-zinc-300 transition-colors hover:border-white hover:text-white"
+                  className="flex size-9 items-center justify-center rounded-md border border-cream/35 text-cream transition-colors hover:border-cream hover:bg-cream/10"
                 >
                   <Icon className="size-4" />
                 </a>
@@ -196,7 +244,7 @@ export function Footer() {
               <a
                 href={tel}
                 aria-label="Call"
-                className="flex size-9 items-center justify-center border border-zinc-700 text-zinc-300 transition-colors hover:border-white hover:text-white"
+                className="flex size-9 items-center justify-center rounded-md border border-cream/35 text-cream transition-colors hover:border-cream hover:bg-cream/10"
               >
                 <IconPhone className="size-4" />
               </a>
@@ -252,18 +300,18 @@ export function Footer() {
           separators between the links. Client-side `Link`s, so these navigate without a
           full reload.
         */}
-        <div className="mt-8 border-t border-zinc-800 pt-6">
+        <div className="mt-8 border-t border-cream/25 pt-6">
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
             {legalLinks.map((l, index) => (
               <Fragment key={l.label}>
                 {index > 0 ? (
-                  <span className="text-zinc-700" aria-hidden>
+                  <span className="text-cream/30" aria-hidden>
                     |
                   </span>
                 ) : null}
                 <Link
                   to={l.to}
-                  className="inline-flex items-center text-xs text-zinc-400 transition-colors hover:text-white max-sm:min-h-[32px]"
+                  className="inline-flex items-center text-xs text-cream/85 transition-colors hover:text-cream max-sm:min-h-[32px]"
                 >
                   {l.label}
                 </Link>
@@ -272,7 +320,7 @@ export function Footer() {
           </div>
 
           {/* Year stays dynamic — the footer has always rendered it this way. */}
-          <p className="mt-4 text-center text-[11px] text-zinc-500">
+          <p className="mt-4 text-center text-[11px] text-cream/70">
             © {new Date().getFullYear()} PANCHVASTRA. All Rights Reserved
           </p>
         </div>

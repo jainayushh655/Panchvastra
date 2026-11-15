@@ -268,22 +268,22 @@ const IconWhatsApp = ({ className }: { className?: string }) => (
 
 /* ------------------------------------------------------------------- shared fragments */
 
-const CARD = 'rounded-2xl border border-[#ece6dc] bg-white p-5 sm:p-6'
+const CARD = 'rounded-2xl border border-soft-beige bg-white p-5 sm:p-6'
 const INPUT =
-  'w-full rounded-xl border border-[#e4ddd2] bg-white py-3 pl-11 pr-3.5 text-sm text-black outline-none transition-colors placeholder:text-zinc-400 focus:border-black disabled:cursor-not-allowed disabled:opacity-60'
+  'w-full rounded-xl border border-soft-beige bg-white py-3 pl-11 pr-3.5 text-sm text-black outline-none transition-colors placeholder:text-zinc-400 focus:border-black disabled:cursor-not-allowed disabled:opacity-60'
 
 /** The numbered header every step card carries. */
 function StepHead({ step, title, hint }: { step: string; title: string; hint: string }) {
   return (
     <div className="flex items-start gap-4">
       <span
-        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#f3ece2] text-xs font-bold tracking-wide text-zinc-700"
+        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-soft-beige text-xs font-bold tracking-wide text-zinc-700"
         aria-hidden
       >
         {step}
       </span>
       <div className="min-w-0">
-        <h2 className="font-display text-sm font-bold uppercase tracking-[0.08em] text-black sm:text-base">{title}</h2>
+        <h2 className="font-sans text-sm font-bold uppercase tracking-[0.08em] text-black sm:text-base">{title}</h2>
         <p className="mt-0.5 text-xs text-zinc-500 sm:text-sm">{hint}</p>
       </div>
     </div>
@@ -294,8 +294,8 @@ function StepHead({ step, title, hint }: { step: string; title: string; hint: st
 function OptionArt({ src, name, className }: { src: string | null; name: string; className?: string }) {
   if (src) return <img src={src} alt="" className={className} loading="lazy" />
   return (
-    <span className={`flex items-center justify-center bg-[#f4f1ec] ${className ?? ''}`} aria-hidden>
-      <span className="font-display text-2xl font-bold text-[#d8d0c4]">{name.slice(0, 1).toUpperCase()}</span>
+    <span className={`flex items-center justify-center bg-cream ${className ?? ''}`} aria-hidden>
+      <span className="font-display text-2xl font-bold text-sand">{name.slice(0, 1).toUpperCase()}</span>
     </span>
   )
 }
@@ -571,7 +571,7 @@ export function CustomPiecePage() {
   const described = (key: string) => (fieldErrors[key] ? errId(key) : undefined)
 
   return (
-    <div className="bg-[#faf7f2]">
+    <div className="bg-cream">
       <div className="mx-auto max-w-6xl px-4 py-10 sm:py-12">
         {loadError ? (
           <p className="rounded-xl border border-red-500 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">
@@ -621,9 +621,9 @@ export function CustomPiecePage() {
                   ))}
                 </ul>
 
-                <span className="mt-6 block h-px w-full bg-[#e8e1d6]" aria-hidden />
+                <span className="mt-6 block h-px w-full bg-soft-beige" aria-hidden />
 
-                <h3 className="mt-6 font-display text-sm font-bold uppercase tracking-[0.08em] text-black">Need help?</h3>
+                <h3 className="mt-6 font-sans text-sm font-bold uppercase tracking-[0.08em] text-black">Need help?</h3>
                 <p className="mt-2 text-sm leading-relaxed text-zinc-600">
                   Have a design idea or any questions? We&rsquo;re here on WhatsApp.
                 </p>
@@ -631,7 +631,7 @@ export function CustomPiecePage() {
                   href={whatsAppPageUrl()}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="mt-4 inline-flex min-h-[46px] w-full items-center justify-center gap-2.5 rounded-xl border border-[#ded6c9] bg-white px-4 text-sm font-semibold text-black transition-colors hover:border-black"
+                  className="mt-4 inline-flex min-h-[46px] w-full items-center justify-center gap-2.5 rounded-xl border border-sand bg-white px-4 text-sm font-semibold text-black transition-colors hover:border-black"
                 >
                   <IconWhatsApp className="size-[18px]" />
                   Chat with us
@@ -651,7 +651,7 @@ export function CustomPiecePage() {
                       <label
                         key={g.id}
                         className={`relative flex cursor-pointer flex-col items-center rounded-xl border p-3 transition-colors ${
-                          on ? 'border-black bg-white' : 'border-[#ece6dc] bg-[#fdfcfa] hover:border-zinc-300'
+                          on ? 'border-burgundy bg-cream' : 'border-soft-beige bg-cream hover:border-sand'
                         }`}
                       >
                         <input
@@ -695,7 +695,7 @@ export function CustomPiecePage() {
                           <span className="relative block">
                             <span
                               className={`block size-12 rounded-full border transition-colors ${
-                                on ? 'border-black' : 'border-[#e0d8cb]'
+                                on ? 'border-burgundy' : 'border-sand'
                               }`}
                               style={c.hex_code ? { backgroundColor: c.hex_code } : undefined}
                             />
@@ -709,7 +709,7 @@ export function CustomPiecePage() {
 
                   {/* The note the contract calls for: this garment has exactly one colour. */}
                   {selectedGarment && availableColours.length === 1 ? (
-                    <div className="flex items-start gap-3 sm:border-l sm:border-[#ece6dc] sm:pl-8">
+                    <div className="flex items-start gap-3 sm:border-l sm:border-soft-beige sm:pl-8">
                       <IconInfo className="size-5 shrink-0 text-zinc-400" />
                       <p className="text-sm leading-snug text-zinc-600">
                         {selectedGarment.name} is available only in {availableColours[0].name}.
@@ -717,7 +717,7 @@ export function CustomPiecePage() {
                     </div>
                   ) : null}
                   {selectedGarment && availableColours.length === 0 ? (
-                    <div className="flex items-start gap-3 sm:border-l sm:border-[#ece6dc] sm:pl-8">
+                    <div className="flex items-start gap-3 sm:border-l sm:border-soft-beige sm:pl-8">
                       <IconInfo className="size-5 shrink-0 text-red-500" />
                       <p className="text-sm leading-snug font-semibold text-red-600" role="alert">
                         {selectedGarment.name} has no colours available right now. Please choose another garment.
@@ -745,7 +745,7 @@ export function CustomPiecePage() {
                         <label
                           key={s.id}
                           className={`min-w-[62px] cursor-pointer rounded-xl border px-5 py-3 text-center text-sm font-bold transition-colors ${
-                            on ? 'border-black bg-white text-black' : 'border-[#ece6dc] bg-[#fdfcfa] text-zinc-600 hover:border-zinc-300'
+                            on ? 'border-burgundy bg-cream text-espresso' : 'border-soft-beige bg-cream text-zinc-600 hover:border-sand'
                           }`}
                         >
                           <input
@@ -787,7 +787,7 @@ export function CustomPiecePage() {
                       <label
                         key={p.id}
                         className={`relative flex cursor-pointer items-stretch gap-4 overflow-hidden rounded-xl border transition-colors ${
-                          on ? 'border-black bg-white' : 'border-[#ece6dc] bg-[#fdfcfa] hover:border-zinc-300'
+                          on ? 'border-burgundy bg-cream' : 'border-soft-beige bg-cream hover:border-sand'
                         }`}
                       >
                         <input
@@ -800,7 +800,7 @@ export function CustomPiecePage() {
                         />
                         <OptionArt src={p.image_url} name={p.name} className="w-32 shrink-0 self-stretch object-cover" />
                         <span className="min-w-0 flex-1 py-4 pr-10">
-                          <span className="block font-display text-sm font-bold uppercase tracking-[0.06em] text-black">
+                          <span className="block font-sans text-sm font-bold uppercase tracking-[0.06em] text-black">
                             {p.name}
                           </span>
                           {p.description ? (
@@ -811,7 +811,7 @@ export function CustomPiecePage() {
                           {on ? (
                             <IconCheck className="size-5 text-black" />
                           ) : (
-                            <span className="block size-5 rounded-full border border-[#ddd5c8]" aria-hidden />
+                            <span className="block size-5 rounded-full border border-sand" aria-hidden />
                           )}
                         </span>
                       </label>
@@ -843,7 +843,7 @@ export function CustomPiecePage() {
                       onPickFile(e.dataTransfer.files?.[0] ?? null)
                     }}
                     className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors ${
-                      dragging ? 'border-black bg-[#f6f3ee]' : 'border-[#ddd5c8] bg-[#fdfcfa] hover:border-zinc-400'
+                      dragging ? 'border-black bg-cream' : 'border-sand bg-cream hover:border-zinc-400'
                     }`}
                   >
                     <IconUpload className="size-7 text-black" />
@@ -866,12 +866,12 @@ export function CustomPiecePage() {
                   />
 
                   <div className="flex items-center justify-center lg:flex-col">
-                    <span className="hidden h-full w-px flex-1 bg-[#ece6dc] lg:block" aria-hidden />
+                    <span className="hidden h-full w-px flex-1 bg-soft-beige lg:block" aria-hidden />
                     <span className="px-3 py-1 text-xs font-bold uppercase tracking-wide text-zinc-400">or</span>
-                    <span className="hidden h-full w-px flex-1 bg-[#ece6dc] lg:block" aria-hidden />
+                    <span className="hidden h-full w-px flex-1 bg-soft-beige lg:block" aria-hidden />
                   </div>
 
-                  <div className="rounded-xl bg-[#faf7f2] p-4">
+                  <div className="rounded-xl bg-cream p-4">
                     <label htmlFor={fid('description')} className="block text-sm font-bold text-black">
                       Don&rsquo;t have a design?
                     </label>
@@ -887,7 +887,7 @@ export function CustomPiecePage() {
                       aria-invalid={Boolean(fieldErrors.design_description)}
                       aria-describedby={described('design_description')}
                       placeholder="Describe your design…"
-                      className="mt-3 w-full resize-y rounded-lg border border-[#e4ddd2] bg-white px-3.5 py-2.5 text-sm text-black outline-none transition-colors placeholder:text-zinc-400 focus:border-black disabled:opacity-60"
+                      className="mt-3 w-full resize-y rounded-lg border border-soft-beige bg-white px-3.5 py-2.5 text-sm text-black outline-none transition-colors placeholder:text-zinc-400 focus:border-black disabled:opacity-60"
                     />
                     <div className="mt-1 flex items-start justify-between gap-3">
                       <span className="min-w-0 flex-1">
@@ -943,7 +943,7 @@ export function CustomPiecePage() {
                       code against the divider, closes that gap at every width while still
                       leaving room for a four-digit dialling code.
                     */}
-                    <div className="flex items-stretch rounded-xl border border-[#e4ddd2] bg-white focus-within:border-black">
+                    <div className="flex items-stretch rounded-xl border border-soft-beige bg-white focus-within:border-black">
                       <span className="flex shrink-0 items-center pl-3.5 pr-2 text-zinc-400" aria-hidden>
                         <IconPhone className="size-[18px]" />
                       </span>
@@ -961,7 +961,7 @@ export function CustomPiecePage() {
                         onChange={(e) => setCountryCode(e.target.value)}
                         className="w-[46px] shrink-0 grow-0 border-none bg-transparent py-3 pr-1.5 text-right text-sm text-black outline-none disabled:opacity-60"
                       />
-                      <span className="my-2.5 w-px shrink-0 bg-[#ece6dc]" aria-hidden />
+                      <span className="my-2.5 w-px shrink-0 bg-soft-beige" aria-hidden />
                       <input
                         id={fid('phone')}
                         name="phone_number"
@@ -990,7 +990,7 @@ export function CustomPiecePage() {
 
             {/* ============ submit ============ */}
             {restored ? (
-              <p className="mt-5 rounded-xl border border-[#ded6c9] bg-white px-4 py-3 text-sm text-zinc-700" role="status">
+              <p className="mt-5 rounded-xl border border-sand bg-white px-4 py-3 text-sm text-zinc-700" role="status">
                 We kept your selections. Please choose your design file again — files are not carried across sign-in.
               </p>
             ) : null}
@@ -1009,7 +1009,7 @@ export function CustomPiecePage() {
                 type="submit"
                 disabled={sending}
                 aria-busy={sending}
-                className="inline-flex min-h-[52px] w-full max-w-xl items-center justify-center gap-3 rounded-xl bg-black px-8 text-xs font-bold uppercase tracking-[0.18em] text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-[52px] w-full max-w-xl items-center justify-center gap-3 rounded-xl bg-chocolate px-8 text-xs font-bold uppercase tracking-[0.18em] text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {sending ? 'Sending…' : 'Create My Piece'}
                 {sending ? null : <IconArrowRight className="size-4" />}
@@ -1029,7 +1029,7 @@ export function CustomPiecePage() {
         ) : null}
 
         {/* ============ how it works ============ */}
-        <section className="mt-10 rounded-2xl border border-[#ece6dc] bg-white px-5 py-7 sm:px-8">
+        <section className="mt-10 rounded-2xl border border-soft-beige bg-white px-5 py-7 sm:px-8">
           <div className="grid grid-cols-1 gap-7 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center lg:gap-10">
             <div>
               <p className="font-sans text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">
@@ -1048,7 +1048,7 @@ export function CustomPiecePage() {
                 <li key={step} className="relative flex flex-col items-center text-center">
                   <Icon className="size-7 text-black" />
                   <span className="mt-2.5 block text-[11px] font-bold tracking-[0.14em] text-zinc-400">{step}</span>
-                  <span className="mt-1 block font-display text-xs font-bold uppercase tracking-[0.1em] text-black">
+                  <span className="mt-1 block font-sans text-xs font-bold uppercase tracking-[0.1em] text-black">
                     {title}
                   </span>
                   <span className="mt-1.5 block text-xs leading-snug text-zinc-500">{copy}</span>

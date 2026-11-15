@@ -5,10 +5,60 @@
 
 @theme {
   --font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Poppins', ui-sans-serif, system-ui, sans-serif;
-  --color-pv: oklch(0.72 0.19 45);
-  --color-pv-dim: oklch(0.62 0.16 42);
+  /*
+   * The editorial serif: section headings, page titles and the wordmark. Swapping this one
+   * value re-faces every heading in the app, because nothing hard-codes a family — they all
+   * go through `font-display` or the h1–h4 base rule below.
+   */
+  --font-display: 'Playfair Display', ui-serif, Georgia, 'Times New Roman', serif;
   --radius-card: 1.25rem;
+
+  /* ------------------------------------------------------------- brand palette
+   * The seven official Panchvastra colours. Every customer-facing surface draws
+   * from these, so a brand tweak happens here and nowhere else.
+   */
+  --color-chocolate: #3b2118;
+  --color-cream: #f6ebdd;
+  --color-burgundy: #7a2433;
+  --color-sand: #d8c5ad;
+  --color-espresso: #2b1711;
+  --color-soft-beige: #e8dccb;
+
+  /* True white, for the rare place that genuinely needs it (`bg-white` is cream). */
+  --color-paper: #ffffff;
+
+  /* Legacy accent tokens, kept so nothing referencing them falls back to nothing.
+   * Repointed onto the brand's one accent rather than the old orange. */
+  --color-pv: #7a2433;
+  --color-pv-dim: #5e1b27;
+
+  /* ------------------------------------------------------- neutrals, re-anchored
+   * `white`, `black` and the `zinc` ramp are redefined onto the brand's warm
+   * neutrals. This is the whole theme switch: the app already expresses depth as
+   * `bg-white` surfaces, `zinc-200` borders and `zinc-500` secondary text, so
+   * re-anchoring those tokens recolours every screen at once while keeping each
+   * light-to-dark relationship — and therefore every layout and contrast decision
+   * — exactly as it was. The alternative, rewriting ~1100 colour classes across 61
+   * files, would risk far more for the same result.
+   *
+   * Ratios below are measured against cream (the page and card surface) and
+   * chocolate (header, footer, primary buttons). They hold the AA level the old
+   * zinc ramp held on white.
+   */
+  --color-white: #f6ebdd; /* cream — page and card surfaces, and text on dark */
+  --color-black: #2b1711; /* espresso — editorial headings and strong text */
+
+  --color-zinc-50: #fbf6ee;  /* lightest wash, just above cream */
+  --color-zinc-100: #f6ebdd; /* cream */
+  --color-zinc-200: #e8dccb; /* soft beige — default borders and dividers */
+  --color-zinc-300: #d8c5ad; /* sand — stronger borders, selected outlines */
+  --color-zinc-400: #a89071; /* muted icons, struck-through prices (2.6 on cream) */
+  --color-zinc-500: #7a6448; /* secondary text (4.8 on cream — AA) */
+  --color-zinc-600: #634a38; /* body-weight secondary text (7.0 on cream) */
+  --color-zinc-700: #4f3a2c; /* strong secondary, borders on dark surfaces */
+  --color-zinc-800: #432c20; /* dividers on chocolate */
+  --color-zinc-900: #3b2118; /* chocolate */
+  --color-zinc-950: #2b1711; /* espresso */
 
   /* Responsive type scale (mobile-first) */
   --text-body: 0.875rem;
@@ -29,15 +79,15 @@
   }
 
   body {
-    @apply bg-white font-sans text-[15px] leading-relaxed text-zinc-950 antialiased sm:text-base;
+    @apply bg-cream font-sans text-[15px] leading-relaxed text-espresso antialiased sm:text-base;
   }
 
   h1,
   h2,
   h3,
   h4 {
-    font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
-    @apply font-bold tracking-tight;
+    font-family: var(--font-display), ui-serif, Georgia, serif;
+    @apply font-bold tracking-tight text-espresso;
   }
 
   h1 {
@@ -93,17 +143,19 @@
     align-items: center;
     justify-content: center;
     gap: 8px;                     /* Icon aur text ke beech ka gap */
-    border: 1px solid #e4e4e7;    /* Zinc-200 border color */
+    border: 1px solid var(--color-soft-beige);
     border-radius: 0.75rem;       /* Rounded corners */
     font-weight: 600;
     font-size: 14px;
     letter-spacing: 0.05em;
-    background-color: #f4f4f5;    /* Light grey background */
+    color: var(--color-espresso);
+    background-color: var(--color-cream);
     transition: all 0.2s ease;
   }
 
   .btn-equal-size:hover {
-    background-color: #e4e4e7;    /* Hover effect */
+    background-color: var(--color-soft-beige);
+    border-color: var(--color-sand);
   }
   /* --------------------------------- */
 
@@ -127,9 +179,9 @@
     height: 18px;
     width: 18px;
     border-radius: 9999px;
-    border: 2px solid white;
-    background-color: #000000;
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.22);
+    border: 2px solid var(--color-cream);
+    background-color: var(--color-chocolate);
+    box-shadow: 0 1px 3px rgb(43 23 17 / 0.28);
   }
 
   .shop-range::-moz-range-track {
@@ -141,9 +193,9 @@
     height: 18px;
     width: 18px;
     border-radius: 9999px;
-    border: 2px solid white;
-    background-color: #000000;
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.22);
+    border: 2px solid var(--color-cream);
+    background-color: var(--color-chocolate);
+    box-shadow: 0 1px 3px rgb(43 23 17 / 0.28);
   }
 }
 

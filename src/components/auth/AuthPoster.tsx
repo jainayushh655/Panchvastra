@@ -45,7 +45,7 @@ const FEATHER_LG =
  */
 export function AuthPoster() {
   return (
-    <div className="relative h-full w-full overflow-hidden bg-black">
+    <div className="relative h-full w-full overflow-hidden bg-chocolate">
       {/* Backdrop: fills whatever shape the panel is. Blurred and dimmed so it never
           competes with the sharp copy in front. */}
       <img

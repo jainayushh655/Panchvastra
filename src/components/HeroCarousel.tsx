@@ -186,7 +186,7 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
   return (
     <>
       {/* ------------------------------------------ mobile: native swipe carousel */}
-      <section className="relative border-b border-zinc-800 bg-[#050505] lg:hidden">
+      <section className="relative border-b border-zinc-800 bg-espresso lg:hidden">
         <div
           ref={trackRef}
           /*
@@ -283,7 +283,7 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
       {/* ------------------------------- desktop: existing fade carousel */}
       {/* Dots live outside the image box (below it, like the mobile track) so the button
           itself can sit at the true bottom of the artwork instead of sharing that space. */}
-      <div className="hidden border-b border-zinc-800 bg-[#050505] lg:block">
+      <div className="hidden border-b border-zinc-800 bg-espresso lg:block">
         <section
           /*
            * The carousel artwork is 16:9 (verified: 1280x720 and 1920x1080). The hero used to
@@ -324,7 +324,7 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
               className="pointer-events-none absolute inset-0 opacity-[0.05]"
               style={{
                 backgroundImage:
-                  'repeating-linear-gradient(45deg, #ffffff 0, #ffffff 1px, transparent 1px, transparent 34px)',
+                  'repeating-linear-gradient(45deg, #f6ebdd 0, #f6ebdd 1px, transparent 1px, transparent 34px)',
               }}
               aria-hidden
             />

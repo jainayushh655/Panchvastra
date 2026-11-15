@@ -28,7 +28,7 @@ export function ProductCard({ product, variant = 'shop' }: ProductCardProps) {
           to={`/product/${product.id}`}
           className="block border border-zinc-200 bg-white transition-colors hover:border-zinc-400"
         >
-          <div className="relative aspect-[4/5] overflow-hidden bg-[#f5f5f3]">
+          <div className="relative aspect-[4/5] overflow-hidden bg-soft-beige">
             <img
               src={mainSrc}
               alt={product.name}
@@ -47,7 +47,7 @@ export function ProductCard({ product, variant = 'shop' }: ProductCardProps) {
               />
             ) : null}
             {off != null && off > 0 ? (
-              <span className="absolute left-2 top-2 border border-black bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-black">
+              <span className="absolute left-2 top-2 border border-burgundy bg-burgundy px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cream">
                 {off}% off
               </span>
             ) : null}
@@ -94,7 +94,7 @@ export function ProductCard({ product, variant = 'shop' }: ProductCardProps) {
           ) : null}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" aria-hidden />
           {off != null && off > 0 ? (
-            <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-900 shadow-sm backdrop-blur-sm">
+            <span className="absolute left-3 top-3 rounded-full bg-burgundy/95 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-cream shadow-sm backdrop-blur-sm">
               {off}% off
             </span>
           ) : null}

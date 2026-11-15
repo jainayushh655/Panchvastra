@@ -210,7 +210,7 @@ export function CheckoutPage() {
         email: user?.email ?? '',
         contact: selectedAddress.phone,
       },
-      theme: { color: '#000000' },
+      theme: { color: '#3b2118' },
       modal: {
         // Customer closed the sheet: nothing is paid, the cart stays, retry is allowed.
         ondismiss: () => {

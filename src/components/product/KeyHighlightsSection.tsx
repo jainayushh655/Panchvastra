@@ -20,7 +20,7 @@ export function KeyHighlightsSection({ product, className = '' }: KeyHighlightsS
     >
       <h2
         id="key-highlights-heading"
-        className="font-display text-sm font-bold uppercase tracking-[0.12em] text-zinc-900 dark:text-white"
+        className="font-sans text-sm font-bold uppercase tracking-[0.12em] text-zinc-900 dark:text-white"
       >
         Key Highlights
       </h2>

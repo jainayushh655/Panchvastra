@@ -16,7 +16,7 @@ export function HomeProductGrid({ products, loading }: { products: Product[]; lo
               <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">No products available</p>
               <Link
                 to="/shop"
-                className="mt-5 inline-flex items-center justify-center bg-black px-6 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-zinc-800"
+                className="mt-5 inline-flex items-center justify-center bg-chocolate px-6 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-cream transition-colors hover:bg-espresso"
               >
                 Shop All
               </Link>
@@ -30,7 +30,7 @@ export function HomeProductGrid({ products, loading }: { products: Product[]; lo
           <div className="mt-12 flex justify-center">
             <Link
               to="/shop"
-              className="inline-flex items-center gap-2 bg-black px-8 py-3 text-xs font-bold uppercase tracking-[0.16em] text-white transition-colors hover:bg-zinc-800"
+              className="inline-flex items-center gap-2 bg-chocolate px-8 py-3 text-xs font-bold uppercase tracking-[0.16em] text-cream transition-colors hover:bg-espresso"
             >
               View All
               <span aria-hidden>→</span>

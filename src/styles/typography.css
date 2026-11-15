@@ -17,7 +17,7 @@
   }
 
   .type-product-title {
-    @apply font-display text-[0.9375rem] font-semibold leading-snug tracking-tight text-black sm:text-base dark:text-white;
+    @apply font-sans text-[0.9375rem] font-semibold leading-snug tracking-tight text-black sm:text-base dark:text-white;
   }
 
   .type-product-detail-title {
@@ -41,7 +41,7 @@
   }
 
   .type-price-lg {
-    @apply font-display text-2xl font-bold tabular-nums tracking-tight text-zinc-900 sm:text-3xl dark:text-white;
+    @apply font-sans text-2xl font-bold tabular-nums tracking-tight text-zinc-900 sm:text-3xl dark:text-white;
   }
 
   .type-price {
@@ -49,7 +49,7 @@
   }
 
   .type-filter-title {
-    @apply font-display text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100;
+    @apply font-sans text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100;
   }
 
   .type-toolbar {

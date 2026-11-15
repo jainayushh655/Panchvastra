@@ -189,7 +189,7 @@ export function OtpAuthForm({
   const inputClass =
     'w-full border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none transition-colors focus:border-black focus:ring-2 focus:ring-black/10'
   const labelClass = 'text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600'
-  const primaryButton = 'w-full !border-black !bg-black !text-white hover:!bg-zinc-800'
+  const primaryButton = 'w-full !border-chocolate !bg-chocolate !text-cream hover:!bg-espresso'
 
   // ------------------------------------------------------------------ OTP step
   if (otpSent) {

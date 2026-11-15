@@ -23,7 +23,7 @@ export function FilterSelect({
         onChange={(e) => onChange(e.target.value)}
         aria-label={label}
         className={`w-full min-w-[9.5rem] cursor-pointer appearance-none border bg-white px-3.5 py-2.5 pr-8 text-xs font-semibold uppercase tracking-wide text-black outline-none transition-colors [color-scheme:light] disabled:cursor-not-allowed disabled:opacity-50 ${
-          active ? 'border-black' : 'border-zinc-300 hover:border-black'
+          active ? 'border-burgundy' : 'border-sand hover:border-burgundy'
         }`}
       >
         {options.map((o) => (
@@ -33,7 +33,7 @@ export function FilterSelect({
         ))}
       </select>
       <svg
-        className={`pointer-events-none absolute right-2.5 top-1/2 size-3 -translate-y-1/2 ${active ? 'text-black' : 'text-zinc-500'}`}
+        className={`pointer-events-none absolute right-2.5 top-1/2 size-3 -translate-y-1/2 ${active ? 'text-burgundy' : 'text-zinc-500'}`}
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"

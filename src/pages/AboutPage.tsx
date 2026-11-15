@@ -46,7 +46,7 @@ export function AboutPage() {
           </p>
         </div>
 
-        <div className="my-14 border border-zinc-200 bg-[#f7f7f5] p-8 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="my-14 border border-zinc-200 bg-soft-beige p-8 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-2xl font-bold uppercase tracking-tight text-zinc-900 dark:text-white sm:text-3xl">
             We don't chase trends.
           </p>

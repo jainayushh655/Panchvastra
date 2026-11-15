@@ -35,7 +35,7 @@ export function HomeCategoryFilters({
             aria-selected={selected}
             onClick={() => onChange(slug)}
             className={`rounded-full border px-5 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition-colors ${
-              selected ? 'border-black bg-black text-white' : 'border-black bg-white text-black hover:bg-zinc-100'
+              selected ? 'border-burgundy bg-burgundy text-cream' : 'border-sand bg-cream text-espresso hover:bg-soft-beige'
             }`}
           >
             {c.name}

@@ -401,7 +401,7 @@ export function HelpDeskPage() {
               // Sized to its content rather than the full column width, matching the
               // reference; still a 48px target, and it stretches on very narrow phones so
               // it never ends up a cramped stub.
-              className="inline-flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-xl bg-black px-8 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-xl bg-chocolate px-8 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {sending ? <IconSpinner className="size-4 animate-spin" /> : null}
               {sending ? 'Sending…' : 'Send Message'}
@@ -440,7 +440,7 @@ export function HelpDeskPage() {
                 <a
                   href={row.href}
                   {...(row.external ? { target: '_blank', rel: 'noreferrer noopener' } : {})}
-                  className="group flex items-center gap-3.5 rounded-xl border border-transparent px-3 py-2.5 transition-colors hover:border-zinc-200 hover:bg-zinc-50"
+                  className="group flex items-center gap-3.5 rounded-xl border border-transparent px-3 py-2.5 transition-colors hover:border-sand hover:bg-soft-beige"
                 >
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-black transition-colors group-hover:border-black">
                     <row.Icon className="size-[18px]" />
