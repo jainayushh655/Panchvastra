@@ -1,0 +1,278 @@
+@import 'tailwindcss';
+
+/* Light theme only — dark: utilities require `.dark` on <html> (never applied). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  /*
+   * The editorial serif: section headings, page titles and the wordmark. Swapping this one
+   * value re-faces every heading in the app, because nothing hard-codes a family — they all
+   * go through `font-display` or the h1–h4 base rule below.
+   */
+  --font-display: var(--font-playfair-display), ui-serif, Georgia, 'Times New Roman', serif;
+  --radius-card: 1.25rem;
+
+  /* ------------------------------------------------------------- brand palette
+   * The seven official Panchvastra colours. Every customer-facing surface draws
+   * from these, so a brand tweak happens here and nowhere else.
+   */
+  --color-chocolate: #3b2118;
+  --color-cream: #f6ebdd;
+  --color-burgundy: #7a2433;
+  --color-sand: #d8c5ad;
+  --color-espresso: #2b1711;
+  --color-soft-beige: #e8dccb;
+
+  /* True white, for the rare place that genuinely needs it (`bg-white` is cream). */
+  --color-paper: #ffffff;
+
+  /* -------------------------------------------- official palette → token map
+   * Phase 2 cross-check against the approved Chocolate x Cream x Burgundy spec.
+   * Every official colour is present and unchanged:
+   *
+   *   Chocolate   #3B2118  -> --color-chocolate   (also --color-zinc-900)
+   *   Cream       #F6EBDD  -> --color-cream       (also --color-white, --color-zinc-100)
+   *   Burgundy    #7A2433  -> --color-burgundy    (also --color-pv)
+   *   Sand Beige  #D8C5AD  -> --color-sand        (also --color-zinc-300)
+   *   Espresso    #2B1711  -> --color-espresso    (also --color-black, --color-zinc-950)
+   *   Soft Beige  #E8DCCB  -> --color-soft-beige  (also --color-zinc-200)
+   *   White       #FFFFFF  -> --color-paper       (NOT --color-white — see below)
+   *
+   * `--color-white` is DELIBERATELY cream, not #FFFFFF. The theme re-anchors
+   * `white`, `black` and the whole `zinc` ramp onto the warm neutrals, which is
+   * what recolours roughly 1,100 existing utility classes across the app at once.
+   * Pointing `--color-white` at true #FFFFFF here would turn every `bg-white`
+   * surface stark white and change the look of every screen — a redesign, which
+   * Phase 2 explicitly must not do. True white stays available as `bg-paper`.
+   * Flagged for approval in the Phase 2 report rather than decided silently.
+   */
+
+  /* Legacy accent tokens, kept so nothing referencing them falls back to nothing.
+   * Repointed onto the brand's one accent rather than the old orange. */
+  --color-pv: #7a2433;
+  --color-pv-dim: #5e1b27;
+
+  /* ------------------------------------------------------- neutrals, re-anchored
+   * `white`, `black` and the `zinc` ramp are redefined onto the brand's warm
+   * neutrals. This is the whole theme switch: the app already expresses depth as
+   * `bg-white` surfaces, `zinc-200` borders and `zinc-500` secondary text, so
+   * re-anchoring those tokens recolours every screen at once while keeping each
+   * light-to-dark relationship — and therefore every layout and contrast decision
+   * — exactly as it was. The alternative, rewriting ~1100 colour classes across 61
+   * files, would risk far more for the same result.
+   *
+   * Ratios below are measured against cream (the page and card surface) and
+   * chocolate (header, footer, primary buttons). They hold the AA level the old
+   * zinc ramp held on white.
+   */
+  --color-white: #f6ebdd; /* cream — page and card surfaces, and text on dark */
+  --color-black: #2b1711; /* espresso — editorial headings and strong text */
+
+  --color-zinc-50: #fbf6ee;  /* lightest wash, just above cream */
+  --color-zinc-100: #f6ebdd; /* cream */
+  --color-zinc-200: #e8dccb; /* soft beige — default borders and dividers */
+  --color-zinc-300: #d8c5ad; /* sand — stronger borders, selected outlines */
+  --color-zinc-400: #a89071; /* muted icons, struck-through prices (2.6 on cream) */
+  --color-zinc-500: #7a6448; /* secondary text (4.8 on cream — AA) */
+  --color-zinc-600: #634a38; /* body-weight secondary text (7.0 on cream) */
+  --color-zinc-700: #4f3a2c; /* strong secondary, borders on dark surfaces */
+  --color-zinc-800: #432c20; /* dividers on chocolate */
+  --color-zinc-900: #3b2118; /* chocolate */
+  --color-zinc-950: #2b1711; /* espresso */
+
+  /* Responsive type scale (mobile-first) */
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.5;
+  --text-lead: 1rem;
+  --text-lead--line-height: 1.55;
+}
+
+@import './typography.css';
+
+@layer base {
+  html {
+    @apply scroll-smooth antialiased;
+    color-scheme: light;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-cream font-sans text-[15px] leading-relaxed text-espresso antialiased sm:text-base;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display), ui-serif, Georgia, serif;
+    @apply font-bold tracking-tight text-espresso;
+  }
+
+  h1 {
+    @apply text-2xl leading-tight sm:text-3xl;
+  }
+
+  h2 {
+    @apply text-xl leading-tight sm:text-2xl;
+  }
+
+  h3 {
+    @apply text-lg leading-snug;
+  }
+
+  button,
+  [role='button'] {
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  /* Typed value + placeholder contrast for form controls */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select {
+    @apply font-sans text-[15px] text-zinc-900 sm:text-base dark:text-zinc-100;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-zinc-400 dark:text-zinc-500;
+  }
+
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  label {
+    @apply font-sans text-sm font-medium text-zinc-700 dark:text-zinc-300;
+  }
+}
+
+@layer components {
+  /* --- Yeh naya code add karein --- */
+  .btn-equal-size {
+    width: 220px;                 /* Dono buttons ki width fix ho jayegi */
+    height: 48px;                 /* Dono buttons ki height same ho jayegi */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;                     /* Icon aur text ke beech ka gap */
+    border: 1px solid var(--color-soft-beige);
+    border-radius: 0.75rem;       /* Rounded corners */
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    color: var(--color-espresso);
+    background-color: var(--color-cream);
+    transition: all 0.2s ease;
+  }
+
+  .btn-equal-size:hover {
+    background-color: var(--color-soft-beige);
+    border-color: var(--color-sand);
+  }
+  /* --------------------------------- */
+
+  /* Shop dual price slider: transparent track (custom track drawn in React), visible thumbs */
+  .shop-range {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    height: 2rem;
+  }
+
+  .shop-range::-webkit-slider-runnable-track {
+    height: 6px;
+    background: transparent;
+  }
+
+  .shop-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    margin-top: -6px;
+    height: 18px;
+    width: 18px;
+    border-radius: 9999px;
+    border: 2px solid var(--color-cream);
+    background-color: var(--color-chocolate);
+    box-shadow: 0 1px 3px rgb(43 23 17 / 0.28);
+  }
+
+  .shop-range::-moz-range-track {
+    height: 6px;
+    background: transparent;
+  }
+
+  .shop-range::-moz-range-thumb {
+    height: 18px;
+    width: 18px;
+    border-radius: 9999px;
+    border: 2px solid var(--color-cream);
+    background-color: var(--color-chocolate);
+    box-shadow: 0 1px 3px rgb(43 23 17 / 0.28);
+  }
+}
+
+/* ---------------------------------------------------------------- auth split screen */
+/* Brand panel motion for the login / signup / admin-login split layout. Deliberately slow
+   and low-contrast so it reads as atmosphere rather than decoration. */
+
+@keyframes pv-auth-drift {
+  0%   { transform: scale(1.06) translate3d(0, 0, 0); }
+  50%  { transform: scale(1.12) translate3d(-1.5%, -1.5%, 0); }
+  100% { transform: scale(1.06) translate3d(0, 0, 0); }
+}
+
+@keyframes pv-auth-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pv-auth-sweep {
+  0%   { transform: translateY(-60%); opacity: 0; }
+  35%  { opacity: 0.5; }
+  100% { transform: translateY(160%); opacity: 0; }
+}
+
+.pv-auth-drift { animation: pv-auth-drift 38s ease-in-out infinite; }
+.pv-auth-rise { animation: pv-auth-rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.pv-auth-sweep { animation: pv-auth-sweep 9s ease-in-out infinite; }
+
+/* ---------------------------------------------------------------- toast stack */
+@keyframes pv-toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.pv-toast-in { animation: pv-toast-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Honour the OS setting: no ambient motion, and the step transition becomes a plain fade. */
+@media (prefers-reduced-motion: reduce) {
+  .pv-auth-drift,
+  .pv-auth-sweep,
+  .pv-toast-in {
+    animation: none;
+  }
+
+  .pv-auth-rise {
+    animation: pv-auth-rise 1ms linear both;
+  }
+}
+
+/* Hides the native scrollbar on the mobile product-image carousel while keeping the element
+   scrollable and swipeable. Used only by that track. */
+.pv-hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.pv-hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
