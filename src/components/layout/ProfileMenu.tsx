@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthProvider'
 import { useCart } from '@/context/CartProvider'
+import { LogoutConfirmation } from '@/components/layout/LogoutConfirmation'
 
 export function ProfileMenu() {
   const [open, setOpen] = useState(false)
+  const [confirmingLogout, setConfirmingLogout] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
@@ -39,18 +41,19 @@ export function ProfileMenu() {
     }
   }, [open])
 
- const handleLogout = () => {
-  clear()
-  logout()
-  setOpen(false)
-  navigate('/', { replace: true })
-}
+  const handleLogout = () => {
+    clear()
+    logout()
+    setConfirmingLogout(false)
+    setOpen(false)
+    navigate('/', { replace: true })
+  }
 
   const menuItems = user
     ? [
         { label: 'My Profile', to: '/profile' },
         { label: 'My Orders', to: '/orders' },
-        { label: 'Logout', onClick: handleLogout },
+        { label: 'Logout', onClick: () => setConfirmingLogout(true) },
       ]
     : [
         { label: 'Sign In', to: '/login' },
@@ -110,6 +113,12 @@ export function ProfileMenu() {
           )}
         </div>
       ) : null}
+
+      <LogoutConfirmation
+        isOpen={confirmingLogout}
+        onConfirm={handleLogout}
+        onCancel={() => setConfirmingLogout(false)}
+      />
     </div>
   )
 }

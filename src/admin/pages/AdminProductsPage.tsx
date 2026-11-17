@@ -1,9 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Breadcrumb } from '@/admin/components/Breadcrumb'
 import { AdminTable } from '@/admin/components/AdminTable'
 import { AdminBadge, AdminEmptyState, AdminErrorState, AdminLoadingState } from '@/admin/components/AdminStates'
 import { AdminConfirmModal } from '@/admin/components/AdminConfirmModal'
-import { ProductImageUploader, toPendingImages, type PendingImage } from '@/admin/components/ProductImageUploader'
+import {
+  buildImageEntries,
+  ProductImageUploader,
+  toPendingImages,
+  type PendingImage,
+} from '@/admin/components/ProductImageUploader'
 import {
   createProduct,
   deleteProduct,
@@ -12,9 +17,19 @@ import {
   readProductApiError,
   updateProduct,
   type VariantImageFiles,
+  type VariantImageOrders,
   type ProductPagination,
 } from '@/api/product'
 import { getCategories } from '@/api/category'
+import {
+  defaultKeyHighlightRows,
+  keyHighlightOptionsFor,
+  readKeyHighlights,
+  toKeyHighlightsPayload,
+  validateKeyHighlights,
+  type KeyHighlight,
+} from '@/lib/keyHighlights'
+import { DEFAULT_SIZES, validateSizes } from '@/lib/productSizes'
 import { listSubCategories } from '@/api/subCategory'
 import { formatCurrency } from '@/admin/utils/formatters'
 import type { CategoryDto } from '@/types/api/CategoryDto'
@@ -33,6 +48,8 @@ type VariantForm = {
   mrp: string
   selling_price: string
   cost_price: string
+  /** Curated position, as typed. Blank means "let the backend decide / leave as is". */
+  display_order: string
   is_default: boolean
   is_active: boolean
   sizes: SizeForm[]
@@ -40,6 +57,13 @@ type VariantForm = {
   existingImages: VariantImageDto[]
   /** Images picked in this session, not yet saved. */
   newImages: PendingImage[]
+  /**
+   * The admin's chosen order for this variant's images, as stable tokens
+   * (`e:<imageId>` / `n:<localKey>`). Empty until something is dragged, in which case the
+   * gallery falls back to its original arrangement. Tokens — never array indexes — so a
+   * saved image's identity is independent of its position.
+   */
+  imageOrder: string[]
 }
 type ProductForm = {
   id: number | null
@@ -49,7 +73,9 @@ type ProductForm = {
   description: string
   fabric: string
   gsm: string
-  key_highlights: string
+  /** Curated position, as typed. Blank means "leave the stored order untouched". */
+  display_order: string
+  key_highlights: KeyHighlight[]
   is_featured: boolean
   is_new_arrival: boolean
   is_active: boolean
@@ -62,56 +88,74 @@ type ProductForm = {
 }
 
 /**
- * `key_highlights` is stored by the API as a JSON string (healthy products read back as
- * `'["Yarn-dyed stripes", …]'`). The backend re-encodes whatever it receives, so handing the
- * stored string straight back added one escaping layer per save — which is how product 14
- * reached twelve nested layers.
+ * Reads a typed display order into one of three outcomes.
  *
- * Unwrapping exactly ONE level for the editor, and re-parsing the edited text on save, makes
- * a save round-trip net-neutral: what goes out is the same shape that came in, so the value
- * can no longer grow. Exactly one level is unwrapped — the value is never peeled repeatedly
- * to make it "look clean", so already-corrupted data is reported rather than silently rewritten.
+ *   `undefined` — blank. The caller OMITS the key entirely, which per the contract leaves
+ *                 a saved order untouched and lets the backend place a new row itself.
+ *                 Deliberately not `null`/`0`/`""`, any of which would overwrite.
+ *   `'invalid'` — present but not a positive whole number. Rejected with a message rather
+ *                 than coerced, so "1.5", "-2", "0" and "abc" can never be sent as numbers.
+ *   `number`    — a positive integer, sent as a number and never as a string.
  */
-function keyHighlightsToText(value: unknown): string {
-  if (value == null) return ''
-  if (typeof value !== 'string') return JSON.stringify(value, null, 2)
-
-  try {
-    const parsed: unknown = JSON.parse(value)
-    // A JSON string unwraps to plain text; anything structured is shown as readable JSON.
-    return typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2)
-  } catch {
-    // Not JSON (plain prose, or a value the backend never encoded) — show it verbatim.
-    return value
-  }
-}
-
-/**
- * Structured JSON is sent as a real value rather than a string; anything else is sent as the
- * plain text the admin typed. Nothing is rejected and no input is discarded.
- */
-function keyHighlightsToPayload(text: string): unknown {
-  try {
-    return JSON.parse(text) as unknown
-  } catch {
-    return text
-  }
+function readDisplayOrder(raw: string): number | undefined | 'invalid' {
+  const text = raw.trim()
+  if (!text) return undefined
+  // Rejects decimals, signs, spaces and anything non-numeric before Number() can round.
+  if (!/^\d+$/.test(text)) return 'invalid'
+  const value = Number(text)
+  if (!Number.isSafeInteger(value) || value < 1) return 'invalid'
+  return value
 }
 
 const emptySize = (): SizeForm => ({ id: null, size: '', stock_quantity: '0', is_active: true })
+
+/**
+ * A variant seeded with the default size ladder, each at zero stock.
+ *
+ * Used ONLY where a variant is genuinely new — the create form and "+ Add variant". It is
+ * deliberately not folded into `emptyVariant()`, for the same reason the key-highlight
+ * defaults are not in `emptyForm()`: `openEdit` uses those as its placeholder while the
+ * detail request is in flight, so seeding there would flash S–XXL over a saved product
+ * and, if the request failed, leave the admin looking at default sizes for a product that
+ * has its own.
+ *
+ * Fresh row objects every call, so two variants can never share (and mutate) the same rows.
+ */
 const emptyVariant = (): VariantForm => ({
-  id: null, sku: '', color: '', mrp: '', selling_price: '', cost_price: '',
+  id: null, sku: '', color: '', mrp: '', selling_price: '', cost_price: '', display_order: '',
   is_default: false, is_active: true, sizes: [emptySize()],
-  existingImages: [], newImages: [],
+  existingImages: [], newImages: [], imageOrder: [],
+})
+const variantWithDefaultSizes = (): VariantForm => ({
+  ...emptyVariant(),
+  sizes: DEFAULT_SIZES.map((size) => ({ ...emptySize(), size })),
 })
 const emptyForm = (): ProductForm => ({
-  id: null, category_id: '', sub_category_id: '', name: '', description: '', fabric: '', gsm: '',
-  key_highlights: '', is_featured: false, is_new_arrival: false, is_active: true,
+  id: null, category_id: '', sub_category_id: '', name: '', description: '', fabric: '', gsm: '', display_order: '',
+  key_highlights: [], is_featured: false, is_new_arrival: false, is_active: true,
   variants: [emptyVariant()], delete_variant_ids: [], delete_size_ids: [],
   delete_variant_image_ids: [],
 })
 
 export function AdminProductsPage() {
+  /** Prefix for the per-row `<datalist>` ids, so they stay unique on the page. */
+  const highlightListId = useId()
+
+  /*
+   * Variant drag state. Same architecture the image uploader already uses: the
+   * authoritative source index lives in a ref because `drop` can fire in the same tick as
+   * `dragstart` and state is not readable synchronously; the state below exists only to
+   * drive the visual feedback.
+   */
+  const dragVariantRef = useRef<number | null>(null)
+  const [dragVariant, setDragVariant] = useState<number | null>(null)
+  const [overVariant, setOverVariant] = useState<number | null>(null)
+
+  const endVariantDrag = () => {
+    dragVariantRef.current = null
+    setDragVariant(null)
+    setOverVariant(null)
+  }
   const [products, setProducts] = useState<ProductDto[]>([])
   const [pagination, setPagination] = useState<ProductPagination | undefined>(undefined)
   const [loading, setLoading] = useState(true)
@@ -233,8 +277,21 @@ export function AdminProductsPage() {
     return map
   }, [categories])
 
+  /*
+   * The predefined highlights are seeded HERE and nowhere else.
+   *
+   * Not in `emptyForm()`, because `openEdit` uses that as its placeholder while the detail
+   * request is in flight — seeding there would flash defaults over a saved product and, if
+   * the request failed, leave the admin looking at defaults for a product that has its own
+   * highlights. Not in an effect either, so a row the admin removes stays removed for the
+   * rest of the session instead of being re-added on the next render.
+   */
   const openCreate = () => {
-    setForm(emptyForm())
+    setForm({
+      ...emptyForm(),
+      key_highlights: defaultKeyHighlightRows(),
+      variants: [variantWithDefaultSizes()],
+    })
     setFormError(null)
   }
 
@@ -258,7 +315,11 @@ export function AdminProductsPage() {
         description: detail.description ?? '',
         fabric: detail.fabric ?? '',
         gsm: detail.gsm == null ? '' : String(detail.gsm),
-        key_highlights: keyHighlightsToText(detail.key_highlights),
+        // Blank when the backend has no order for this product — never prefilled with 0,
+        // so an untouched field omits the key and the stored order survives the save.
+        display_order: detail.display_order == null ? '' : String(detail.display_order),
+        // Straight from the array contract - no unwrapping, no JSON shown to the admin.
+        key_highlights: readKeyHighlights(detail.key_highlights),
         is_featured: Boolean(detail.is_featured),
         is_new_arrival: Boolean(detail.is_new_arrival),
         // The detail response carries no product-level `is_active`, so this cannot be
@@ -271,6 +332,8 @@ export function AdminProductsPage() {
           mrp: v.mrp == null ? '' : String(v.mrp),
           selling_price: v.selling_price == null ? '' : String(v.selling_price),
           cost_price: v.cost_price == null ? '' : String(v.cost_price),
+          // Same rule as the product field: absent stays blank, never 0.
+          display_order: v.display_order == null ? '' : String(v.display_order),
           is_default: Boolean(v.is_default),
           is_active: true,
           sizes: (v.sizes ?? []).map((s) => ({
@@ -282,6 +345,8 @@ export function AdminProductsPage() {
           // Shown read-only: the write contract exposes no image field, deletion included.
           existingImages: v.images ?? [],
           newImages: [],
+          // Untouched order: the gallery shows the backend's own display_order.
+          imageOrder: [],
         })),
         delete_variant_ids: [],
         delete_size_ids: [],
@@ -323,11 +388,55 @@ export function AdminProductsPage() {
     setForm((prev) => {
       if (!prev) return prev
       const target = prev.variants[index]
+      const remaining = prev.variants.filter((_, i) => i !== index)
+      /*
+       * Close the gap the removal leaves: 1,2,3 minus the middle must become 1,2 — not
+       * 1,3. The orders no longer come from the array index, so this has to be written
+       * into the fields, exactly as a drag does.
+       *
+       * Only when at least one remaining variant actually HAS an order. On a create form
+       * where every field is blank, renumbering would invent orders the admin never asked
+       * for and take away the backend's own "number them by array position" behaviour.
+       */
+      const anyOrdered = remaining.some((v) => v.display_order.trim())
       return {
         ...prev,
-        variants: prev.variants.filter((_, i) => i !== index),
+        variants: anyOrdered
+          ? remaining.map((v, i) => ({ ...v, display_order: String(i + 1) }))
+          : remaining,
         // Existing children must be soft-deleted by the backend, not just dropped locally.
         delete_variant_ids: target?.id ? [...prev.delete_variant_ids, target.id] : prev.delete_variant_ids,
+      }
+    })
+
+  /**
+   * Moves one variant to a new position. The ONLY thing reordering changes.
+   *
+   * Each entry is carried across by reference, so every field travels with it untouched —
+   * id, colour, prices, sizes and their ids, stock, active flag, saved images, pending
+   * uploads and that variant's own image order. `display_order` is not stored on the form
+   * at all; it is derived from this array's order at save time, which is what keeps it
+   * contiguous after an add or a remove.
+   */
+  const moveVariant = (from: number, to: number) =>
+    setForm((prev) => {
+      if (!prev) return prev
+      if (from === to || from < 0 || to < 0) return prev
+      if (from >= prev.variants.length || to >= prev.variants.length) return prev
+      const next = [...prev.variants]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      /*
+       * Dragging now writes the new positions into each variant's Display Order field.
+       *
+       * Without this the fields would keep their old numbers while the rows moved, and the
+       * backend — which orders by the numbers, not by array position — would undo the drag
+       * on save. Renumbering keeps the visible field and the saved order in agreement, and
+       * leaves the field editable afterwards.
+       */
+      return {
+        ...prev,
+        variants: next.map((variant, index) => ({ ...variant, display_order: String(index + 1) })),
       }
     })
 
@@ -348,6 +457,31 @@ export function AdminProductsPage() {
    * Appends picked files to this variant's pending list. Appending (never replacing) is what
    * lets the admin build a selection up across several trips to the file picker.
    */
+  /** Appends a blank row; it shows immediately and is validated only on save. */
+  const addHighlight = () =>
+    setForm((prev) =>
+      prev ? { ...prev, key_highlights: [...prev.key_highlights, { label: '', value: '' }] } : prev,
+    )
+
+  /** Edits ONE row in place; every other row keeps its own object. */
+  const patchHighlight = (index: number, patchRow: Partial<KeyHighlight>) =>
+    setForm((prev) =>
+      prev
+        ? {
+            ...prev,
+            key_highlights: prev.key_highlights.map((row, i) =>
+              i === index ? { ...row, ...patchRow } : row,
+            ),
+          }
+        : prev,
+    )
+
+  /** Drops one row. Clearing every row leaves an empty array, sent as an explicit clear. */
+  const removeHighlight = (index: number) =>
+    setForm((prev) =>
+      prev ? { ...prev, key_highlights: prev.key_highlights.filter((_, i) => i !== index) } : prev,
+    )
+
   const addVariantImages = (index: number, files: FileList) => {
     const { accepted, rejected } = toPendingImages(files)
 
@@ -393,6 +527,20 @@ export function AdminProductsPage() {
   }
 
   /**
+   * Stores the order produced by a drag. Only the token sequence is written — no image data
+   * moves, so saved images keep their ids and pending files keep their File objects.
+   */
+  const reorderVariantImages = (index: number, tokens: string[]) =>
+    setForm((prev) =>
+      prev
+        ? {
+            ...prev,
+            variants: prev.variants.map((v, i) => (i === index ? { ...v, imageOrder: tokens } : v)),
+          }
+        : prev,
+    )
+
+  /**
    * Removes a saved image from the form and records its id for deletion on save. No API call
    * happens here — nothing is destroyed until the admin saves.
    */
@@ -421,6 +569,19 @@ export function AdminProductsPage() {
     if (!name) return setFormError('Product name is required.')
     if (!form.category_id) return setFormError('Category is required.')
 
+    // Blank is legal everywhere (the key is then omitted); anything present must be a
+    // positive whole number, matching the backend's own requirement. Rejected rather than
+    // silently coerced, so "1.5" or "-2" never reaches the API as something else.
+    const productOrder = readDisplayOrder(form.display_order)
+    if (productOrder === 'invalid') {
+      return setFormError('Display order must be a positive whole number, or left blank.')
+    }
+    for (const [i, v] of form.variants.entries()) {
+      if (readDisplayOrder(v.display_order) === 'invalid') {
+        return setFormError(`Variant ${i + 1}: display order must be a positive whole number, or left blank.`)
+      }
+    }
+
     // Variants are optional overall, but any variant present must be complete.
     for (const [i, v] of form.variants.entries()) {
       const filled = v.sku.trim() || v.color.trim() || v.mrp.trim() || v.selling_price.trim()
@@ -428,17 +589,25 @@ export function AdminProductsPage() {
       if (!v.sku.trim() || !v.color.trim() || !v.mrp.trim() || !v.selling_price.trim()) {
         return setFormError(`Variant ${i + 1} needs SKU, colour, MRP and selling price.`)
       }
-      if (!v.sizes.some((s) => s.size.trim())) {
-        return setFormError(`Variant ${i + 1} needs at least one size.`)
-      }
+      // Names present and unique within THIS variant, and every stock a whole number of
+      // zero or more. Runs before anything is sent, so a bad row is caught here rather
+      // than coming back as a 400 — and nothing is saved until Save Product is pressed.
+      const sizeError = validateSizes(v.sizes, `Variant ${i + 1}`)
+      if (sizeError) return setFormError(sizeError)
     }
 
     // The variants actually sent, in order. Files are keyed by position in THIS list, so
     // the two must be derived from the same filtered source.
     const selectedVariants = form.variants.filter((v) => v.sku.trim() && v.color.trim())
 
+    // Resolved once so the map below stays readable; every entry is already known valid.
+    const variantOrders = selectedVariants.map((v) => {
+      const parsed = readDisplayOrder(v.display_order)
+      return parsed === 'invalid' ? undefined : parsed
+    })
+
     const variants: ProductVariantWriteDto[] = selectedVariants
-      .map((v) => ({
+      .map((v, index) => ({
         ...(v.id ? { id: v.id } : {}),
         sku: v.sku.trim(),
         color: v.color.trim(),
@@ -447,6 +616,18 @@ export function AdminProductsPage() {
         ...(v.cost_price.trim() ? { cost_price: v.cost_price.trim() } : {}),
         is_default: v.is_default,
         is_active: v.is_active,
+        /*
+         * The variant's own typed order, OMITTED when the field is blank.
+         *
+         * This used to be an unconditional `index + 1`. It is now the field's value, so
+         * the admin can set an explicit order — and `moveVariant` rewrites these numbers
+         * whenever a row is dragged, which keeps drag-ordering persisting exactly as
+         * before while leaving the field as the single source of truth. Blank on a NEW
+         * variant lets the backend append it; blank on an existing one leaves its stored
+         * order alone. Every other field still travels with it, so this is never a bare
+         * {id, display_order} reorder request.
+         */
+        ...(typeof variantOrders[index] === 'number' ? { display_order: variantOrders[index] } : {}),
         sizes: v.sizes
           .filter((s) => s.size.trim())
           .map((s) => ({
@@ -464,9 +645,12 @@ export function AdminProductsPage() {
       ...(form.description.trim() ? { description: form.description.trim() } : {}),
       ...(form.fabric.trim() ? { fabric: form.fabric.trim() } : {}),
       ...(form.gsm.trim() ? { gsm: Number(form.gsm) } : {}),
-      ...(form.key_highlights.trim()
-        ? { key_highlights: keyHighlightsToPayload(form.key_highlights.trim()) }
-        : {}),
+      // Omitted when blank — an absent key preserves the stored order, while null/0/""
+      // would overwrite it.
+      ...(typeof productOrder === 'number' ? { display_order: productOrder } : {}),
+      // ALWAYS sent, including an empty array - that is how the admin clears highlights,
+      // so omitting the key would leave the stored ones in place.
+      key_highlights: toKeyHighlightsPayload(form.key_highlights),
       is_featured: form.is_featured,
       is_new_arrival: form.is_new_arrival,
       is_active: form.is_active,
@@ -475,10 +659,42 @@ export function AdminProductsPage() {
 
     // Files keyed by the variant's ZERO-BASED POSITION in `variants` — never by its id.
     // `selectedVariants` and `variants` are the same list, so indexes line up exactly.
+    //
+    // Everything below is derived from ONE source of truth: the visual list the admin sees.
+    // Its position becomes a 1-based display_order, split into the two channels the
+    // contract defines — saved images by id inside `data`, new files positionally
+    // alongside their upload field.
     const images: VariantImageFiles = new Map()
+    const imageOrders: VariantImageOrders = new Map()
+    const variantImageOrders: { id: number; display_order: number }[] = []
+
     selectedVariants.forEach((variant, index) => {
-      if (variant.newImages.length) images.set(index, variant.newImages.map((image) => image.file))
+      const entries = buildImageEntries(variant.existingImages, variant.newImages, variant.imageOrder)
+      const files: File[] = []
+      const orders: number[] = []
+
+      entries.forEach((entry, position) => {
+        const displayOrder = position + 1
+        if (entry.kind === 'existing') {
+          variantImageOrders.push({ id: entry.image.id, display_order: displayOrder })
+        } else {
+          // Pushed together so file N and order N always describe the same image.
+          files.push(entry.pending.file)
+          orders.push(displayOrder)
+        }
+      })
+
+      if (files.length) {
+        images.set(index, files)
+        imageOrders.set(index, orders)
+      }
     })
+
+    const highlightError = validateKeyHighlights(form.key_highlights)
+    if (highlightError) {
+      setFormError(highlightError)
+      return
+    }
 
     savingRef.current = true
     setSaving(true)
@@ -487,7 +703,7 @@ export function AdminProductsPage() {
     try {
       if (form.id === null) {
         // No images -> the existing JSON create is used unchanged.
-        await createProduct(base, images)
+        await createProduct(base, images, imageOrders)
       } else {
         await updateProduct(
           {
@@ -504,8 +720,12 @@ export function AdminProductsPage() {
             ...(form.delete_variant_image_ids.length
               ? { delete_variant_image_ids: form.delete_variant_image_ids }
               : {}),
+            // Only when saved images actually remain — an all-new variant has nothing to
+            // renumber, and an empty array would say nothing.
+            ...(variantImageOrders.length ? { variant_image_orders: variantImageOrders } : {}),
           },
           images,
+          imageOrders,
         )
       }
 
@@ -766,6 +986,27 @@ export function AdminProductsPage() {
                       placeholder="Optional"
                     />
                   </div>
+                  <div className="admin-form__field">
+                    <label htmlFor="product-display-order">Display Order</label>
+                    {/*
+                      `min=1 step=1` matches the backend's positive-integer rule. Leaving it
+                      blank omits the field on save, which keeps whatever order is stored.
+                    */}
+                    <input
+                      id="product-display-order"
+                      type="number"
+                      min="1"
+                      step="1"
+                      inputMode="numeric"
+                      value={form.display_order}
+                      onChange={(e) => patch({ display_order: e.target.value })}
+                      placeholder="Optional"
+                      aria-describedby="product-display-order-hint"
+                    />
+                    <p id="product-display-order-hint" className="admin-muted" style={{ fontSize: 11 }}>
+                      Lower numbers show first. Leave blank to keep the current order.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="admin-form__field">
@@ -779,13 +1020,64 @@ export function AdminProductsPage() {
                 </div>
 
                 <div className="admin-form__field">
-                  <label htmlFor="product-highlights">Key Highlights</label>
-                  <input
-                    id="product-highlights"
-                    value={form.key_highlights}
-                    onChange={(e) => patch({ key_highlights: e.target.value })}
-                    placeholder="Optional"
-                  />
+                  <label>Key Highlights</label>
+
+                  {form.key_highlights.length === 0 ? (
+                    <p className="admin-muted" style={{ fontSize: 12 }}>
+                      No highlights added.
+                    </p>
+                  ) : (
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      {form.key_highlights.map((row, hIndex) => {
+                        /*
+                         * Every value is a plain text input, so anything can be typed —
+                         * "220 GSM" instead of the suggested "240 GSM", an unlisted fabric,
+                         * a value a saved product already holds. A predefined label simply
+                         * also gets a `<datalist>` of suggestions, which the browser offers
+                         * as a dropdown without restricting what may be entered. Custom rows
+                         * have no suggestions and behave exactly as they always have.
+                         */
+                        const options = keyHighlightOptionsFor(row.label)
+                        const listId = options ? `${highlightListId}-${hIndex}` : undefined
+                        return (
+                        <div key={hIndex} className="admin-highlight-row">
+                          <input
+                            aria-label={`Highlight ${hIndex + 1} label`}
+                            value={row.label}
+                            onChange={(e) => patchHighlight(hIndex, { label: e.target.value })}
+                            placeholder="Label"
+                          />
+                          <input
+                            aria-label={`Highlight ${hIndex + 1} value`}
+                            value={row.value}
+                            onChange={(e) => patchHighlight(hIndex, { value: e.target.value })}
+                            placeholder="Value"
+                            list={listId}
+                          />
+                          {options ? (
+                            <datalist id={listId}>
+                              {options.map((option) => (
+                                <option key={option} value={option} />
+                              ))}
+                            </datalist>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="admin-link-button admin-link-button--danger"
+                            onClick={() => removeHighlight(hIndex)}
+                            aria-label={`Remove highlight ${hIndex + 1}`}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  <button type="button" className="admin-link-button" onClick={addHighlight}>
+                    + Add highlight
+                  </button>
                 </div>
 
                 <label className="admin-form__check">
@@ -814,8 +1106,70 @@ export function AdminProductsPage() {
                 </label>
 
                 {form.variants.map((variant, vIndex) => (
-                  <div className="admin-variant" key={variant.id ?? `new-${vIndex}`}>
+                  <div
+                    className={[
+                      'admin-variant',
+                      dragVariant === vIndex ? 'admin-variant--dragging' : '',
+                      overVariant === vIndex && dragVariant !== vIndex ? 'admin-variant--dropzone' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    key={variant.id ?? `new-${vIndex}`}
+                    /*
+                     * The whole card is a drop TARGET (so there is a generous area to aim
+                     * at) but never a drag SOURCE — only the handle below is draggable, so
+                     * selecting text in an input can never start a reorder. Every handler
+                     * bails unless a variant drag is actually in flight, which is what
+                     * keeps the image uploader's own drag/drop inside this card working
+                     * exactly as before.
+                     */
+                    onDragEnter={() => {
+                      if (dragVariantRef.current === null) return
+                      setOverVariant(vIndex)
+                    }}
+                    onDragOver={(event) => {
+                      if (dragVariantRef.current === null) return
+                      event.preventDefault()
+                      event.dataTransfer.dropEffect = 'move'
+                    }}
+                    onDrop={(event) => {
+                      const from = dragVariantRef.current
+                      if (from === null) return
+                      event.preventDefault()
+                      moveVariant(from, vIndex)
+                      endVariantDrag()
+                    }}
+                  >
                     <div className="admin-variant__head">
+                      <button
+                        type="button"
+                        className="admin-variant__handle"
+                        aria-label={`Reorder variant ${vIndex + 1} of ${form.variants.length}. Drag, or use the arrow keys.`}
+                        draggable
+                        onDragStart={(event) => {
+                          dragVariantRef.current = vIndex
+                          setDragVariant(vIndex)
+                          event.dataTransfer.effectAllowed = 'move'
+                          // Firefox starts no drag at all unless some data is set.
+                          event.dataTransfer.setData('text/plain', String(vIndex))
+                          // Drag the whole card, not just the little handle glyph.
+                          const card = event.currentTarget.closest('.admin-variant')
+                          if (card) event.dataTransfer.setDragImage(card, 16, 16)
+                        }}
+                        onDragEnd={endVariantDrag}
+                        // Keyboard equivalent, so ordering is never mouse-only.
+                        onKeyDown={(event) => {
+                          if (event.key === 'ArrowUp') {
+                            event.preventDefault()
+                            moveVariant(vIndex, vIndex - 1)
+                          } else if (event.key === 'ArrowDown') {
+                            event.preventDefault()
+                            moveVariant(vIndex, vIndex + 1)
+                          }
+                        }}
+                      >
+                        <span aria-hidden>⠿</span>
+                      </button>
                       <span className="admin-variant__title">Variant {vIndex + 1}</span>
                       {form.variants.length > 1 ? (
                         <button
@@ -868,14 +1222,35 @@ export function AdminProductsPage() {
                       </div>
                     </div>
 
-                    <div className="admin-form__field">
-                      <label htmlFor={`variant-cost-${vIndex}`}>Cost Price</label>
-                      <input
-                        id={`variant-cost-${vIndex}`}
-                        value={variant.cost_price}
-                        onChange={(e) => patchVariant(vIndex, { cost_price: e.target.value })}
-                        placeholder="Optional"
-                      />
+                    <div className="admin-form__row">
+                      <div className="admin-form__field">
+                        <label htmlFor={`variant-cost-${vIndex}`}>Cost Price</label>
+                        <input
+                          id={`variant-cost-${vIndex}`}
+                          value={variant.cost_price}
+                          onChange={(e) => patchVariant(vIndex, { cost_price: e.target.value })}
+                          placeholder="Optional"
+                        />
+                      </div>
+
+                      <div className="admin-form__field">
+                        <label htmlFor={`variant-display-order-${vIndex}`}>Display Order</label>
+                        {/*
+                          Dragging the card rewrites this value, so the two never disagree.
+                          Blank omits the field: the backend then appends a new variant and
+                          leaves an existing one where it is.
+                        */}
+                        <input
+                          id={`variant-display-order-${vIndex}`}
+                          type="number"
+                          min="1"
+                          step="1"
+                          inputMode="numeric"
+                          value={variant.display_order}
+                          onChange={(e) => patchVariant(vIndex, { display_order: e.target.value })}
+                          placeholder="Optional"
+                        />
+                      </div>
                     </div>
 
                     <label className="admin-form__check">
@@ -906,6 +1281,12 @@ export function AdminProductsPage() {
                               id={`stock-${vIndex}-${sIndex}`}
                               type="number"
                               min="0"
+                              // Whole units only. `step` makes the spinner and the browser's
+                              // own validity check agree with `validateSizes`, which is what
+                              // actually enforces it; `inputMode` gets a numeric keypad on a
+                              // phone instead of a full keyboard.
+                              step="1"
+                              inputMode="numeric"
                               value={size.stock_quantity}
                               onChange={(e) => patchSize(vIndex, sIndex, { stock_quantity: e.target.value })}
                             />
@@ -934,9 +1315,11 @@ export function AdminProductsPage() {
                       variantIndex={vIndex}
                       existingImages={variant.existingImages}
                       pendingImages={variant.newImages}
+                      imageOrder={variant.imageOrder}
                       onAdd={(files) => addVariantImages(vIndex, files)}
                       onRemovePending={(key) => removeVariantImage(vIndex, key)}
                       onRemoveExisting={(imageId) => removeExistingImage(vIndex, imageId)}
+                      onReorder={(tokens) => reorderVariantImages(vIndex, tokens)}
                       disabled={saving}
                     />
                   </div>
@@ -945,7 +1328,7 @@ export function AdminProductsPage() {
                 <button
                   type="button"
                   className="admin-link-button"
-                  onClick={() => patch({ variants: [...form.variants, emptyVariant()] })}
+                  onClick={() => patch({ variants: [...form.variants, variantWithDefaultSizes()] })}
                 >
                   + Add variant
                 </button>

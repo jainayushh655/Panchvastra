@@ -172,10 +172,19 @@
 .pv-auth-rise { animation: pv-auth-rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .pv-auth-sweep { animation: pv-auth-sweep 9s ease-in-out infinite; }
 
+/* ---------------------------------------------------------------- toast stack */
+@keyframes pv-toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.pv-toast-in { animation: pv-toast-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 /* Honour the OS setting: no ambient motion, and the step transition becomes a plain fade. */
 @media (prefers-reduced-motion: reduce) {
   .pv-auth-drift,
-  .pv-auth-sweep {
+  .pv-auth-sweep,
+  .pv-toast-in {
     animation: none;
   }
 

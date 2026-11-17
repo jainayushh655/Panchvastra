@@ -285,7 +285,11 @@ export function AdminCouponsPage() {
             role="dialog"
             aria-modal="true"
             aria-label={form.id === null ? 'Add coupon' : 'Edit coupon'}
-            className="admin-modal"
+            /* The wider shell the product editor already defines. This form carries twelve
+               fields across six two-column rows, and the two date pickers need real room;
+               at the default 420px each column was under 180px, which is narrower than a
+               native date control can usefully render. */
+            className="admin-modal admin-modal--wide"
             onClick={(e) => e.stopPropagation()}
           >
             <h3>{form.id === null ? 'Add Coupon' : 'Edit Coupon'}</h3>

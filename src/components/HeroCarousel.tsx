@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { HomepageHeroSlide } from '@/types/homepage'
 
@@ -39,6 +39,76 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
     return () => window.clearTimeout(t)
   }, [i, n, autoMs, paused])
 
+  /** The mobile swipe track, so autoplay and the dots can move it. */
+  const trackRef = useRef<HTMLDivElement | null>(null)
+  /** Fires once the swipe has come to rest, to normalise off a cloned edge slide. */
+  const settleRef = useRef<number | undefined>(undefined)
+
+  /*
+   * A native snap track has a finite extent, so the last slide is a hard stop. To make the
+   * swipe continuous the track renders one clone at each end:
+   *
+   *   [ clone of LAST ][ 1 ][ 2 ] ... [ N ][ clone of FIRST ]
+   *
+   * Swiping past an end lands on a clone, which is pixel-identical to the real slide it
+   * copies; once the scroll settles the container is silently repositioned to that real
+   * slide with no animation, so the loop is invisible. Cloning is skipped entirely for a
+   * single slide, which keeps that case exactly as it was.
+   */
+  const loop = n > 1
+  const physicalSlides = loop ? [slides[n - 1], ...slides, slides[0]] : slides
+  /** Physical track position -> the logical slide the dots represent. */
+  const toLogical = (physical: number) => (loop ? (physical - 1 + n) % n : 0)
+
+  /** Reads the track only when it is actually laid out (it is display:none on desktop). */
+  const readTrack = () => {
+    const track = trackRef.current
+    if (!track) return null
+    const width = track.clientWidth
+    if (!width) return null
+    return { track, width, physical: Math.round(track.scrollLeft / width) }
+  }
+
+  /** Jumps off a clone onto its real counterpart. Instant, so the swap is not seen. */
+  const normalise = () => {
+    const read = readTrack()
+    if (!read || !loop) return
+    const { track, width, physical } = read
+    if (physical === 0) track.scrollTo({ left: n * width, behavior: 'instant' })
+    else if (physical === n + 1) track.scrollTo({ left: width, behavior: 'instant' })
+  }
+
+  // Start on the first REAL slide rather than the leading clone.
+  useEffect(() => {
+    const read = readTrack()
+    if (!read || !loop) return
+    read.track.scrollTo({ left: read.width, behavior: 'instant' })
+    // Only on mount and when the slide count changes.
+  }, [loop, n])
+
+  /*
+   * Keeps the mobile track in step with `i`.
+   *
+   * It moves by the SHORTEST way round the ring from wherever the track currently sits, so
+   * autoplay wrapping from the last slide to the first glides forward onto the clone rather
+   * than rewinding the whole track. It returns early when the track is already showing `i`,
+   * so a swipe — which sets `i` FROM the scroll position — is never scrolled back on top of,
+   * and autoplay never fights the finger. Changing `i` also re-arms the single autoplay
+   * timer above, so a swipe naturally restarts the countdown instead of racing it.
+   */
+  useEffect(() => {
+    const read = readTrack()
+    if (!read) return
+    const { track, width, physical } = read
+    const current = toLogical(physical)
+    if (current === i) return
+
+    let delta = ((i - current) % n + n) % n
+    if (delta > n / 2) delta -= n
+    track.scrollTo({ left: (physical + delta) * width, behavior: 'smooth' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i])
+
   if (!n) return null
 
   const slide = slides[i]
@@ -52,132 +122,267 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
    */
   const go = (step: number) => setI((x) => (x + step + n) % n)
 
-  return (
-    <section
-      className="relative overflow-hidden border-b border-zinc-800 bg-[#050505] px-4 py-16 md:py-24"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-    >
-      <AnimatePresence mode="wait" initial={false}>
-        {bgImage ? (
-          <motion.div
-            key={`bg-${slide.id}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.45 }}
-            // No grayscale: these are admin-uploaded carousel images from
-            // /v1/auth_carousel/, so they show in their real colours. The scrim below still
-            // keeps the headline legible over them.
-            className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: `url(${JSON.stringify(bgImage)})` }}
-            aria-hidden
-          />
-        ) : null}
-      </AnimatePresence>
-      {bgImage ? (
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/85 via-black/65 to-black/40" aria-hidden />
-      ) : (
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.05]"
-          style={{
-            backgroundImage:
-              'repeating-linear-gradient(45deg, #ffffff 0, #ffffff 1px, transparent 1px, transparent 34px)',
-          }}
-          aria-hidden
-        />
-      )}
+  /**
+   * The hero's single call to action. Shared by the mobile and desktop branches.
+   *
+   * One centred button: the secondary "Our story" link was removed, and the row is now
+   * `justify-center` in both branches so the button reads as centred against the hero at
+   * every width. `s.secondaryCta` is left untouched on the slide type and the API payload —
+   * it is simply no longer rendered here.
+   */
+  /*
+   * The button is smaller below `sm` and full size from there up.
+   *
+   * It used to be a fixed 140x42 at every width. Against a 720px desktop hero that reads
+   * as a neat label; against a 180px hero on a 320px phone it is a quarter of the picture.
+   * The smaller step is phones only, so tablet and desktop are untouched.
+   */
+  const renderActions = (s: HeroCarouselSlide) => (
+    <div className="flex w-full justify-center">
+      <Link
+        to={s.primaryCta.to}
+        className="inline-flex items-center justify-center border border-white/70 bg-white/80 px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-black backdrop-blur-md transition-colors hover:bg-white/95 sm:px-7 sm:py-3 sm:text-xs sm:tracking-[0.14em]"
+      >
+        {s.primaryCta.label}
+      </Link>
+    </div>
+  )
 
-      <div className="relative mx-auto max-w-6xl">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={slide.id}
-            initial={{ opacity: 0, x: 32 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -28 }}
-            transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-            className="min-h-[230px] md:min-h-[300px]"
+  /** Slide indicators. Driven by `i`, which both branches keep current. */
+  const renderDots = () =>
+    n > 1 ? (
+      <div className="flex gap-2">
+        {slides.map((_, idx) => (
+          <button
+            key={slides[idx].id}
+            type="button"
+            aria-label={`Slide ${idx + 1} of ${n}`}
+            aria-current={idx === i}
+            onClick={() => setI(idx)}
+            className="flex h-8 items-center justify-center px-2"
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-400">
-              Panchvastra Edit — {slide.eyebrow}
-            </p>
-            <h1 className="mt-4 max-w-3xl whitespace-pre-line text-[clamp(3rem,8vw,6.5rem)] font-display font-bold uppercase leading-[0.95] tracking-tight text-white">
-              {slide.title}
-            </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-zinc-300 md:text-lg">{slide.sub}</p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                to={slide.primaryCta.to}
-                className="inline-flex items-center justify-center bg-white px-7 py-3 text-xs font-bold uppercase tracking-[0.14em] text-black transition-colors hover:bg-zinc-200"
-              >
-                {slide.primaryCta.label}
-              </Link>
-              {slide.secondaryCta ? (
-                <Link
-                  to={slide.secondaryCta.to}
-                  className="inline-flex items-center justify-center border border-white px-7 py-3 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-white/10"
-                >
-                  {slide.secondaryCta.label}
-                </Link>
-              ) : null}
-            </div>
-          </motion.div>
-        </AnimatePresence>
-
-        {n > 1 ? (
-          <div className="mt-12 flex flex-wrap items-center justify-between gap-4">
-            <div className="hidden items-center gap-3 border border-zinc-700 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 md:flex">
-              Premium cotton
-              <span className="h-1 w-1 rounded-full bg-zinc-500" />
-              Limited drops
-              <span className="h-1 w-1 rounded-full bg-zinc-500" />
-              Crafted to layer
-            </div>
-            <div className="flex gap-2">
-              {slides.map((_, idx) => (
-                <button
-                  key={slides[idx].id}
-                  type="button"
-                  aria-label={`Slide ${idx + 1} of ${n}`}
-                  aria-current={idx === i}
-                  onClick={() => setI(idx)}
-                  className="flex h-8 items-center justify-center px-2"
-                >
-                  {/* Dot is drawn by the inner span so the button itself can carry a
-                      comfortable tap area without changing the visual size. */}
-                  <span
-                    className={`block h-2 rounded-full transition-all ${
-                      idx === i ? 'w-8 bg-white' : 'w-2 bg-zinc-600 hover:bg-zinc-400'
-                    }`}
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
+            {/* Dot is drawn by the inner span so the button itself can carry a
+                comfortable tap area without changing the visual size. */}
+            <span
+              className={`block h-2 rounded-full transition-all ${
+                idx === i ? 'w-8 bg-white' : 'w-2 bg-zinc-600 hover:bg-zinc-400'
+              }`}
+            />
+          </button>
+        ))}
       </div>
+    ) : null
 
-      {/* ------------------------------------- desktop prev / next, 2+ slides only */}
-      {n > 1 ? (
-        <>
-          <button
-            type="button"
-            onClick={() => go(-1)}
-            aria-label="Previous slide"
-            className={arrowClass('left-3 lg:left-6')}
-          >
-            <span aria-hidden>&lsaquo;</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => go(1)}
-            aria-label="Next slide"
-            className={arrowClass('right-3 lg:right-6')}
-          >
-            <span aria-hidden>&rsaquo;</span>
-          </button>
-        </>
-      ) : null}
-    </section>
+  /*
+   * There is no scrim over the artwork. The dark left-to-right gradient that used to sit on
+   * top of every slide has been removed, so an admin-uploaded image is shown exactly as it
+   * was uploaded, at full strength, on both the mobile and desktop branches.
+   *
+   * What it was there for was contrast behind the call to action. That button is its own
+   * white fill with black text, so it carries its own contrast rather than borrowing it
+   * from a darkened image.
+   */
+
+  return (
+    <>
+      {/* ------------------------------------------ mobile: native swipe carousel */}
+      <section className="relative border-b border-zinc-800 bg-[#050505] lg:hidden">
+        <div
+          ref={trackRef}
+          /*
+           * Same architecture as the PDP gallery's mobile track: native scroll-snap, no
+           * dependency and no gesture handling. The active slide is derived from scroll
+           * position, so it stays correct whether the customer swipes, flicks, or the
+           * track is moved by autoplay or the dots. `overscroll-x-contain` stops a swipe
+           * chaining out to the page or the browser's back gesture, and each slide is
+           * exactly one container wide so the PAGE never gains horizontal overflow.
+           */
+          onScroll={(event) => {
+            const track = event.currentTarget
+            const slideWidth = track.clientWidth || 1
+            const physical = Math.round(track.scrollLeft / slideWidth)
+            const next = toLogical(physical)
+            setI((prev) => (prev === next ? prev : next))
+
+            // Normalise only once the swipe has come to rest, so the jump off a clone is
+            // never made mid-gesture.
+            window.clearTimeout(settleRef.current)
+            settleRef.current = window.setTimeout(normalise, 140)
+          }}
+          className="pv-hide-scrollbar flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain"
+          role="group"
+          aria-label={`Hero slides, ${n} in total`}
+        >
+          {physicalSlides.map((s, physical) => {
+            const bg = s.backgroundImage?.trim()
+            // The first and last entries are clones when looping; they are hidden from
+            // assistive tech and taken out of the tab order so the real slides stay the
+            // only announced, focusable ones.
+            const isClone = loop && (physical === 0 || physical === physicalSlides.length - 1)
+            return (
+              <div
+                key={`${s.id}-${physical}`}
+                {...(isClone ? { inert: true, 'aria-hidden': true } : {})}
+                /*
+                 * The artwork is 16:9, so from `sm` up the slide keeps that exact ratio and
+                 * `cover` has nothing to crop — tablets (768/820/834) get 432-469px of the
+                 * complete composition, which needs no help.
+                 *
+                 * A phone is too narrow for that: 16:9 at 390px is a 219px letterbox strip
+                 * that the buttons then sit on top of. Below `sm` the slide is 4:3 instead,
+                 * which gives 292-360px of hero and costs 25% of the image width — trimmed
+                 * evenly from both edges by `bg-center`, so the centred subject is kept. The
+                 * ratio scales the box, so the image is never stretched at any width.
+                 */
+                /*
+                 * `pb-16` reserves the strip the dots now occupy INSIDE the frame, so the
+                 * button still reads as sitting near the bottom of the image with the dots
+                 * directly beneath it. A fixed offset (rather than a percentage of width)
+                 * so that spacing stays constant instead of drifting as the ratio changes.
+                 */
+                className="relative flex aspect-[16/9] w-full shrink-0 snap-start flex-col justify-end px-4 pb-11 pt-5 sm:pb-16 sm:pt-4"
+              >
+                {bg ? (
+                  <div
+                    /*
+                     * One ratio at every width: the artwork's own 16:9.
+                     *
+                     * This box used to be 4:3 below `sm`, which made the hero taller on a
+                     * phone but cost 25% of each slide's WIDTH to the crop — measured, not
+                     * estimated. A focal shift to 25% only chose which quarter was thrown
+                     * away; it never stopped the throwing away. Admin-uploaded artwork is
+                     * laid out as a full banner, so losing a quarter of it is losing part of
+                     * the message. Matching the source ratio means `cover` is an exact fit
+                     * and nothing is cropped on any screen.
+                     */
+                    className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
+                    style={{ backgroundImage: `url(${JSON.stringify(bg)})` }}
+                    aria-hidden
+                  />
+                ) : null}
+                <div className="relative">
+                  {renderActions(s)}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/*
+          Dots overlay the bottom of the track rather than sitting in a strip beneath it.
+          Rendered once here (not inside the slide loop) so there is still exactly one set
+          for the whole carousel, and taken out of flow so the section's height is exactly
+          the track's height — which is exactly the artwork's height. That is what removes
+          the black band; nothing is being covered up.
+        */}
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-center px-4 pb-2 sm:pb-4">
+          {renderDots()}
+        </div>
+      </section>
+
+      {/* ------------------------------- desktop: existing fade carousel */}
+      {/* Dots live outside the image box (below it, like the mobile track) so the button
+          itself can sit at the true bottom of the artwork instead of sharing that space. */}
+      <div className="hidden border-b border-zinc-800 bg-[#050505] lg:block">
+        <section
+          /*
+           * The carousel artwork is 16:9 (verified: 1280x720 and 1920x1080). The hero used to
+           * take its height from its content, which made it ~2.6:1 on desktop — so `bg-cover`
+           * had to crop roughly a third off the top and bottom of every image. Giving the
+           * section the artwork's own 16:9 ratio makes `cover` and `contain` equivalent, so
+           * the full composition is shown with nothing cut and nothing distorted.
+           *
+           * `min-h` keeps the box tall enough for the actions where a 16:9 box would be
+           * shorter than the content; the content is bottom-aligned so it stays lower-left.
+           */
+          className="relative flex min-h-[26rem] flex-col justify-end overflow-hidden px-4 pb-20 pt-16 lg:aspect-[16/9]"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            {bgImage ? (
+              <motion.div
+                key={`bg-${slide.id}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.45 }}
+                // No grayscale and nothing laid over the top: these are admin-uploaded
+                // carousel images from /v1/auth_carousel/, so they show in their real
+                // colours at full strength. The `opacity` here is the crossfade between
+                // slides only — it animates to 1 and stays there.
+                className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
+                style={{ backgroundImage: `url(${JSON.stringify(bgImage)})` }}
+                aria-hidden
+              />
+            ) : null}
+          </AnimatePresence>
+          {/* Nothing is laid over the artwork. The faint diagonal hatch is only the
+              no-artwork fallback, so it never touches a real carousel image. */}
+          {bgImage ? null : (
+            <div
+              className="pointer-events-none absolute inset-0 opacity-[0.05]"
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(45deg, #ffffff 0, #ffffff 1px, transparent 1px, transparent 34px)',
+              }}
+              aria-hidden
+            />
+          )}
+
+          {/* `w-full` because the section is a flex column: without it this becomes a flex
+              item sized to its content and `mx-auto` would centre it instead of keeping the
+              usual left-aligned 6xl container. */}
+          <div className="relative mx-auto w-full max-w-6xl">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={slide.id}
+                initial={{ opacity: 0, x: 32 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -28 }}
+                transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+                // The single call to action sits at the BOTTOM of this block, centred, so it
+                // lands at the bottom of the hero image itself.
+                className="flex min-h-[230px] items-end justify-center md:min-h-[300px]"
+              >
+                {renderActions(slide)}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {/* --------------------------------- desktop prev / next, 2+ slides only */}
+          {n > 1 ? (
+            <>
+              <button
+                type="button"
+                onClick={() => go(-1)}
+                aria-label="Previous slide"
+                className={arrowClass('left-3 lg:left-6')}
+              >
+                <span aria-hidden>&lsaquo;</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => go(1)}
+                aria-label="Next slide"
+                className={arrowClass('right-3 lg:right-6')}
+              >
+                <span aria-hidden>&rsaquo;</span>
+              </button>
+            </>
+          ) : null}
+
+          {/*
+            Dots overlay the bottom of the artwork, matching the mobile branch. Previously
+            they sat in a strip below the section, which added a constant 65px black band
+            between the image and the next homepage section at every width. Out of flow, so
+            the section's height stays exactly `aspect-[16/9]` = the artwork's height.
+          */}
+          <div className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center px-4 pb-6">
+            {renderDots()}
+          </div>
+        </section>
+      </div>
+    </>
   )
 }

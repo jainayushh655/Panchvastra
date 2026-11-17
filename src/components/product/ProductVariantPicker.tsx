@@ -28,7 +28,13 @@ export function ProductVariantPicker({
         Select your preferred color.
       </p>
 
-      <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
+      {/*
+        Same native scroll pattern as the PDP image gallery's mobile track: scroll-snap, no
+        dependency and no gesture handling. `overscroll-x-contain` keeps a swipe from
+        chaining out to the page or the browser's back gesture, and the shared
+        `pv-hide-scrollbar` utility hides the bar without hiding the scrolling.
+      */}
+      <div className="pv-hide-scrollbar mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-1">
         {variants.map((variant, index) => {
           const selected = currentIndex === index;
 
@@ -37,7 +43,7 @@ export function ProductVariantPicker({
               key={variant.id}
               type="button"
               onClick={() => onSelect(index)}
-              className={`w-24 shrink-0 overflow-hidden rounded-xl border-2 bg-white transition-all duration-200 dark:bg-zinc-900 ${
+              className={`w-24 shrink-0 snap-start overflow-hidden rounded-xl border-2 bg-white transition-all duration-200 dark:bg-zinc-900 ${
                 selected
                   ? "border-black shadow-md ring-2 ring-black/15"
                   : "border-zinc-200 hover:border-zinc-400 dark:border-zinc-700"

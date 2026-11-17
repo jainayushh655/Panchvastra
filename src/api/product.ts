@@ -17,8 +17,16 @@ type ProductEnvelope = {
   data?: unknown;
 };
 
+/**
+ * The `pagination` block the list endpoint returns beside `data`.
+ *
+ * Field names verified live against GET /v1/products_management/ (2026-10-05):
+ * `{"page":1,"page_size":20,"total_records":21,"total_pages":2,"has_next":true,
+ * "has_previous":false}`. The current page is `page` — this interface previously declared
+ * `current_page`, which the backend has never sent; nothing read it, so no caller changes.
+ */
 export interface ProductPagination {
-  current_page: number;
+  page: number;
   page_size: number;
   total_pages: number;
   total_records: number;
@@ -30,6 +38,7 @@ interface ProductListResponse {
   success: boolean;
   message: string;
   data: ProductDto[];
+  pagination?: ProductPagination;
 }
 
 interface ProductDetailResponse {
@@ -38,27 +47,111 @@ interface ProductDetailResponse {
   data: ProductDetailDto;
 }
 
+/** Backend-supported values for `sort_by`. `latest` is the backend's own default. */
+export type ProductSortBy =
+  | "latest"
+  | "oldest"
+  | "price_low_to_high"
+  | "price_high_to_low"
+  | "display_order";
+
 /**
  * Verified-real server-side filters on `/v1/products_management/` (confirmed
  * against the live backend — see category_id/sub_category_id SQL error leak,
- * and empty-vs-nonempty diffing for size/search). Price and sort are NOT
- * supported server-side (params are silently ignored), so those stay
- * client-side.
+ * and empty-vs-nonempty diffing for size/search). Price filtering is still NOT
+ * supported server-side, so that stays client-side.
+ *
+ * `sort_by` IS now supported — re-verified live: `oldest`, `price_low_to_high` and
+ * `price_high_to_low` each return a distinct order, and `sort_by=display_order` returns
+ * the catalogue strictly ascending by that field (1..22 across the full list). Sorting a
+ * curated order therefore belongs on the server, so it stays correct across pages rather
+ * than only within the page already loaded.
  */
 export interface ProductQueryParams {
   category_id?: number;
   sub_category_id?: number;
   size?: string;
   search?: string;
+  sort_by?: ProductSortBy;
+  /**
+   * 1-based page. Omitting it gets the backend's first page.
+   *
+   * THIS IS THE FIX for "the shop only ever shows 20 products": the list endpoint has
+   * always paginated at a default `page_size` of 20 and reported `has_next` in its
+   * `pagination` block, but no storefront caller ever sent `page`, so page 2 was never
+   * requested and the 21st product was unreachable. Verified live (2026-10-05):
+   * `?page=2` returns the remainder, and `page`/`page_size` compose correctly with
+   * `category_id`, `sub_category_id`, `size`, `search` and every `sort_by` value.
+   */
+  page?: number;
+  /** Rows per page. Omitting it uses the backend's default of 20. */
+  page_size?: number;
+}
+
+/** A single page of the list endpoint, with the paging metadata the caller needs. */
+export interface ProductListPage {
+  products: ProductDto[];
+  /** null when the response carried no `pagination` block — never fabricated. */
+  pagination: ProductPagination | null;
+}
+
+/**
+ * GET /v1/products_management/ — one page, with its pagination metadata.
+ *
+ * Prefer this over `getProducts` anywhere the full result set matters: `getProducts`
+ * discards `pagination`, so a caller using it silently sees only the first page.
+ */
+export async function getProductsPageList(
+  params: ProductQueryParams = {}
+): Promise<ProductListPage> {
+  const response = await api.get<ProductListResponse>(
+    "/v1/products_management/",
+    Object.keys(params).length ? { params } : undefined
+  );
+
+  return {
+    products: Array.isArray(response.data?.data) ? response.data.data : [],
+    pagination: response.data?.pagination ?? null,
+  };
 }
 
 export async function getProducts(params?: ProductQueryParams) {
-  const response = await api.get<ProductListResponse>(
-    "/v1/products_management/",
-    params && Object.keys(params).length ? { params } : undefined
-  );
+  const { products } = await getProductsPageList(params ?? {});
+  return products;
+}
 
-  return response.data.data;
+/**
+ * Every product matching `params`, by following `has_next` across pages.
+ *
+ * Used where a partial catalogue would give a wrong ANSWER rather than just a short list —
+ * the Shop page derives its Sub Category filter options this way, and deriving them from
+ * page 1 alone would hide any sub-category whose only products sit on a later page.
+ *
+ * `page_size` is deliberately large so this is one request for a catalogue of this size,
+ * and `maxPages` is a hard stop so a backend that always reported `has_next` could never
+ * spin here.
+ */
+export async function getAllProducts(
+  params: ProductQueryParams = {},
+  { pageSize = 100, maxPages = 20 }: { pageSize?: number; maxPages?: number } = {}
+): Promise<ProductDto[]> {
+  const all: ProductDto[] = [];
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const { products, pagination } = await getProductsPageList({
+      ...params,
+      page,
+      page_size: pageSize,
+    });
+
+    all.push(...products);
+
+    // Stop on an explicit "no more", and also on a short/empty page so a response with no
+    // pagination block ends the loop instead of being paged forever.
+    if (pagination?.has_next !== true || products.length === 0) break;
+  }
+
+  return all;
 }
 
 export async function getProductById(id: string | number) {
@@ -164,18 +257,40 @@ export async function getProductsPage(query: ProductAdminQuery = {}) {
 export type VariantImageFiles = Map<number, File[]>;
 
 /**
+ * 1-based `display_order` for each new file, keyed by the same variant index and held in
+ * the SAME order as that variant's entry in `VariantImageFiles` — entry `n` here is the
+ * order for file `n` there. Sent as repeated `variant_<index>_image_orders` fields.
+ */
+export type VariantImageOrders = Map<number, number[]>;
+
+/**
  * Builds the multipart body the image contract specifies: the whole product payload as a
  * JSON string under `data`, then every file appended under `variant_<index>_images`.
  *
  * Images never appear inside the JSON — no `images` key is added to any variant.
  */
-function toProductFormData(payload: unknown, images: VariantImageFiles): FormData {
+function toProductFormData(
+  payload: unknown,
+  images: VariantImageFiles,
+  imageOrders?: VariantImageOrders,
+): FormData {
   const formData = new FormData();
   formData.append("data", JSON.stringify(payload));
 
   for (const [index, files] of images) {
-    // Several files share one field name; that is how the backend receives a list.
-    for (const file of files) formData.append(`variant_${index}_images`, file);
+    const orders = imageOrders?.get(index);
+
+    files.forEach((file, position) => {
+      // Several files share one field name; that is how the backend receives a list.
+      formData.append(`variant_${index}_images`, file);
+
+      // Appended in the SAME iteration as its file, so the two repeated fields stay
+      // positionally aligned — the backend pairs them by position, not by name.
+      const order = orders?.[position];
+      if (order !== undefined) {
+        formData.append(`variant_${index}_image_orders`, String(order));
+      }
+    });
   }
 
   return formData;
@@ -204,9 +319,17 @@ function multipartConfig() {
  * Without images this sends exactly the JSON body it always has. With images it switches to
  * multipart, so image-free creates keep their existing behaviour untouched.
  */
-export async function createProduct(payload: ProductCreateDto, images?: VariantImageFiles) {
+export async function createProduct(
+  payload: ProductCreateDto,
+  images?: VariantImageFiles,
+  imageOrders?: VariantImageOrders,
+) {
   if (hasFiles(images)) {
-    return api.post("/v1/products_management/", toProductFormData(payload, images!), multipartConfig());
+    return api.post(
+      "/v1/products_management/",
+      toProductFormData(payload, images!, imageOrders),
+      multipartConfig(),
+    );
   }
 
   return api.post("/v1/products_management/", payload, adminAuthConfig());
@@ -219,13 +342,17 @@ export async function createProduct(payload: ProductCreateDto, images?: VariantI
  * Multipart is used when images are added OR when existing images are being deleted;
  * everything else keeps the existing JSON request unchanged.
  */
-export async function updateProduct(payload: ProductUpdateDto, images?: VariantImageFiles) {
+export async function updateProduct(
+  payload: ProductUpdateDto,
+  images?: VariantImageFiles,
+  imageOrders?: VariantImageOrders,
+) {
   const removingImages = Boolean(payload.delete_variant_image_ids?.length);
 
   if (hasFiles(images) || removingImages) {
     return api.put(
       "/v1/products_management/",
-      toProductFormData(payload, images ?? new Map()),
+      toProductFormData(payload, images ?? new Map(), imageOrders),
       multipartConfig(),
     );
   }

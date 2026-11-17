@@ -23,12 +23,31 @@ export function HomeCategoryGrid({ categories }: { categories: CategoryDto[] }) 
     }),
   ]
 
-  // Every tile is now a real category, so the section hides only when there are none.
-  // (The old `<= 1` allowed for the static New Drops tile always occupying a slot.)
-  if (tiles.length === 0) return null
+  /*
+   * The section needs something to choose BETWEEN, so it appears only from two categories
+   * up and hides at one or none.
+   *
+   * A lone tile under a "Shop By Category" heading is not a choice — it is the whole
+   * catalogue wearing a label, and tapping it lands on a Shop page showing exactly what
+   * the homepage already shows below. The heading goes with it rather than being left
+   * over an empty row.
+   *
+   * (An earlier `<= 1` here meant something different: it allowed for a static New Drops
+   * tile that always occupied a slot, so one tile meant no real categories. Every tile is
+   * a real category now, so the same threshold is being applied for a new reason.)
+   */
+  if (tiles.length < 2) return null
+
+  /*
+   * The grid never opens a column it can't fill: `lg:grid-cols-3` only kicks in at 3+
+   * tiles, so two categories sit evenly in a 2-column row (each getting real width and
+   * no dangling empty third column) instead of being stranded on the left. A single
+   * category is capped to half width and centred so it doesn't stretch full-bleed.
+   */
+  const gridColsClass = tiles.length >= 3 ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2'
 
   return (
-    <section className="bg-white px-4 pb-6 pt-8 sm:pb-7 sm:pt-10">
+    <section className="bg-white px-4 pb-6 pt-6 sm:pb-7 sm:pt-8">
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
           <h2 className="font-display text-3xl font-bold uppercase tracking-tight text-black sm:text-4xl">
@@ -36,7 +55,11 @@ export function HomeCategoryGrid({ categories }: { categories: CategoryDto[] }) 
           </h2>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-3 sm:mt-10 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={`mt-6 grid grid-cols-1 gap-3 sm:mt-8 ${gridColsClass} ${
+            tiles.length === 1 ? 'mx-auto max-w-sm' : ''
+          }`}
+        >
           {tiles.map((tile) => (
             <CategoryTile key={tile.key} tile={tile} />
           ))}

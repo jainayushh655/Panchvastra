@@ -31,7 +31,17 @@ export function HomePage() {
     let active = true
     setLoading(true)
 
-    Promise.all([getProducts(), getCategories()])
+    /*
+     * The homepage fetches its own product list — it does not share the Shop page's
+     * snapshot — and this call previously went out with NO params, so it received the
+     * backend's default order rather than the admin's curated one.
+     *
+     * Asking for `sort_by=display_order` fixes the actual data source. Neither homepage
+     * section sorts afterwards, so both simply inherit the curated order: the category
+     * grid shows it directly, and New Arrivals keeps its own "new first" grouping rule
+     * with each group internally in curated order. Still one request, as before.
+     */
+    Promise.all([getProducts({ sort_by: 'display_order' }), getCategories()])
       .then(([dtos, categoryList]) => {
         if (!active) return
         setProducts(dtos.map(mapProduct))
@@ -47,9 +57,14 @@ export function HomePage() {
   }, [])
 
   /**
-   * Only categories that actually have products are shown to customers. The product list
-   * this page already fetched is the source of truth, so an empty category never reaches
-   * the tiles or the filter pills.
+   * Categories that actually have products.
+   *
+   * This drives the FILTER PILLS and, through them, which products the grid below shows —
+   * a pill for an empty category would filter the homepage grid down to nothing, so those
+   * stay out of it.
+   *
+   * The category TILES are a different question and use the full list: see where
+   * `HomeCategoryGrid` is rendered.
    */
   const availableCategories = useMemo(() => {
     const slugsWithProducts = new Set(products.map((product) => product.categorySlug))
@@ -106,7 +121,15 @@ export function HomePage() {
     <div>
       <HeroCarousel slides={heroSlides} />
       <NewArrivalSection products={newArrivals} loading={loading} />
-      <HomeCategoryGrid categories={availableCategories} />
+      {/*
+        Every category, not just the ones with stock.
+
+        The tiles are navigation: adding a second category in the admin panel should bring
+        this section back immediately, which it would not do if a brand-new category had to
+        wait for its first product to count. A tile for an empty category still leads
+        somewhere useful — the Shop page shows that category's "coming soon" state.
+      */}
+      <HomeCategoryGrid categories={categories} />
       <div className="bg-white">
         <HomeCategoryFilters categories={availableCategories} active={activeCategory} onChange={setActiveCategory} />
         <HomeProductGrid products={categoryProducts} loading={loading} />

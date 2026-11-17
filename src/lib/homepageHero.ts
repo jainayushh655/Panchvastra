@@ -29,6 +29,14 @@ function normalizeHeroBgPath(raw: string | undefined): string | undefined {
   return value
 }
 
+/**
+ * Every hero slide shows the SAME two calls to action, so the pair is defined once here
+ * rather than per slide. Destinations are the ones the hero has always used for these two
+ * actions — only the primary label changed, from "Shop new" to "Shop now".
+ */
+const HERO_PRIMARY_CTA = { label: 'Shop now', to: '/shop?sort=new-arrival' }
+const HERO_SECONDARY_CTA = { label: 'Our story', to: '/about' }
+
 export function defaultHeroSlides(): HomepageHeroSlide[] {
   return [
     {
@@ -39,8 +47,8 @@ export function defaultHeroSlides(): HomepageHeroSlide[] {
       tone: 'dark',
       backgroundImage: HERO_CAMPAIGN_BG,
       sectionClassName: 'border-zinc-800 bg-[#050505]',
-      primaryCta: { label: 'Shop new', to: '/shop?sort=new-arrival' },
-      secondaryCta: { label: 'Our story', to: '/about' },
+      primaryCta: HERO_PRIMARY_CTA,
+      secondaryCta: HERO_SECONDARY_CTA,
     },
     {
       id: 'combo',
@@ -51,8 +59,8 @@ export function defaultHeroSlides(): HomepageHeroSlide[] {
       backgroundImage: HERO_CAMPAIGN_BG,
       sectionClassName:
         'border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-black',
-      primaryCta: { label: 'Shop combos', to: '/shop' },
-      secondaryCta: { label: 'T-shirts', to: '/shop?category=regular-tee' },
+      primaryCta: HERO_PRIMARY_CTA,
+      secondaryCta: HERO_SECONDARY_CTA,
     },
     {
       id: 'exhibitions',
@@ -62,8 +70,8 @@ export function defaultHeroSlides(): HomepageHeroSlide[] {
       tone: 'dark',
       backgroundImage: HERO_CAMPAIGN_BG,
       sectionClassName: 'border-zinc-800 bg-[#050505]',
-      primaryCta: { label: 'Get updates', to: '/contact' },
-      secondaryCta: { label: 'Shop all', to: '/shop' },
+      primaryCta: HERO_PRIMARY_CTA,
+      secondaryCta: HERO_SECONDARY_CTA,
     },
   ]
 }

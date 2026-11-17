@@ -1,17 +1,73 @@
+import { Fragment, useEffect, useId, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { getCategories } from '@/api/category'
+import { categoryNameToSlug } from '@/lib/categorySlug'
+import type { CategoryDto } from '@/types/api/CategoryDto'
 import { instagramPageUrl, phoneCallUrl, whatsAppPageUrl } from '@/lib/siteUrls'
 
-const shopLinks = [
-  { label: 'T-Shirts', to: '/shop?category=regular-tee' },
-  { label: 'Shorts', to: '/shop?category=shorts' },
-  { label: 'Track Pants', to: '/shop?category=track-pants' },
-  { label: 'Hoodies', to: '/shop?category=hoodies' },
-  { label: 'New Arrivals', to: '/shop?sort=new-arrival' },
-]
+/**
+ * "New Arrivals" is a SORT of the whole catalogue, not a category, so it is the one entry
+ * in this column that is legitimately fixed. Every other entry comes from the categories
+ * the admin has actually created — see `useShopLinks`.
+ */
+const NEW_ARRIVALS_LINK = { key: 'new-arrivals', label: 'New Arrivals', to: '/shop?sort=new-arrival' }
+
+/**
+ * The Shop column, built from the live category list.
+ *
+ * This used to be a hardcoded array, which drifted away from the catalogue the moment the
+ * categories changed: it advertised Shorts and Track Pants that no longer exist, and its
+ * "Hoodies" entry linked to `?category=hoodies` while the real category is named "Hoodie"
+ * and slugs to `hoodie`, so that link landed on an empty Shop page. Reading the real list
+ * is what keeps this correct as categories are added and removed, with no further edits
+ * here.
+ *
+ * Slugs are built with `categoryNameToSlug`, the same helper the homepage tiles and the
+ * Shop page's own filter use, so a footer link and a tile for the same category always
+ * agree.
+ *
+ * A failed request leaves the list empty rather than falling back to guesses: showing no
+ * category is honest, showing one that may not exist is not.
+ */
+function useShopLinks() {
+  const [categories, setCategories] = useState<CategoryDto[]>([])
+
+  useEffect(() => {
+    let active = true
+
+    getCategories()
+      .then((data) => {
+        if (active) setCategories(Array.isArray(data) ? data : [])
+      })
+      .catch(() => {
+        // Decorative navigation: the footer must never break a page it sits under.
+        if (active) setCategories([])
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  return [
+    ...categories.map((category) => {
+      const slug = categoryNameToSlug(category.name)
+      return { key: slug, label: category.name, to: `/shop?category=${slug}` }
+    }),
+    NEW_ARRIVALS_LINK,
+  ]
+}
 
 const companyLinks = [
   { label: 'About Us', to: '/about' },
-  { label: 'Contact', to: '/contact' },
+  { label: 'Help Desk', to: '/help-desk' },
+]
+
+const legalLinks = [
+  { label: 'Refund Policy', to: '/policies/refund-policy' },
+  { label: 'Privacy Policy', to: '/policies/privacy-policy' },
+  { label: 'Terms of Service', to: '/policies/terms-of-service' },
 ]
 
 function IconInstagram({ className }: { className?: string }) {
@@ -45,12 +101,65 @@ function IconPhone({ className }: { className?: string }) {
   )
 }
 
+function IconChevronDown({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 9l6 6 6-6" />
+    </svg>
+  )
+}
+
 const socialLinks = [
   { label: 'Instagram', href: instagramPageUrl, Icon: IconInstagram },
   { label: 'WhatsApp', href: whatsAppPageUrl, Icon: IconWhatsApp },
 ] as const
 
+const linkClass =
+  'inline-flex items-center transition-colors hover:text-white max-sm:min-h-[32px]'
+
+/**
+ * One footer link column.
+ *
+ * Below `sm` it is a collapsible section — a real button with `aria-expanded`, a chevron,
+ * and a hairline rule above it — so a phone shows a short, tappable list of headings
+ * instead of three cramped columns. From `sm` up the list is always open and the heading is
+ * a plain static label, which keeps the desktop four-column layout exactly as it was.
+ */
+function FooterLinkGroup({ title, children }: { title: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const panelId = useId()
+
+  return (
+    <div className="border-t border-zinc-800 py-4 sm:border-t-0 sm:py-0">
+      {/* Mobile: the heading is the accordion toggle. */}
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="flex w-full items-center justify-between gap-4 py-1 text-left sm:hidden"
+      >
+        <span className="text-xs font-bold uppercase tracking-[0.22em] text-white">{title}</span>
+        <IconChevronDown
+          className={`size-4 shrink-0 text-zinc-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {/* Desktop: a plain heading, never interactive. */}
+      <p className="hidden text-xs font-bold uppercase tracking-[0.22em] text-white sm:block">{title}</p>
+
+      <ul
+        id={panelId}
+        className={`space-y-2.5 text-sm text-zinc-400 ${open ? 'mt-3 block' : 'hidden'} sm:mt-5 sm:block`}
+      >
+        {children}
+      </ul>
+    </div>
+  )
+}
+
 export function Footer() {
+  const shopLinks = useShopLinks()
   const wa = whatsAppPageUrl()
   const ig = instagramPageUrl()
   const tel = phoneCallUrl()
@@ -58,9 +167,15 @@ export function Footer() {
   return (
     <footer className="mt-auto border-t border-zinc-800 bg-black px-4 py-10 text-white">
       <div className="mx-auto max-w-6xl">
-        <div className="grid grid-cols-3 gap-x-6 gap-y-9 sm:grid-cols-4 lg:grid-cols-4">
+        {/*
+          Four equal columns inside the site's standard centred container, so the group
+          reads as one balanced block rather than the brand taking all the slack and
+          pushing Shop/Company/Support together on the right. Below `sm` everything stacks
+          into one column and the link groups stay accordions — mobile is unchanged.
+        */}
+        <div className="grid grid-cols-1 gap-y-0 sm:grid-cols-4 sm:gap-x-8 sm:gap-y-9 lg:gap-x-10">
           {/* BRAND */}
-          <div className="col-span-3 sm:col-span-1">
+          <div className="pb-6 sm:pb-0">
             <p className="font-display text-lg font-bold uppercase tracking-[0.18em] text-white">Panchvastra</p>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-zinc-400">
               Modular streetwear built for the feed and for everyday rotation.
@@ -88,65 +203,78 @@ export function Footer() {
             </div>
           </div>
 
-          {/* SHOP */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-white">Shop</p>
-            <ul className="mt-5 space-y-2.5 text-sm text-zinc-400">
-              {shopLinks.map((l) => (
-                <li key={l.label}>
-                  <Link to={l.to} className="inline-flex items-center transition-colors hover:text-white max-sm:min-h-[32px]">
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* COMPANY */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-white">Company</p>
-            <ul className="mt-5 space-y-2.5 text-sm text-zinc-400">
-              {companyLinks.map((l) => (
-                <li key={l.label}>
-                  <Link to={l.to} className="inline-flex items-center transition-colors hover:text-white max-sm:min-h-[32px]">
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* SUPPORT */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-white">Support</p>
-            <ul className="mt-5 space-y-2.5 text-sm text-zinc-400">
-              <li>
-                <Link to="/orders" className="inline-flex items-center transition-colors hover:text-white max-sm:min-h-[32px]">
-                  Track Order
+          <FooterLinkGroup title="Shop">
+            {shopLinks.map((l) => (
+              <li key={l.key}>
+                <Link to={l.to} className={linkClass}>
+                  {l.label}
                 </Link>
               </li>
-              <li>
-                <a href={wa} target="_blank" rel="noopener noreferrer" className="inline-flex items-center transition-colors hover:text-white max-sm:min-h-[32px]">
-                  WhatsApp
-                </a>
-              </li>
-              <li>
-                <a href={ig} target="_blank" rel="noopener noreferrer" className="inline-flex items-center transition-colors hover:text-white max-sm:min-h-[32px]">
-                  Instagram
-                </a>
-              </li>
-              <li>
-                <a href={tel} className="inline-flex items-center transition-colors hover:text-white max-sm:min-h-[32px]">
-                  Call
-                </a>
-              </li>
-            </ul>
-          </div>
+            ))}
+          </FooterLinkGroup>
 
+          <FooterLinkGroup title="Company">
+            {companyLinks.map((l) => (
+              <li key={l.label}>
+                <Link to={l.to} className={linkClass}>
+                  {l.label}
+                </Link>
+              </li>
+            ))}
+          </FooterLinkGroup>
+
+          <FooterLinkGroup title="Support">
+            <li>
+              <Link to="/orders" className={linkClass}>
+                Track Order
+              </Link>
+            </li>
+            <li>
+              <a href={wa} target="_blank" rel="noopener noreferrer" className={linkClass}>
+                WhatsApp
+              </a>
+            </li>
+            <li>
+              <a href={ig} target="_blank" rel="noopener noreferrer" className={linkClass}>
+                Instagram
+              </a>
+            </li>
+            <li>
+              <a href={tel} className={linkClass}>
+                Call
+              </a>
+            </li>
+          </FooterLinkGroup>
         </div>
 
-        <div className="mt-9 border-t border-zinc-800 pt-5">
-          <p className="text-center text-[11px] text-zinc-500">© {new Date().getFullYear()} PANCHVASTRA</p>
+        {/*
+          Legal row and copyright share one block under a single hairline, with thin pipe
+          separators between the links. Client-side `Link`s, so these navigate without a
+          full reload.
+        */}
+        <div className="mt-8 border-t border-zinc-800 pt-6">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+            {legalLinks.map((l, index) => (
+              <Fragment key={l.label}>
+                {index > 0 ? (
+                  <span className="text-zinc-700" aria-hidden>
+                    |
+                  </span>
+                ) : null}
+                <Link
+                  to={l.to}
+                  className="inline-flex items-center text-xs text-zinc-400 transition-colors hover:text-white max-sm:min-h-[32px]"
+                >
+                  {l.label}
+                </Link>
+              </Fragment>
+            ))}
+          </div>
+
+          {/* Year stays dynamic — the footer has always rendered it this way. */}
+          <p className="mt-4 text-center text-[11px] text-zinc-500">
+            © {new Date().getFullYear()} PANCHVASTRA. All Rights Reserved
+          </p>
         </div>
       </div>
     </footer>

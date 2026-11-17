@@ -1,10 +1,11 @@
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { registerUser } from '@/api/auth'
-import { AuthCarousel } from '@/components/AuthCarousel'
+import { AuthPoster } from '@/components/auth/AuthPoster'
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
-import { OtpVerificationModal } from '@/components/auth/OtpVerificationModal'
+import { GOOGLE_BUTTON_MAX_WIDTH, GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
+import { OtpVerifyStep } from '@/components/auth/OtpVerifyStep'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthProvider'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -13,7 +14,28 @@ import { validateEmail, validateName } from '@/lib/formValidation'
 export function SignupPage() {
   useDocumentTitle('Sign up')
   const navigate = useNavigate()
-  const { verifyOtpAndLogin } = useAuth()
+  const { verifyOtpAndLogin, loginWithGoogleCredential } = useAuth()
+  const [googleError, setGoogleError] = useState('')
+
+  /**
+   * A signup via Google is just an authentication result: the backend has already created
+   * or matched the account, so this goes straight home like any other successful sign-in.
+   * A new Google account has no phone number, but that does not divert the customer to the
+   * profile screen — they can add one from their profile when they want to. No OTP, no
+   * second Google call, and the registration API is not involved.
+   */
+  const onGoogleCredential = useCallback(
+    async (credential: string) => {
+      setGoogleError('')
+      const result = await loginWithGoogleCredential(credential)
+      if (!result.ok) {
+        setGoogleError(result.error)
+        return
+      }
+      navigate('/', { replace: true })
+    },
+    [loginWithGoogleCredential, navigate],
+  )
 
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -21,7 +43,13 @@ export function SignupPage() {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false)
+  /**
+   * Registration is a two-step flow in one column: the details form, then the code. The
+   * second step REPLACES the first in the same panel — the same place the login screen
+   * shows it — rather than opening a modal over it.
+   */
+  const [showOtpStep, setShowOtpStep] = useState(false)
+  const [otp, setOtp] = useState('')
   const [otpError, setOtpError] = useState<string | null>(null)
   const [isOtpVerifying, setIsOtpVerifying] = useState(false)
 
@@ -73,11 +101,12 @@ export function SignupPage() {
         // }
 
       if (response.success) {
-    setOtpError(null);
-    setIsOtpModalOpen(true);
-} else {
-    setError(response.message ?? "Registration failed.");
-}  
+        setOtpError(null)
+        setOtp('')
+        setShowOtpStep(true)
+      } else {
+        setError(response.message ?? 'Registration failed.')
+      }
     } catch (error: unknown) {
       const message =
         typeof error === 'object' && error && 'response' in error
@@ -89,7 +118,14 @@ export function SignupPage() {
     }
   }
 
-  const handleOtpVerify = async (otp: string) => {
+  const handleOtpVerify = async (event: FormEvent) => {
+    event.preventDefault()
+
+    if (otp.length !== 6) {
+      setOtpError('Enter the 6-digit OTP.')
+      return
+    }
+
     setOtpError(null)
     setIsOtpVerifying(true)
 
@@ -101,17 +137,56 @@ export function SignupPage() {
       return
     }
 
-    setIsOtpModalOpen(false)
+    setShowOtpStep(false)
     navigate('/', { replace: true })
   }
 
   return (
     <AuthSplitLayout
-      eyebrow="Panchvastra"
-      headline={<>Join<br />The Label</>}
-      // Brand imagery only — the signup + OTP flow below is untouched.
-      media={<AuthCarousel slideClassName="h-full" className="h-full" showSkeleton={false} />}
+      // The brand poster stands alone: no overlaid wording, no scrim, no backend carousel.
+      // The signup + OTP flow below is untouched.
+      media={<AuthPoster />}
+      mediaOnly
     >
+      {/*
+        Capped to the Google button's own 400px ceiling so CREATE ACCOUNT, the two-column
+        field grid and the Google button all share one left and right edge. Applied here
+        rather than in AuthSplitLayout, which is shared with the admin login.
+      */}
+      <div className="w-full" style={{ maxWidth: GOOGLE_BUTTON_MAX_WIDTH }}>
+      {showOtpStep ? (
+        /*
+         * Step two, in the same column the form occupied — the registration details are
+         * kept in state behind it, so going back does not retype them.
+         *
+         * No resend is offered: the only send path here is the registration call itself,
+         * and there is no documented endpoint to re-issue the code for a pending signup.
+         * Going back and submitting again is the honest route, rather than a button that
+         * cannot do what it says.
+         */
+        <OtpVerifyStep
+          idPrefix="signup"
+          eyebrow="One more step"
+          heading="Verify Your Email"
+          message="Enter the 6-digit OTP sent to"
+          email={email}
+          otp={otp}
+          onOtpChange={(next) => {
+            setOtp(next)
+            setOtpError(null)
+          }}
+          error={otpError}
+          isVerifying={isOtpVerifying}
+          canVerify={otp.length === 6 && !isOtpVerifying}
+          onSubmit={handleOtpVerify}
+          backLabel="Back to sign up"
+          onBack={() => {
+            setShowOtpStep(false)
+            setOtp('')
+            setOtpError(null)
+          }}
+        />
+      ) : (
       <div className="pv-auth-rise">
 
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">
@@ -126,7 +201,14 @@ export function SignupPage() {
           Register once and continue with a smoother checkout flow.
         </p>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+        {/*
+          Two columns from `sm` up, one below it, so First/Last and Email/Phone pair up on a
+          desktop panel but never get squeezed on a phone. `minmax(0,1fr)` twice via
+          `grid-cols-2` keeps the columns exactly equal; the full-width rows opt out with
+          `col-span-2`. Field markup, ids, state and validation are untouched — only the
+          container they sit in changed.
+        */}
+        <form onSubmit={onSubmit} className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2" noValidate>
 
           {/* First Name */}
           <div>
@@ -217,15 +299,16 @@ export function SignupPage() {
           </div>
 
           {error && (
-            <p className="text-sm text-red-600">
+            <p className="text-sm text-red-600 sm:col-span-2">
               {error}
             </p>
           )}
 
+          {/* Spans the whole grid so its edges line up with the two-column block above. */}
           <Button
             type="submit"
             size="lg"
-            className="w-full !border-black !bg-black !text-white hover:!bg-zinc-800"
+            className="w-full !border-black !bg-black !text-white hover:!bg-zinc-800 sm:col-span-2"
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Creating...' : 'Create Account'}
@@ -243,19 +326,30 @@ export function SignupPage() {
           </Link>
         </p>
 
-      </div>
+        {/*
+          Google now closes the form rather than opening it, with the SAME single OR divider
+          moved down with it — the email registration above is the primary path and this is
+          the alternative. It is the same component and the same handler the login screen
+          uses; only its position in the page changed.
+        */}
+        <div className="mt-6">
+          <div className="flex items-center gap-3" aria-hidden>
+            <span className="h-px flex-1 bg-zinc-200" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-400">or</span>
+            <span className="h-px flex-1 bg-zinc-200" />
+          </div>
 
-      <OtpVerificationModal
-        isOpen={isOtpModalOpen}
-        email={email}
-        title="Verify Your Email"
-        message="Enter the 6-digit OTP sent to your email."
-        error={otpError}
-        isVerifying={isOtpVerifying}
-        submitLabel="Verify OTP"
-        onVerify={handleOtpVerify}
-        onCancel={() => setIsOtpModalOpen(false)}
-      />
+          <div className="mt-5">
+            <GoogleSignInButton onCredential={onGoogleCredential} text="signup_with" />
+            <p aria-live="polite" className="min-h-0">
+              {googleError ? <span className="mt-3 block text-sm text-red-600">{googleError}</span> : null}
+            </p>
+          </div>
+        </div>
+
+      </div>
+      )}
+      </div>
     </AuthSplitLayout>
   )
 }

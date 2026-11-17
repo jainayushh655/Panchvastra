@@ -7,7 +7,21 @@ export interface ProductDetailDto {
   is_featured: boolean;
   is_new_arrival: boolean;
   created_at: string;
-  key_highlights: string;
+  /**
+   * `{ label, value }[]` per the current contract. Typed as `unknown` because a legacy
+   * product may still read back in the old string form; every consumer goes through
+   * `readKeyHighlights` rather than trusting the shape.
+   */
+  key_highlights: unknown;
+
+  /**
+   * Curated position in the catalogue, 1-based.
+   *
+   * Optional: a product saved before the backend added the field, or one the admin never
+   * ordered, simply has none. A missing value is NOT treated as 0 — the admin form leaves
+   * its input blank and omits the key on save, which preserves whatever the backend holds.
+   */
+  display_order?: number | null;
 
   category: {
     id: number;
@@ -48,6 +62,13 @@ export interface VariantDto {
   cost_price: number | null;
 
   is_default: boolean;
+
+  /**
+   * Curated position among this product's variants, 1-based. The detail response already
+   * returns `variants` sorted by it, so nothing re-sorts client-side. Optional, never
+   * assumed to be 0.
+   */
+  display_order?: number | null;
 
   discount_amount: number;
 

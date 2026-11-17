@@ -38,6 +38,8 @@ function mapCartItem(item: CartItemDto): CartItem {
     quantity: item.quantity,
     size: item.size,
     color: item.color,
+    availableStock: item.available_stock,
+    isInStock: item.is_in_stock,
   }
 }
 

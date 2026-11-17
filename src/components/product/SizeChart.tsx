@@ -1,27 +1,22 @@
 import { useEffect } from 'react'
+import type { SizeChart as SizeChartData } from '@/lib/sizeChart'
 
 /**
- * Generic apparel measurements — no per-product size-chart data exists in the API yet.
- * Rows are filtered to the sizes this product actually offers, so at least the
- * available-sizes list itself is real; only the measurement numbers are illustrative
- * until the backend exposes per-product measurements (structure is ready for that swap).
+ * Size-chart modal.
+ *
+ * The measurements are now the real artwork supplied per category rather than the previous
+ * hardcoded generic table, so this component no longer owns any sizing data — which chart
+ * to show is decided once by `getSizeChart()` and passed in. Modal chrome (backdrop click,
+ * Escape to close, header, close button) is unchanged.
  */
-const GENERIC_SIZE_CHART = [
-  { size: 'S', chest: '36', length: '27', shoulder: '17' },
-  { size: 'M', chest: '38', length: '28', shoulder: '18' },
-  { size: 'L', chest: '40', length: '29', shoulder: '19' },
-  { size: 'XL', chest: '42', length: '30', shoulder: '20' },
-  { size: 'XXL', chest: '44', length: '31', shoulder: '21' },
-  { size: 'XXXL', chest: '46', length: '32', shoulder: '22' },
-]
-
 type SizeChartProps = {
   isOpen: boolean
   onClose: () => void
-  sizes: string[]
+  /** The resolved chart. The caller does not render this modal at all when it is null. */
+  chart: SizeChartData
 }
 
-export function SizeChart({ isOpen, onClose, sizes }: SizeChartProps) {
+export function SizeChart({ isOpen, onClose, chart }: SizeChartProps) {
   useEffect(() => {
     if (!isOpen) return
     const onKey = (e: KeyboardEvent) => {
@@ -33,8 +28,6 @@ export function SizeChart({ isOpen, onClose, sizes }: SizeChartProps) {
 
   if (!isOpen) return null
 
-  const rows = sizes.length ? GENERIC_SIZE_CHART.filter((r) => sizes.includes(r.size)) : GENERIC_SIZE_CHART
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6"
@@ -45,7 +38,11 @@ export function SizeChart({ isOpen, onClose, sizes }: SizeChartProps) {
         aria-modal="true"
         aria-label="Size chart"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg border border-zinc-200 bg-white p-6 shadow-[0_30px_60px_-36px_rgba(0,0,0,0.3)]"
+        /*
+         * `max-h` + `flex-col` let the header stay put while only the artwork scrolls, so a
+         * tall chart is reachable on a short screen without the dialog leaving the viewport.
+         */
+        className="flex max-h-[90vh] w-full max-w-lg flex-col border border-zinc-200 bg-white p-6 shadow-[0_30px_60px_-36px_rgba(0,0,0,0.3)]"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -62,30 +59,25 @@ export function SizeChart({ isOpen, onClose, sizes }: SizeChartProps) {
           </button>
         </div>
 
-        <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[380px] border-collapse text-left text-sm">
-            <thead>
-              <tr className="border-b border-zinc-300">
-                <th className="py-2.5 pr-3 font-semibold uppercase tracking-wide text-black">Size</th>
-                <th className="py-2.5 pr-3 font-semibold uppercase tracking-wide text-black">Chest (in)</th>
-                <th className="py-2.5 pr-3 font-semibold uppercase tracking-wide text-black">Length (in)</th>
-                <th className="py-2.5 font-semibold uppercase tracking-wide text-black">Shoulder (in)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.size} className="border-b border-zinc-100">
-                  <td className="py-2.5 pr-3 font-semibold text-black">{row.size}</td>
-                  <td className="py-2.5 pr-3 text-zinc-600">{row.chest}</td>
-                  <td className="py-2.5 pr-3 text-zinc-600">{row.length}</td>
-                  <td className="py-2.5 text-zinc-600">{row.shoulder}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/*
+          `min-h-0` lets this flex child actually shrink so its own scrollbar appears
+          instead of the dialog growing past `max-h`.
+        */}
+        <div className="mt-5 min-h-0 flex-1 overflow-auto">
+          {/*
+            `w-full h-auto` scales the artwork to the dialog width and lets the height
+            follow, so the ratio is preserved exactly — nothing is cropped or stretched.
+          */}
+          <img
+            src={chart.src}
+            alt={chart.alt}
+            className="block h-auto w-full"
+            loading="lazy"
+            decoding="async"
+          />
         </div>
 
-        <p className="mt-4 text-xs text-zinc-500">
+        <p className="mt-4 shrink-0 text-xs text-zinc-500">
           Measurements are approximate and may vary by ±0.5 inch. All values in inches.
         </p>
       </div>

@@ -11,6 +11,8 @@
  * Note the decimal fields are DECIMAL STRINGS in the contract, not numbers.
  */
 
+import type { KeyHighlight } from '@/lib/keyHighlights'
+
 /** One size row inside a variant. `id` is present only for rows that already exist. */
 export interface ProductVariantSizeWriteDto {
   id?: number | null
@@ -30,6 +32,18 @@ export interface ProductVariantWriteDto {
   cost_price?: string | null
   is_default?: boolean
   is_active?: boolean
+  /**
+   * 1-based position of this variant among the product's variants.
+   *
+   * Optional in the contract — omitting it leaves a saved variant where it is and appends
+   * a new one — but the admin form always sends it, computed from the variant's index in
+   * the list being submitted. That guarantees a contiguous 1..N with no duplicates rather
+   * than relying on backend inference.
+   *
+   * Entirely separate from image ordering, which travels in `variant_image_orders` and the
+   * positional `variant_<index>_image_orders` fields.
+   */
+  display_order?: number
   sizes: ProductVariantSizeWriteDto[]
 }
 
@@ -44,7 +58,20 @@ export interface ProductCreateDto {
   is_featured?: boolean
   is_new_arrival?: boolean
   is_active?: boolean
-  key_highlights?: unknown
+  /**
+   * Curated position in the catalogue — a positive integer.
+   *
+   * OMITTED, never nulled, when the admin leaves the field blank: per the contract an
+   * absent key leaves the stored order untouched, whereas `null`/`0`/`""` would overwrite
+   * it. Lives inside the `data` JSON alongside the other product fields, so the multipart
+   * image-upload behaviour is unchanged.
+   */
+  display_order?: number
+  /**
+   * Sent as a real array inside the `data` JSON — never as a JSON string and never as a
+   * separate multipart field. `[]` is meaningful: it clears the product's highlights.
+   */
+  key_highlights?: KeyHighlight[]
   tags?: number[]
   variants?: ProductVariantWriteDto[]
 }
@@ -65,6 +92,15 @@ export interface ProductUpdateDto extends ProductCreateDto {
    * actually removed — omitting it leaves every existing image untouched.
    */
   delete_variant_image_ids?: number[]
+  /**
+   * New 1-based `display_order` for EXISTING saved images, addressed by their own
+   * `ProductVariantImage.id`. Ordering is per variant, and the id says which variant an
+   * entry belongs to, so this is one flat list across the product.
+   *
+   * Sent inside the `data` JSON (never as a separate multipart field). Newly uploaded
+   * files carry their positions in the separate `variant_<index>_image_orders` fields.
+   */
+  variant_image_orders?: { id: number; display_order: number }[]
 }
 
 /** Query parameters accepted by GET /v1/products_management/, per the published schema. */

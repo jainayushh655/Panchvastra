@@ -120,6 +120,9 @@ function toCategoryFormData(payload: CategoryWritePayload): FormData {
   if (payload.name !== undefined) formData.append("name", payload.name.trim());
   if (payload.description !== undefined) formData.append("description", payload.description.trim());
   if (payload.is_active !== undefined) formData.append("is_active", String(payload.is_active));
+  // Multipart carries no types, so this is serialised the same way `id` already is — the
+  // caller supplies a real number and the backend's IntegerField coerces the wire value.
+  if (payload.display_order !== undefined) formData.append("display_order", String(payload.display_order));
   if (payload.image) formData.append("image", payload.image);
 
   return formData;

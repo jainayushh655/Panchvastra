@@ -6,7 +6,10 @@ import { ProductDetailAccordions } from '@/components/product/ProductDetailAccor
 import { ProductImageGallery } from '@/components/product/ProductImageGallery'
 import { ProductVariantPicker } from '@/components/product/ProductVariantPicker'
 import { SizeChart } from '@/components/product/SizeChart'
+import { getSizeChartForProduct } from '@/lib/sizeChart'
+import { readKeyHighlights } from '@/lib/keyHighlights'
 import { useCart } from '@/context/CartProvider'
+import { useToast } from '@/context/ToastProvider'
 import { useWishlist, type WishlistItem } from '@/context/WishlistProvider'
 import { getProductById } from '@/api/product'
 import { mapProductDetail, } from '@/mappers/productDetailMapper'
@@ -32,6 +35,13 @@ const UI_SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'] as const
 function isSizeAvailable(sz: { in_stock: boolean; stock_quantity: number }): boolean {
   return sz.in_stock !== false && sz.stock_quantity > 0
 }
+
+/**
+ * At or below this many units left, the selected size shows a red "N left" warning.
+ * Above it nothing is shown — a running count on every size reads as inventory data
+ * rather than scarcity, and stops meaning anything when it matters.
+ */
+const LOW_STOCK_THRESHOLD = 3
 
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
@@ -92,6 +102,7 @@ export function ProductDetailPage() {
   const location = useLocation();
   const { isAuthenticated } = useAuth();
   const { refreshCart } = useCart();
+  const { showToast } = useToast();
   const { isWishlisted, toggleWishlist } = useWishlist();
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -105,8 +116,8 @@ export function ProductDetailPage() {
 
   const [quantity, setQuantity] = useState(1);
 
-  const [showCartPopup, setShowCartPopup] =
-    useState(false);
+  /** True only while the add-to-cart request for the CURRENT selection is in flight. */
+  const [adding, setAdding] = useState(false);
 
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
 
@@ -191,44 +202,71 @@ export function ProductDetailPage() {
   );
   useDocumentTitle(product?.name ?? 'Product')
 
-  // Keep quantity within the real stock available for whichever size is selected.
+  /*
+   * Whether THIS visit has just added this size to the cart.
+   *
+   * Deliberately a transient local flag rather than a lookup against the cart contents.
+   * The button is a step in a flow — add, then go to the cart — so it has to reset once
+   * the shopper comes back, even though the item is of course still in their cart. Leaving
+   * the route unmounts this page, so returning from the cart naturally starts over at
+   * "Add to cart"; nothing has to watch for the navigation.
+   */
+  const [justAdded, setJustAdded] = useState(false);
+
+  // A different size (or colour — the id covers both) is a different line, so it is offered
+  // fresh. Quantity restarts at 1 for the same reason.
   useEffect(() => {
     setQuantity(1);
+    setJustAdded(false);
   }, [selectedVariantSizeId]);
 
-  const canAdd =
-    Boolean(product) &&
-    Boolean(selectedVariantSizeId);
+  const canAdd = Boolean(product) && Boolean(selectedVariantSizeId) && !adding;
 
-  const add = async () => {
-  if (!product || !selectedVariantSizeId) return;
-
-  if (!isAuthenticated) {
-    navigate('/login', { replace: false, state: { from: `${location.pathname}${location.search}` } })
-    return
-  }
-
-  try {
-    await addToCart(selectedVariantSizeId, quantity);
-    await refreshCart();
-  } catch (error) {
-    console.error("Failed to add product to cart", error);
-  }
-};
+  /** Units left for the selected size, but only while that count is 3, 2 or 1. */
+  const lowStockRemaining =
+    selectedVariantSize &&
+    selectedVariantSize.in_stock &&
+    selectedVariantSize.stock_quantity > 0 &&
+    selectedVariantSize.stock_quantity <= LOW_STOCK_THRESHOLD
+      ? selectedVariantSize.stock_quantity
+      : null;
 
   const handleAddToCart = async () => {
-  await add();
+    if (!product || !selectedVariantSizeId || adding) return;
 
-  if (!isAuthenticated) {
-    return
-  }
+    if (!isAuthenticated) {
+      navigate('/login', { replace: false, state: { from: `${location.pathname}${location.search}` } })
+      return
+    }
 
-  setShowCartPopup(true);
+    setAdding(true);
+    try {
+      /*
+       * Re-adding the same size is intentional and additive: the backend documents this
+       * POST as "Adds a specific variant size product to the user's cart. If it already
+       * exists, increments quantity." So a second add raises the line's quantity and the
+       * cart badge rather than erroring or overwriting — no client-side merging needed.
+       */
+      await addToCart(selectedVariantSizeId, quantity);
+      await refreshCart();
+      setJustAdded(true);
+      showToast('Added to cart', { description: 'Product added successfully' });
+    } catch (error) {
+      console.error("Failed to add product to cart", error);
+      showToast('Could not add to cart', { variant: 'warning', description: 'Please try again.' });
+    } finally {
+      setAdding(false);
+    }
+  };
 
-  setTimeout(() => {
-    setShowCartPopup(false);
-  }, 2500);
-};
+  /** One control, two steps: add the item, then take the shopper to the cart. */
+  const handlePrimaryAction = () => {
+    if (justAdded) {
+      navigate('/cart');
+      return;
+    }
+    void handleAddToCart();
+  };
 
   const handleWishlistToggle = () => {
     if (!product) return;
@@ -291,6 +329,18 @@ export function ProductDetailPage() {
   const maxQty = selectedVariantSize ? Math.max(1, Math.min(selectedVariantSize.stock_quantity, 10)) : 1;
   const subtitle = [productDto?.category?.name, productDto?.sub_category?.name].filter(Boolean).join(' · ');
 
+  /*
+   * Which size chart this product gets, from the catalog relationship the admin maintains.
+   * `sub_category_name` is the flat mirror the detail response also carries, used only when
+   * the nested object is absent. Null means no chart is configured for this pairing, and
+   * the Size Chart control is then not rendered at all rather than showing a wrong one.
+   */
+  const sizeChart = getSizeChartForProduct(
+    productDto?.category?.name,
+    productDto?.sub_category?.name ?? productDto?.sub_category_name,
+    readKeyHighlights(productDto?.key_highlights),
+  );
+
   // Only the sizes this variant is actually configured with are rendered, in the standard
   // run's order. Sizes the API does not return are simply not offered; a configured size
   // with zero stock is still shown, marked unavailable.
@@ -325,7 +375,14 @@ export function ProductDetailPage() {
           />
         </div>
 
-        <div className="flex max-w-xl flex-col gap-7 lg:max-w-none lg:gap-8">
+        {/*
+          `min-w-0` because this is a grid item, and a grid item's default `min-width: auto`
+          lets its widest content set its size. The colour row's intrinsic width was doing
+          exactly that — stretching this column to `max-w-xl` on a 390px phone and pushing
+          the page sideways. With the floor at 0 the column follows the viewport and the
+          colour row's own `overflow-x-auto` finally has somewhere to scroll.
+        */}
+        <div className="flex min-w-0 max-w-xl flex-col gap-7 lg:max-w-none lg:gap-8">
           <div>
             <h1 className="type-product-detail-title">{product.name}</h1>
             {subtitle ? <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">{subtitle}</p> : null}
@@ -376,13 +433,16 @@ export function ProductDetailPage() {
           <div>
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
               <p className="font-sans text-sm font-semibold text-zinc-900 dark:text-white">Select Size</p>
-              <button
-                type="button"
-                onClick={() => setSizeChartOpen(true)}
-                className="inline-flex min-h-[32px] items-center font-sans text-xs font-semibold uppercase tracking-wide text-zinc-600 underline underline-offset-2 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white"
-              >
-                Size Chart
-              </button>
+              {/* Hidden entirely when this category/subcategory has no configured chart. */}
+              {sizeChart ? (
+                <button
+                  type="button"
+                  onClick={() => setSizeChartOpen(true)}
+                  className="inline-flex min-h-[32px] items-center font-sans text-xs font-semibold uppercase tracking-wide text-zinc-600 underline underline-offset-2 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white"
+                >
+                  Size Chart
+                </button>
+              ) : null}
             </div>
             <div className="mt-4 flex flex-wrap gap-3">
               {uiSizes.map((sz) => (
@@ -417,9 +477,15 @@ export function ProductDetailPage() {
                 </button>
               ))}
             </div>
-            {selectedVariantSize && selectedVariantSize.in_stock && selectedVariantSize.stock_quantity > 0 && selectedVariantSize.stock_quantity <= 10 ? (
-              <p className="mt-3 font-sans text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400">
-                {selectedVariantSize.stock_quantity} left
+            {/*
+              Low-stock warning for the SELECTED size only, and only once it is genuinely
+              scarce — 3, 2 or 1 remaining. Below that bar it is urgency the shopper can
+              act on; above it ("8 left") it is just inventory noise on every size. Red,
+              because it is a warning rather than a spec.
+            */}
+            {lowStockRemaining !== null ? (
+              <p className="mt-3 font-sans text-xs font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">
+                {lowStockRemaining} left
               </p>
             ) : null}
             {/* Shown only when there is a size the user can actually subscribe to, so the
@@ -451,7 +517,7 @@ export function ProductDetailPage() {
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  disabled={quantity <= 1}
+                  disabled={quantity <= 1 || justAdded}
                   aria-label="Decrease quantity"
                   className="flex size-9 items-center justify-center text-lg font-semibold text-black transition disabled:opacity-30 sm:size-8 dark:text-white"
                 >
@@ -461,7 +527,7 @@ export function ProductDetailPage() {
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
-                  disabled={quantity >= maxQty}
+                  disabled={quantity >= maxQty || justAdded}
                   aria-label="Increase quantity"
                   className="flex size-9 items-center justify-center text-lg font-semibold text-black transition disabled:opacity-30 sm:size-8 dark:text-white"
                 >
@@ -475,11 +541,14 @@ export function ProductDetailPage() {
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={handleAddToCart}
+                onClick={handlePrimaryAction}
+                // Stays ENABLED after a successful add — it becomes the route to the cart
+                // rather than a dead "Added to cart" label.
                 disabled={!canAdd}
+                aria-busy={adding}
                 className="type-btn flex-1 rounded-xl bg-black px-6 py-4 text-sm text-white transition hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-black"
               >
-                ADD TO CART
+                {adding ? 'ADDING…' : justAdded ? 'GO TO CART' : 'ADD TO CART'}
               </button>
               <button
                 type="button"
@@ -552,11 +621,13 @@ export function ProductDetailPage() {
         </div>
       </div>
 
-      <SizeChart
-        isOpen={sizeChartOpen}
-        onClose={() => setSizeChartOpen(false)}
-        sizes={[...UI_SIZE_OPTIONS]}
-      />
+      {sizeChart ? (
+        <SizeChart
+          isOpen={sizeChartOpen}
+          onClose={() => setSizeChartOpen(false)}
+          chart={sizeChart}
+        />
+      ) : null}
 
       <NotifyMeModal
         isOpen={notifyMeOpen}
@@ -564,27 +635,6 @@ export function ProductDetailPage() {
         preselectedSize={notifyMePreselect}
         onClose={() => setNotifyMeOpen(false)}
       />
-
-      {showCartPopup ? (
-        <div
-          className="fixed top-24 right-6 z-[9999] animate-in slide-in-from-top duration-300"
-          role="status"
-          aria-live="polite"
-        >
-          <div className="flex items-center gap-3 rounded-2xl bg-black px-5 py-4 text-white shadow-2xl">
-            <div
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white font-sans text-sm font-bold text-black"
-              aria-hidden
-            >
-              ✓
-            </div>
-            <div>
-              <p className="font-sans text-sm font-semibold">Added to cart</p>
-              <p className="font-sans text-xs text-zinc-300">Product added successfully</p>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   )
 }

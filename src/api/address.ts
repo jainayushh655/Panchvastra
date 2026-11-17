@@ -50,11 +50,26 @@ export function readAddressApiError(error: unknown, fallback: string): string {
   if (!response) return 'Unable to connect to the server. Check your connection and try again.'
 
   const status = response.status
-  if (status === 401 || status === 403) return 'Your session has expired. Please sign in again.'
-  if (status === 404) return 'That address could not be found. It may already have been removed.'
+  // 5xx bodies can carry raw DB/exception text — never surface it.
   if (status && status >= 500) return 'The server is temporarily unavailable. Please try again shortly.'
 
-  return readAddressApiMessage(response.data?.message, fallback)
+  /*
+   * The backend's own `message` wins for any 4xx.
+   *
+   * This file's canned lines used to take priority, which meant a 404 always rendered as
+   * "That address could not be found" no matter what the server actually said — the real
+   * reason was fetched and then thrown away. This backend writes `message` for end users
+   * (the same convention the order and coupon services rely on), so showing it tells the
+   * customer, and anyone debugging, what genuinely went wrong. The generic lines below
+   * remain as fallbacks for a response that carries no message.
+   */
+  const message = readAddressApiMessage(response.data?.message, '')
+  if (message) return message
+
+  if (status === 401 || status === 403) return 'Your session has expired. Please sign in again.'
+  if (status === 404) return 'That address could not be found. It may already have been removed.'
+
+  return fallback
 }
 
 function readList(data: unknown): AddressDto[] {
