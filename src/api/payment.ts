@@ -1,10 +1,13 @@
 import api from './axios'
 import type {
+  CheckoutErrorData,
   CodOrderResponse,
   CreateCodOrderDto,
   CreatePaymentOrderDto,
   CreatePaymentOrderResponse,
+  InsufficientStockDto,
   RazorpayHandlerResponse,
+  UnavailableItemDto,
   VerifyPaymentDto,
   VerifyPaymentResponse,
 } from '@/types/api/PaymentDto'
@@ -124,6 +127,17 @@ export async function createPaymentOrder(payload: CreatePaymentOrderDto): Promis
   const code = payload.coupon_code?.trim()
   if (code) body.coupon_code = code
 
+  /*
+   * Buy Now. Both fields are OMITTED unless a `variant_size_id` is genuinely present —
+   * sending them for an ordinary cart checkout would make the backend build the order
+   * from that one item and ignore the cart. `quantity` is only meaningful alongside the
+   * id, so it is gated on the same condition rather than sent on its own.
+   */
+  if (payload.variant_size_id !== undefined) {
+    body.variant_size_id = payload.variant_size_id
+    body.quantity = Math.max(1, payload.quantity ?? 1)
+  }
+
   const response = await api.post<CreatePaymentOrderResponse>('/v1/checkout_payment/', body)
   return response.data
 }
@@ -163,6 +177,57 @@ export async function createCodOrder(payload: CreateCodOrderDto): Promise<CodOrd
   const code = payload.coupon_code?.trim()
   if (code) body.coupon_code = code
 
+  // Buy Now — same rule as `createPaymentOrder`: omitted entirely for a cart checkout.
+  if (payload.variant_size_id !== undefined) {
+    body.variant_size_id = payload.variant_size_id
+    body.quantity = Math.max(1, payload.quantity ?? 1)
+  }
+
   const response = await api.post<CodOrderResponse>('/v1/cod_order/', body)
   return response.data
+}
+
+/* ------------------------------------------------------- structured 400 bodies */
+
+/**
+ * Items the backend refused because they are no longer purchasable.
+ *
+ * Returned by BOTH checkout endpoints inside a 400 as `data.unavailable_items`. Each
+ * entry carries its `cart_item_id`, which is exactly what `DELETE /v1/cart_management/`
+ * takes — so the checkout can offer to clear the blockage instead of showing a message the
+ * shopper cannot act on.
+ *
+ * Returns an empty array for any other error, so callers can branch on `.length`.
+ */
+export function readUnavailableItems(error: unknown): UnavailableItemDto[] {
+  const data = (error as { response?: { data?: CheckoutErrorData } }).response?.data
+  return Array.isArray(data?.unavailable_items) ? data.unavailable_items : []
+}
+
+/**
+ * Items where the cart asks for more units than exist.
+ *
+ * Returned inside a 400 as `data.insufficient_stock`. There is no `cart_item_id` here, so
+ * the fix is to lower the quantity rather than remove the line — which is why this is a
+ * separate reader and a separate message rather than being folded into the one above.
+ */
+export function readInsufficientStock(error: unknown): InsufficientStockDto[] {
+  const data = (error as { response?: { data?: CheckoutErrorData } }).response?.data
+  return Array.isArray(data?.insufficient_stock) ? data.insufficient_stock : []
+}
+
+/**
+ * True when a Buy Now attempt failed because the chosen item is gone.
+ *
+ * The backend answers 400 with this exact wording. There is no structured field for it,
+ * so the message is matched — loosely, on the distinctive part, so a trailing full stop
+ * or a reworded prefix does not break the check. The caller sends the shopper back to the
+ * product page, which is the only place they can pick a different size or colour.
+ */
+export function isBuyNowUnavailable(error: unknown): boolean {
+  const response = (error as { response?: { status?: number; data?: PaymentEnvelope } }).response
+  if (response?.status !== 400) return false
+
+  const message = readMessage(response.data?.message).toLowerCase()
+  return message.includes('no longer available')
 }

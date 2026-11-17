@@ -3,12 +3,32 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { OrderProgress } from '@/components/orders/OrderProgress'
 import { EmptyOrders } from '@/components/orders/EmptyOrders'
-import { downloadOrderInvoice, getOrders, readOrderApiError } from '@/api/order'
+import { downloadOrderInvoice, getCustomerOrderDetail, getOrders, readOrderApiError } from '@/api/order'
+import { ReviewFormModal } from '@/components/reviews/ReviewFormModal'
 import { formatInr, formatOrderDate, formatOrderDateTime } from '@/lib/format'
 import { paymentMethodLabel, paymentStatusLabel, paymentStatusTone } from '@/lib/orderDisplay'
 import { useToast } from '@/context/ToastProvider'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
-import type { OrderItem, OrderPagination, OrderSummary } from '@/types/orderManagement'
+import type { OrderDetail, OrderItem, OrderPagination, OrderSummary } from '@/types/orderManagement'
+
+/**
+ * The order status that unlocks reviewing.
+ *
+ * A customer can review only what they have actually received — the backend enforces it
+ * and answers 403 otherwise, so showing the button on a shipped order would be an
+ * invitation to a dead end.
+ */
+const DELIVERED_STATUS = 'DELIVERED'
+
+/** What the review form needs to open, gathered from one order line. */
+type ReviewTargetState = {
+  mode: 'create' | 'edit'
+  orderItemId: number
+  reviewId: number | null
+  productName: string
+  size: string | null
+  color: string | null
+}
 
 const PAGE_SIZE = 10
 
@@ -60,10 +80,43 @@ function IconChevron({ className }: { className?: string }) {
   )
 }
 
-function OrderItemRow({ item }: { item: OrderItem }) {
+function OrderItemRow({
+  item,
+  canReview,
+  onReview,
+}: {
+  item: OrderItem
+  /** True only for a DELIVERED order — the backend refuses a review on anything else. */
+  canReview: boolean
+  onReview: (target: ReviewTargetState) => void
+}) {
   const meta = [item.size ? `Size ${item.size}` : null, item.color, item.quantity !== null ? `Qty ${item.quantity}` : null]
     .filter(Boolean)
     .join(' · ')
+
+  /*
+   * The review control, which is three states and not two:
+   *   - not delivered, or no usable line id  -> nothing at all
+   *   - delivered, reviewId null             -> "Write a review"
+   *   - delivered, reviewId set              -> "Edit your review"
+   * `orderItemId` is null when the response carried no line id, and a review cannot be
+   * attached without one — so the button is withheld rather than opening a form that
+   * would fail on submit.
+   */
+  const reviewAction =
+    canReview && item.orderItemId !== null
+      ? {
+          label: item.reviewId !== null ? 'Edit your review' : 'Write a review',
+          target: {
+            mode: item.reviewId !== null ? ('edit' as const) : ('create' as const),
+            orderItemId: item.orderItemId,
+            reviewId: item.reviewId,
+            productName: item.productName,
+            size: item.size,
+            color: item.color,
+          },
+        }
+      : null
 
   // Linked only when the response carried a product id — never derived from the line id,
   // so a link can never open the wrong product.
@@ -99,6 +152,23 @@ function OrderItemRow({ item }: { item: OrderItem }) {
           )
         ) : null}
         {meta ? <p className="mt-1.5 text-xs text-zinc-500">{meta}</p> : null}
+
+        {reviewAction ? (
+          <button
+            type="button"
+            onClick={() => onReview(reviewAction.target)}
+            className="mt-2 inline-flex min-h-[32px] items-center gap-1.5 font-sans text-xs font-semibold uppercase tracking-wide text-burgundy underline underline-offset-2"
+          >
+            <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+              <path
+                d="M12 3.3l2.6 5.3 5.8.85-4.2 4.1 1 5.8-5.2-2.74L6.8 19.35l1-5.8-4.2-4.1 5.8-.85L12 3.3z"
+                strokeWidth={1.5}
+                strokeLinejoin="round"
+              />
+            </svg>
+            {reviewAction.label}
+          </button>
+        ) : null}
       </div>
 
       {/* The line total is the backend's `total_amount`; the per-unit price is only shown
@@ -117,10 +187,68 @@ function OrderItemRow({ item }: { item: OrderItem }) {
 
 /* ------------------------------------------------------------------ card */
 
-function OrderCard({ order, defaultOpen }: { order: OrderSummary; defaultOpen: boolean }) {
+function OrderCard({
+  order,
+  defaultOpen,
+  onReview,
+  detailToken,
+}: {
+  order: OrderSummary
+  defaultOpen: boolean
+  onReview: (target: ReviewTargetState) => void
+  /** Bumped after a review is saved, so an open card re-reads and flips its button. */
+  detailToken: number
+}) {
   const [open, setOpen] = useState(defaultOpen)
   const [downloading, setDownloading] = useState(false)
   const { showToast } = useToast()
+
+  /**
+   * The full order, loaded only when the card is opened.
+   *
+   * `price_summary` and `items[].review_id` are detail-only fields — the list response
+   * carries neither — so they need the `?id=` read. Doing it lazily means a page of ten
+   * orders costs one request, not eleven; most shoppers open at most one card.
+   */
+  const [detail, setDetail] = useState<OrderDetail | null>(null)
+  const [detailError, setDetailError] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+
+    let active = true
+    setDetailError(false)
+
+    getCustomerOrderDetail(order.id)
+      .then((result) => {
+        if (active) setDetail(result)
+      })
+      .catch(() => {
+        // The card still renders from the list data; only the breakdown and the review
+        // buttons are missing, so this degrades rather than failing the page.
+        if (active) setDetailError(true)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [open, order.id, detailToken])
+
+  // Prefer the detail's items (they carry `review_id`), falling back to the list's.
+  const items = detail?.items?.length ? detail.items : order.items
+  const priceSummary = detail?.priceSummary ?? null
+  // `status` is the raw backend value and the only one safe to branch on; `statusLabel`
+  // is display text and could be reworded at any time.
+  const isDelivered = (detail?.status ?? order.status)?.toUpperCase() === DELIVERED_STATUS
+
+  /*
+   * `discount_amount` is the COMBINED saving, so the coupon part is whatever is left after
+   * the quantity offer. There is no separate coupon field — this subtraction is the only
+   * way to split them, and it is clamped at zero so a rounding difference can never render
+   * a negative "coupon" line.
+   */
+  const quantityDiscount = priceSummary?.quantityDiscountAmount ?? 0
+  const couponDiscount = Math.max(0, (priceSummary?.discountAmount ?? 0) - quantityDiscount)
 
   const placed = formatOrderDateTime(order.orderedAt)
 
@@ -206,12 +334,60 @@ function OrderCard({ order, defaultOpen }: { order: OrderSummary; defaultOpen: b
             </div>
           ) : null}
 
-          {order.items.length > 0 ? (
+          {items.length > 0 ? (
             <ul className="divide-y divide-zinc-100">
-              {order.items.map((item) => (
-                <OrderItemRow key={item.key} item={item} />
+              {items.map((item) => (
+                <OrderItemRow key={item.key} item={item} canReview={isDelivered} onReview={onReview} />
               ))}
             </ul>
+          ) : null}
+
+          {/*
+            The money breakdown, from the detail read. Each line is hidden when it is zero,
+            so an order with no coupon does not show "Coupon −₹0" and an order with no
+            quantity offer does not advertise one that never applied.
+          */}
+          {priceSummary ? (
+            <dl className="space-y-2 border-t border-zinc-100 px-4 py-4 text-sm sm:px-5">
+              {priceSummary.subtotal !== null ? (
+                <div className="flex justify-between text-zinc-600">
+                  <dt>Subtotal</dt>
+                  <dd className="tabular-nums">{formatInr(priceSummary.subtotal)}</dd>
+                </div>
+              ) : null}
+
+              {quantityDiscount > 0 ? (
+                <div className="flex justify-between text-burgundy">
+                  <dt>Quantity offer</dt>
+                  <dd className="tabular-nums">-{formatInr(quantityDiscount)}</dd>
+                </div>
+              ) : null}
+
+              {couponDiscount > 0 ? (
+                <div className="flex justify-between text-burgundy">
+                  <dt>Coupon</dt>
+                  <dd className="tabular-nums">-{formatInr(couponDiscount)}</dd>
+                </div>
+              ) : null}
+
+              {priceSummary.shippingAmount !== null && priceSummary.shippingAmount > 0 ? (
+                <div className="flex justify-between text-zinc-600">
+                  <dt>Shipping</dt>
+                  <dd className="tabular-nums">{formatInr(priceSummary.shippingAmount)}</dd>
+                </div>
+              ) : null}
+
+              {priceSummary.grandTotal !== null ? (
+                <div className="flex justify-between border-t border-zinc-200 pt-2 font-bold text-black">
+                  <dt>Total</dt>
+                  <dd className="tabular-nums">{formatInr(priceSummary.grandTotal)}</dd>
+                </div>
+              ) : null}
+            </dl>
+          ) : detailError ? (
+            <p className="border-t border-zinc-100 px-4 py-3 text-xs text-zinc-500 sm:px-5">
+              The full breakdown could not be loaded.
+            </p>
           ) : null}
 
           <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 bg-soft-beige px-4 py-3.5 sm:px-5">
@@ -252,6 +428,16 @@ export function OrdersPage() {
 
   const [tab, setTab] = useState<TabKey>('all')
   const [page, setPage] = useState(1)
+
+  /** The order line whose review form is open, or null. */
+  const [reviewTarget, setReviewTarget] = useState<ReviewTargetState | null>(null)
+  /**
+   * Bumped after a review is saved so every OPEN card re-reads its detail.
+   *
+   * Needed because the thing that changes is `items[].review_id` — the button has to flip
+   * from "Write a review" to "Edit your review", and only the detail read knows that.
+   */
+  const [detailToken, setDetailToken] = useState(0)
 
   /** Guards against a slow earlier fetch overwriting a newer one. */
   const requestId = useRef(0)
@@ -375,7 +561,13 @@ export function OrdersPage() {
                 // The most recent order opens by default; the rest stay collapsed. Order
                 // is the server's own — re-sorting a single page of a paginated list
                 // would reorder within the page only, which is worse than not sorting.
-                <OrderCard key={order.id || order.orderNumber} order={order} defaultOpen={index === 0} />
+                <OrderCard
+                  key={order.id || order.orderNumber}
+                  order={order}
+                  defaultOpen={index === 0}
+                  onReview={setReviewTarget}
+                  detailToken={detailToken}
+                />
               ))}
             </div>
 
@@ -409,6 +601,29 @@ export function OrdersPage() {
         )}
       </div>
       )}
+
+      {/*
+        One modal for the whole page rather than one per card. It is the same form for
+        writing and editing — the only difference is whether it opens on an `order_item_id`
+        or an existing `review_id`.
+      */}
+      {reviewTarget ? (
+        <ReviewFormModal
+          target={
+            reviewTarget.mode === 'edit' && reviewTarget.reviewId !== null
+              ? { mode: 'edit', reviewId: reviewTarget.reviewId }
+              : { mode: 'create', orderItemId: reviewTarget.orderItemId }
+          }
+          context={{
+            productName: reviewTarget.productName,
+            size: reviewTarget.size,
+            color: reviewTarget.color,
+          }}
+          onClose={() => setReviewTarget(null)}
+          // Re-reads every open card so its button flips to "Edit your review".
+          onSaved={() => setDetailToken((token) => token + 1)}
+        />
+      ) : null}
     </div>
   )
 }

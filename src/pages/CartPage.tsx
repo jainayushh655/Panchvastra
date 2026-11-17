@@ -67,9 +67,19 @@ function discountPercent(price: number, mrp?: number) {
 
 export function CartPage() {
   useDocumentTitle('Cart')
-  const { items, refreshCart, subtotal, totalItems, totalDiscount, totalMrp } = useCart()
+  const {
+    items,
+    refreshCart,
+    totalItems,
+    totalDiscount,
+    totalMrp,
+    quantityDiscount,
+    appliedQuantityTier,
+    nextQuantityTier,
+    amountPayable,
+  } = useCart()
   const { showToast } = useToast()
-  const { isWishlisted, toggleWishlist } = useWishlist()
+  const { isWishlisted, toggle: toggleWishlist } = useWishlist()
 
   /** Cart item ids with a request in flight, so a line's own controls are the only ones
       disabled while it updates and a fast double-click can't fire a second request. */
@@ -117,23 +127,31 @@ export function CartPage() {
   }
 
   /**
-   * Moves a line to the wishlist: adds it (via the EXISTING wishlist context — no new
-   * storage, no new API) and then removes it from the cart through the same remove path
-   * every other removal uses. `toggleWishlist` would un-save an item that's already
-   * wishlisted, so it's only called when the product isn't there yet; either way the cart
-   * line is removed, matching a "move" rather than a "copy".
+   * Moves a line to the wishlist: saves the product, then removes the cart line through
+   * the same remove path every other removal uses — a "move", not a "copy".
+   *
+   * `toggle` would UN-save a product that is already wishlisted, so it is only called when
+   * the product is not there yet. The cart line is removed either way.
+   *
+   * The wishlist is server-backed now, so the save can genuinely fail. If it does, the
+   * cart line is left alone: silently dropping an item from the cart after failing to save
+   * it anywhere would lose it entirely.
    */
-  const handleMoveToWishlist = (line: CartItem) => {
+  const handleMoveToWishlist = async (line: CartItem) => {
     if (pendingIds.has(line.cartItemId)) return
+
     if (!isWishlisted(line.productId)) {
-      toggleWishlist({
-        id: line.productId,
-        name: line.name,
-        image: line.image,
-        price: line.price,
-        compareAtPrice: line.mrp ?? null,
-      })
+      const result = await toggleWishlist(line.productId)
+
+      if (!result.ok) {
+        showToast('Could not move to wishlist', {
+          variant: 'warning',
+          description: result.reason === 'error' ? result.message : 'Please sign in and try again.',
+        })
+        return
+      }
     }
+
     showToast('Moved to wishlist.')
     handleRemoveItem(line.cartItemId)
   }
@@ -320,7 +338,7 @@ export function CartPage() {
                           <button
                             type="button"
                             className="inline-flex min-h-[32px] items-center gap-2 text-xs font-semibold text-zinc-700 hover:text-black disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-300 dark:hover:text-white"
-                            onClick={() => handleMoveToWishlist(line)}
+                            onClick={() => void handleMoveToWishlist(line)}
                             disabled={pendingIds.has(line.cartItemId)}
                           >
                             <IconHeart className="size-4" />
@@ -363,12 +381,69 @@ export function CartPage() {
                   <span className="tabular-nums">- {formatInr(totalDiscount)}</span>
                 </div>
               ) : null}
+
+              {/*
+                The quantity offer, as its own line so the shopper can see which saving
+                came from where. Every figure is the backend's — the tier is matched
+                against the TOTAL item count across the whole cart, which is not something
+                that can be re-derived correctly from one line at a time.
+              */}
+              {quantityDiscount > 0 ? (
+                <div className="flex justify-between gap-3 text-burgundy">
+                  <span className="min-w-0">
+                    Quantity offer
+                    {appliedQuantityTier ? (
+                      <span className="text-zinc-500">
+                        {' '}
+                        ({appliedQuantityTier.discount_percentage}% off on{' '}
+                        {appliedQuantityTier.min_quantity}+ items)
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="shrink-0 tabular-nums">- {formatInr(quantityDiscount)}</span>
+                </div>
+              ) : null}
             </div>
 
+            {/*
+              The nudge. Shown only while there IS a next tier, so it disappears once the
+              shopper is at the top of the ladder rather than inviting them to chase an
+              offer that does not exist.
+            */}
+            {nextQuantityTier ? (
+              <p className="mt-3 flex items-start gap-2 rounded-lg border border-sand bg-soft-beige px-3 py-2.5 font-sans text-xs leading-snug text-espresso">
+                <svg className="mt-px size-4 shrink-0 text-burgundy" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                  <path
+                    d="M12.6 3.5h5.9a2 2 0 012 2v5.9a2 2 0 01-.6 1.4l-7.2 7.2a2 2 0 01-2.8 0l-5.9-5.9a2 2 0 010-2.8l7.2-7.2a2 2 0 011.4-.6z"
+                    strokeWidth={1.5}
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span>
+                  Add {nextQuantityTier.items_needed} more{' '}
+                  {nextQuantityTier.items_needed === 1 ? 'item' : 'items'} to get{' '}
+                  <strong className="font-bold">{nextQuantityTier.discount_percentage}% off</strong>
+                </span>
+              </p>
+            ) : null}
+
+            {/*
+              `amountPayable` is subtotal minus the quantity offer, BEFORE any coupon —
+              which is what the backend will charge against before a coupon is applied, so
+              it is the honest total to show here. The coupon lands at checkout.
+            */}
             <div className="mt-4 flex items-center justify-between border-t border-zinc-200 pt-4 dark:border-zinc-800">
               <span className="text-lg font-bold text-black dark:text-white">Total</span>
-              <span className="text-lg font-bold tabular-nums text-black dark:text-white">{formatInr(subtotal)}</span>
+              <span className="text-lg font-bold tabular-nums text-black dark:text-white">
+                {formatInr(amountPayable)}
+              </span>
             </div>
+
+            {quantityDiscount > 0 ? (
+              <p className="mt-1 text-right font-sans text-xs text-zinc-500">
+                You save {formatInr(totalDiscount + quantityDiscount)} on this order
+              </p>
+            ) : null}
 
             <Link to="/checkout" className="mt-4 block">
               <Button className="min-h-[46px] w-full gap-2.5 text-xs tracking-[0.14em]" size="lg" type="button">

@@ -244,16 +244,35 @@ export function ProductImageUploader({
                   outlineOffset: overIndex === index && dragIndex !== index ? '2px' : undefined,
                 }}
               >
-                <img
-                  src={isNew ? entry.pending.previewUrl : entry.image.image_url}
-                  alt=""
-                  loading={isNew ? undefined : 'lazy'}
-                  // The image must not become its own drag source, or the card's
-                  // dragstart never fires in some browsers.
-                  draggable={false}
-                />
+                {/*
+                  Rendered by `media_type`, not by guessing from the URL. A variant's
+                  gallery is now a mixed list, and feeding a video URL to an `<img>` draws
+                  a broken-image icon — a silent, confusing failure in the one screen where
+                  the admin is checking their media is right.
+
+                  `preload="metadata"` fetches just enough to paint a first frame; `muted`
+                  keeps a grid of clips silent.
+                */}
+                {!isNew && entry.image.media_type === 'VIDEO' ? (
+                  <video
+                    src={entry.image.image_url}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    // Must not become its own drag source, or the card's dragstart never
+                    // fires in some browsers.
+                    draggable={false}
+                  />
+                ) : (
+                  <img
+                    src={isNew ? entry.pending.previewUrl : entry.image.image_url}
+                    alt=""
+                    loading={isNew ? undefined : 'lazy'}
+                    draggable={false}
+                  />
+                )}
                 <span className={isNew ? 'admin-images__tag admin-images__tag--new' : 'admin-images__tag'}>
-                  {isNew ? 'New' : 'Saved'}
+                  {isNew ? 'New' : !isNew && entry.image.media_type === 'VIDEO' ? 'Video' : 'Saved'}
                 </span>
                 <button
                   type="button"

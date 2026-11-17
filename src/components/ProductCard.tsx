@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
+import { WishlistHeartButton } from '@/components/wishlist/WishlistHeartButton'
 import { formatInr } from '@/lib/format'
 import type { Product } from '@/types'
 
@@ -14,16 +15,32 @@ type ProductCardProps = {
   product: Product
   /** 'shop' (default) preserves the existing Shop-page look. 'homepage' applies the monochrome streetwear treatment. */
   variant?: 'shop' | 'homepage'
+  /**
+   * Whether to float a wishlist heart over the image. On by default: the wishlist is now
+   * account-backed, so a heart here is meaningful on every surface a card appears on.
+   */
+  showWishlist?: boolean
 }
 
-export function ProductCard({ product, variant = 'shop' }: ProductCardProps) {
+export function ProductCard({ product, variant = 'shop', showWishlist = true }: ProductCardProps) {
   const off = discountPercent(product)
   const hoverSrc = product.hoverImage?.trim()
   const mainSrc = product.images[0]
 
+  /*
+   * The heart sits OUTSIDE the <Link>, as a sibling inside the positioned wrapper.
+   * Nesting an interactive control inside an anchor is invalid HTML and makes the card
+   * unusable with a keyboard — tabbing would land on the heart but Enter would follow the
+   * link. The button also stops propagation for pointer users.
+   */
+  const heart = showWishlist ? (
+    <WishlistHeartButton productId={product.id} className="absolute right-2 top-2 z-10" />
+  ) : null
+
   if (variant === 'homepage') {
     return (
-      <motion.article layout whileHover={{ y: -4 }} className="group">
+      <motion.article layout whileHover={{ y: -4 }} className="group relative">
+        {heart}
         <Link
           to={`/product/${product.id}`}
           className="block border border-zinc-200 bg-white transition-colors hover:border-zinc-400"
@@ -67,7 +84,8 @@ export function ProductCard({ product, variant = 'shop' }: ProductCardProps) {
   }
 
   return (
-    <motion.article layout whileHover={{ y: -6 }} className="group">
+    <motion.article layout whileHover={{ y: -6 }} className="group relative">
+      {heart}
       <Link
         to={`/product/${product.id}`}
         className="relative block overflow-hidden rounded-[1.5rem] border border-zinc-200/80 bg-white shadow-[0_18px_50px_-34px_rgba(0,0,0,0.55)] transition-all duration-300 hover:border-zinc-300 hover:shadow-[0_24px_60px_-34px_rgba(0,0,0,0.65)] dark:border-zinc-800 dark:bg-zinc-900/80"

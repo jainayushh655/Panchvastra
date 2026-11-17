@@ -1,12 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { CouponSection, type AppliedCoupon } from '@/components/checkout/CouponSection'
 import { DeliveryAddressSection } from '@/components/checkout/DeliveryAddressSection'
+import { removeCartItem } from '@/api/cart'
 import {
   createCodOrder,
   createPaymentOrder,
+  isBuyNowUnavailable,
   loadRazorpayScript,
+  readInsufficientStock,
   readPaymentApiError,
+  readUnavailableItems,
   verifyPayment,
 } from '@/api/payment'
 import { useAddresses } from '@/context/AddressProvider'
@@ -14,7 +18,16 @@ import { useCart } from '@/context/CartProvider'
 import { formatInr } from '@/lib/format'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useAuth } from '@/context/AuthProvider'
-import { Link, useNavigate } from 'react-router-dom'
+import {
+  BUY_NOW_PARAM,
+  BUY_NOW_VALUE,
+  bestTierForQuantity,
+  clearBuyNowIntent,
+  readBuyNowIntent,
+  type BuyNowIntent,
+} from '@/lib/buyNow'
+import type { InsufficientStockDto, UnavailableItemDto } from '@/types/api/PaymentDto'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 function IconCard({ className }: { className?: string }) {
   return (
@@ -73,8 +86,104 @@ const PAYMENT_METHODS = [
 export function CheckoutPage() {
   useDocumentTitle('Checkout')
   const navigate = useNavigate()
-  const { items, subtotal, totalDiscount, totalMrp, clear } = useCart()
+  const [searchParams] = useSearchParams()
+  const {
+    items: cartItems,
+    subtotal: cartSubtotal,
+    totalDiscount: cartTotalDiscount,
+    totalMrp: cartTotalMrp,
+    quantityDiscount: cartQuantityDiscount,
+    appliedQuantityTier: cartQuantityTier,
+    clear,
+    refreshCart,
+  } = useCart()
   const { user } = useAuth()
+
+  /**
+   * Buy Now mode.
+   *
+   * Selected by a URL parameter AND a stashed intent — both are required. The parameter
+   * alone would leave a refreshed page in Buy Now mode with nothing to buy; the intent
+   * alone would hijack an ordinary cart checkout with a leftover from an abandoned
+   * attempt. Read once on mount: it must not change underneath an in-flight order.
+   */
+  const [buyNow] = useState<BuyNowIntent | null>(() =>
+    searchParams.get(BUY_NOW_PARAM) === BUY_NOW_VALUE ? readBuyNowIntent() : null,
+  )
+  const isBuyNow = buyNow !== null
+
+  /**
+   * A stale intent is cleared the moment this page decides it is NOT in Buy Now mode, so
+   * an abandoned attempt can never attach itself to the next ordinary cart checkout.
+   */
+  useEffect(() => {
+    if (!isBuyNow) clearBuyNowIntent()
+  }, [isBuyNow])
+
+  /**
+   * The lines the summary shows: the whole cart, or the single Buy Now item.
+   *
+   * Shaped like a cart line so the existing list markup renders both without branching.
+   * `cartItemId` is -1 for the Buy Now line because it is not in the cart and has no such
+   * id — nothing reads it in this mode.
+   */
+  const items = useMemo(() => {
+    if (!buyNow) return cartItems
+    return [
+      {
+        key: `buy-now-${buyNow.variantSizeId}`,
+        cartItemId: -1,
+        productId: String(buyNow.productId),
+        slug: String(buyNow.productId),
+        name: buyNow.name,
+        image: buyNow.image,
+        price: buyNow.unitPrice,
+        mrp: buyNow.mrp,
+        quantity: buyNow.quantity,
+        size: buyNow.size,
+        color: buyNow.color,
+        availableStock: buyNow.quantity,
+        isInStock: true,
+      },
+    ]
+  }, [buyNow, cartItems])
+
+  /**
+   * PREVIEW totals for Buy Now.
+   *
+   * The backend owns every real figure — it computes the subtotal, the quantity offer and
+   * the coupon, and the amounts shown after the order is created come from its response.
+   * These exist only so the shopper is not asked to commit to a number they have never
+   * seen, and so a quantity offer they have already earned does not appear for the first
+   * time on the confirmation.
+   */
+  const buyNowTotals = useMemo(() => {
+    if (!buyNow) return null
+
+    const gross = buyNow.unitPrice * buyNow.quantity
+    const mrpTotal = (buyNow.mrp || buyNow.unitPrice) * buyNow.quantity
+    const tier = bestTierForQuantity(buyNow.tiers, buyNow.quantity)
+    const quantityDiscount = tier ? Math.round(gross * (tier.discount_percentage / 100) * 100) / 100 : 0
+
+    return {
+      subtotal: gross,
+      totalMrp: mrpTotal,
+      productDiscount: Math.max(0, mrpTotal - gross),
+      quantityDiscount,
+      tier,
+    }
+  }, [buyNow])
+
+  const subtotal = isBuyNow ? (buyNowTotals?.subtotal ?? 0) : cartSubtotal
+  const totalMrp = isBuyNow ? (buyNowTotals?.totalMrp ?? 0) : cartTotalMrp
+  const totalDiscount = isBuyNow ? (buyNowTotals?.productDiscount ?? 0) : cartTotalDiscount
+  const quantityDiscount = isBuyNow ? (buyNowTotals?.quantityDiscount ?? 0) : cartQuantityDiscount
+  const quantityTier = isBuyNow ? (buyNowTotals?.tier ?? null) : cartQuantityTier
+
+  /** Items the backend refused, surfaced so the shopper can clear the blockage. */
+  const [unavailableItems, setUnavailableItems] = useState<UnavailableItemDto[]>([])
+  const [insufficientStock, setInsufficientStock] = useState<InsufficientStockDto[]>([])
+  const [removingItemId, setRemovingItemId] = useState<number | null>(null)
   const {
     addresses,
     loading: addressesLoading,
@@ -124,9 +233,77 @@ export function CheckoutPage() {
   // price). `totalDiscount` (cart.summary.total_discount) is shown for transparency only
   // and is NOT subtracted again here — doing so would double-count it.
   const couponDiscount = appliedCoupon?.discountAmount ?? 0
-  const total = subtotal + shipping - couponDiscount
-  /** What the customer saved overall: product-level reduction plus any coupon. */
-  const totalSavings = totalDiscount + couponDiscount
+
+  /**
+   * The quantity offer is applied BEFORE the coupon — that ordering is the backend's, and
+   * it matters: a coupon's minimum-order check now runs against the amount after the
+   * quantity offer, not against the raw subtotal. So a cart that clears a ₹3,500 minimum
+   * on its subtotal can legitimately fail it once a 15% quantity offer has come off, and
+   * the API's own message explains that.
+   */
+  const amountAfterQuantityOffer = Math.max(0, subtotal - quantityDiscount)
+  const total = Math.max(0, amountAfterQuantityOffer + shipping - couponDiscount)
+
+  /** What the customer saved overall: product reduction + quantity offer + coupon. */
+  const totalSavings = totalDiscount + quantityDiscount + couponDiscount
+
+  /**
+   * Reads a failed checkout for the structured blockers the backend can return, and
+   * routes the shopper accordingly.
+   *
+   * Returns true when it handled the error itself, so the caller skips the generic
+   * message — showing "Unable to start payment" on top of a specific, actionable list
+   * would bury the only part the shopper can do something about.
+   */
+  const handleCheckoutError = (error: unknown): boolean => {
+    // Buy Now: the one item is gone. Only the product page can offer another size or
+    // colour, so that is where they go.
+    if (isBuyNow && isBuyNowUnavailable(error)) {
+      clearBuyNowIntent()
+      setSubmitError(null)
+      navigate(`/product/${buyNow?.productId ?? ''}`, { replace: true })
+      return true
+    }
+
+    const unavailable = readUnavailableItems(error)
+    const insufficient = readInsufficientStock(error)
+
+    if (unavailable.length === 0 && insufficient.length === 0) return false
+
+    setUnavailableItems(unavailable)
+    setInsufficientStock(insufficient)
+    setSubmitError(null)
+    return true
+  }
+
+  /** Clears a blocking line from the cart, then re-reads so the summary matches. */
+  const handleRemoveUnavailable = async (item: UnavailableItemDto) => {
+    if (removingItemId !== null) return
+
+    setRemovingItemId(item.cart_item_id)
+    try {
+      await removeCartItem(item.cart_item_id)
+      await refreshCart()
+      setUnavailableItems((previous) => previous.filter((entry) => entry.cart_item_id !== item.cart_item_id))
+    } catch (error) {
+      setSubmitError(readPaymentApiError(error, 'Could not remove that item. Please try from the cart.'))
+    } finally {
+      setRemovingItemId(null)
+    }
+  }
+
+  /**
+   * Everything that has to happen once an order genuinely exists.
+   *
+   * The backend also removes that size from the cart on a Buy Now order, so the cart is
+   * re-read rather than assumed — otherwise the header badge would keep counting an item
+   * that is no longer there.
+   */
+  const finishOrder = async () => {
+    clearBuyNowIntent()
+    clear()
+    await refreshCart()
+  }
 
   /**
    * Online payment (UPI / Cards) via Razorpay.
@@ -152,18 +329,26 @@ export function CheckoutPage() {
 
     setAddressError(null)
     setSubmitError(null)
+    setUnavailableItems([])
+    setInsufficientStock([])
     paymentInFlight.current = true
     setBusy(true)
 
     let paymentOrder: Awaited<ReturnType<typeof createPaymentOrder>>
     try {
-      // Only send coupon_code when one is actually applied.
+      // Only send coupon_code when one is actually applied, and only send the Buy Now
+      // fields in Buy Now mode — sending them otherwise would reduce the whole cart to
+      // one item.
       paymentOrder = await createPaymentOrder({
         address_id: addressId,
         ...(appliedCoupon?.code ? { coupon_code: appliedCoupon.code } : {}),
+        ...(buyNow ? { variant_size_id: buyNow.variantSizeId, quantity: buyNow.quantity } : {}),
       })
     } catch (err) {
-      setSubmitError(readPaymentApiError(err, 'Unable to start payment. Please try again.'))
+      // Razorpay checkout now returns `unavailable_items` too, not just COD.
+      if (!handleCheckoutError(err)) {
+        setSubmitError(readPaymentApiError(err, 'Unable to start payment. Please try again.'))
+      }
       paymentInFlight.current = false
       setBusy(false)
       return
@@ -245,7 +430,7 @@ export function CheckoutPage() {
         }
 
         // Verified by the backend — only now is the order paid.
-        clear()
+        await finishOrder()
         release()
         navigate('/orders', { replace: true })
       },
@@ -287,6 +472,8 @@ export function CheckoutPage() {
 
     setAddressError(null)
     setSubmitError(null)
+    setUnavailableItems([])
+    setInsufficientStock([])
     paymentInFlight.current = true
     setBusy(true)
 
@@ -298,13 +485,17 @@ export function CheckoutPage() {
 
     let codOrder: Awaited<ReturnType<typeof createCodOrder>>
     try {
-      // Only send coupon_code when a coupon is actually applied.
+      // Only send coupon_code when a coupon is actually applied, and the Buy Now fields
+      // only in Buy Now mode.
       codOrder = await createCodOrder({
         address_id: addressId,
         ...(appliedCoupon?.code ? { coupon_code: appliedCoupon.code } : {}),
+        ...(buyNow ? { variant_size_id: buyNow.variantSizeId, quantity: buyNow.quantity } : {}),
       })
     } catch (err) {
-      setSubmitError(readPaymentApiError(err, 'Could not place your order. Please try again.'))
+      if (!handleCheckoutError(err)) {
+        setSubmitError(readPaymentApiError(err, 'Could not place your order. Please try again.'))
+      }
       release()
       return
     }
@@ -317,7 +508,7 @@ export function CheckoutPage() {
     }
 
     // The backend has created the order — only now is the cart cleared.
-    clear()
+    await finishOrder()
     release()
     navigate('/orders', { replace: true })
   }
@@ -344,7 +535,9 @@ export function CheckoutPage() {
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="type-page-title">Checkout</h1>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-        Review your delivery details and order before placing your order.
+        {isBuyNow
+          ? 'Buying one item directly — the rest of your cart is untouched.'
+          : 'Review your delivery details and order before placing your order.'}
       </p>
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -365,13 +558,24 @@ export function CheckoutPage() {
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <h2 className="type-section-title">Your Order</h2>
               {/* Quantities and removals stay on the Cart page, which owns them — this is a
-                  review step, so it links there rather than duplicating those controls. */}
-              <Link
-                to="/cart"
-                className="inline-flex min-h-[32px] items-center font-sans text-xs font-semibold text-black underline underline-offset-2 dark:text-white"
-              >
-                Edit cart
-              </Link>
+                  review step, so it links there rather than duplicating those controls.
+                  In Buy Now mode the cart is not involved at all, so the link goes back to
+                  the product, which is the only place this item can be changed. */}
+              {isBuyNow ? (
+                <Link
+                  to={`/product/${buyNow.productId}`}
+                  className="inline-flex min-h-[32px] items-center font-sans text-xs font-semibold text-black underline underline-offset-2 dark:text-white"
+                >
+                  Change item
+                </Link>
+              ) : (
+                <Link
+                  to="/cart"
+                  className="inline-flex min-h-[32px] items-center font-sans text-xs font-semibold text-black underline underline-offset-2 dark:text-white"
+                >
+                  Edit cart
+                </Link>
+              )}
             </div>
             <ul className="mt-5 divide-y divide-zinc-100 dark:divide-zinc-900">
               {items.map((i) => (
@@ -404,6 +608,82 @@ export function CheckoutPage() {
               ))}
             </ul>
           </section>
+
+          {/*
+            Items the backend refused. Shown as an actionable list rather than a sentence:
+            each line names the product and offers the one fix that works — removing it —
+            so the shopper is not sent to the cart to work out which of twelve lines is
+            the problem.
+          */}
+          {unavailableItems.length > 0 ? (
+            <section className="border border-burgundy/40 bg-soft-beige p-5" role="alert">
+              <h2 className="font-sans text-sm font-bold text-espresso">
+                {unavailableItems.length === 1
+                  ? 'One item is no longer available'
+                  : `${unavailableItems.length} items are no longer available`}
+              </h2>
+              <p className="type-body-sm mt-1">Remove them to continue with the rest of your order.</p>
+
+              <ul className="mt-4 space-y-2">
+                {unavailableItems.map((item) => (
+                  <li
+                    key={item.cart_item_id}
+                    className="flex flex-wrap items-center justify-between gap-3 border-t border-sand pt-2 first:border-t-0 first:pt-0"
+                  >
+                    <span className="min-w-0 font-sans text-sm text-espresso">
+                      <span className="font-semibold">{item.product_name}</span>
+                      {[item.size, item.color].filter(Boolean).length > 0 ? (
+                        <span className="text-zinc-600"> — {[item.size, item.color].filter(Boolean).join(' · ')}</span>
+                      ) : null}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => void handleRemoveUnavailable(item)}
+                      disabled={removingItemId === item.cart_item_id}
+                      className="inline-flex min-h-[32px] shrink-0 items-center font-sans text-xs font-semibold uppercase tracking-wide text-burgundy underline underline-offset-2 disabled:opacity-50"
+                    >
+                      {removingItemId === item.cart_item_id ? 'Removing…' : 'Remove'}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {/*
+            Not enough stock. Deliberately separate from the list above: there is no
+            `cart_item_id` here and the fix is different — lower the quantity, not remove
+            the line — so offering a Remove button would be the wrong advice.
+          */}
+          {insufficientStock.length > 0 ? (
+            <section className="border border-burgundy/40 bg-soft-beige p-5" role="alert">
+              <h2 className="font-sans text-sm font-bold text-espresso">Not enough stock</h2>
+              <p className="type-body-sm mt-1">Reduce the quantity in your cart to continue.</p>
+
+              <ul className="mt-4 space-y-2">
+                {insufficientStock.map((item, index) => (
+                  <li key={`${item.product_name}-${index}`} className="font-sans text-sm text-espresso">
+                    <span className="font-semibold">{item.product_name}</span>
+                    {[item.size, item.color].filter(Boolean).length > 0 ? (
+                      <span className="text-zinc-600"> — {[item.size, item.color].filter(Boolean).join(' · ')}</span>
+                    ) : null}
+                    <span className="text-zinc-600">
+                      {' '}
+                      · you asked for {item.requested}, {item.available} left
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <Link
+                to="/cart"
+                className="mt-4 inline-flex min-h-[32px] items-center font-sans text-xs font-semibold uppercase tracking-wide text-burgundy underline underline-offset-2"
+              >
+                Edit cart
+              </Link>
+            </section>
+          ) : null}
 
           {submitError ? (
             <p className="text-sm font-medium text-red-600 dark:text-red-400" role="alert">
@@ -441,6 +721,27 @@ export function CheckoutPage() {
                   <span>Subtotal</span>
                   <span>{formatInr(subtotal)}</span>
                 </div>
+
+                {/*
+                  The quantity offer gets its own line, ABOVE the coupon, because that is
+                  the order the backend applies them in — and the coupon's minimum-order
+                  check runs against the amount left after this.
+                */}
+                {quantityDiscount > 0 ? (
+                  <div className="flex justify-between gap-3 text-burgundy">
+                    <span className="min-w-0">
+                      Quantity offer
+                      {quantityTier ? (
+                        <span className="text-zinc-500">
+                          {' '}
+                          ({quantityTier.discount_percentage}% off on {quantityTier.min_quantity}+)
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="shrink-0">-{formatInr(quantityDiscount)}</span>
+                  </div>
+                ) : null}
+
                 <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
                   <span>Shipping</span>
                   <span>{shipping === 0 ? 'Free' : formatInr(shipping)}</span>
@@ -450,8 +751,14 @@ export function CheckoutPage() {
           </div>
 
           <div className="border-t border-zinc-200 pt-5 dark:border-zinc-800">
+            {/*
+              The coupon is validated against the amount AFTER the quantity offer, which is
+              what the backend checks a coupon's minimum order against. Passing the raw
+              subtotal here would let a coupon look applicable in the UI and then be
+              refused on submit.
+            */}
             <CouponSection
-              cartTotal={subtotal}
+              cartTotal={amountAfterQuantityOffer}
               appliedCoupon={appliedCoupon}
               onApplied={setAppliedCoupon}
               onRemoved={() => setAppliedCoupon(null)}
