@@ -55,7 +55,7 @@ export function OtpVerifyStep({
   onBack,
 }: OtpVerifyStepProps) {
   const labelClass = 'text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600'
-  const primaryButton = 'w-full !border-black !bg-black !text-white hover:!bg-zinc-800'
+  const primaryButton = 'w-full !border-chocolate !bg-chocolate !text-cream hover:!bg-espresso'
 
   return (
     <div className="pv-auth-rise" key="otp-step">

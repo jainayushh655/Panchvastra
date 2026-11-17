@@ -153,8 +153,8 @@ export function NotifyMeModal({ isOpen, unavailableSizes, preselectedSize, onClo
                         onClick={() => selectSize(option.variantSizeId)}
                         className={`flex h-10 min-w-[44px] items-center justify-center rounded-lg border px-3 text-sm font-semibold transition-colors ${
                           selected
-                            ? 'border-black bg-black text-white'
-                            : 'border-zinc-300 bg-white text-black hover:border-black'
+                            ? 'border-sand bg-chocolate text-cream'
+                            : 'border-soft-beige bg-cream text-espresso hover:border-sand'
                         }`}
                       >
                         {option.size}
@@ -200,7 +200,7 @@ export function NotifyMeModal({ isOpen, unavailableSizes, preselectedSize, onClo
               <button
                 type="submit"
                 disabled={unavailableSizes.length === 0 || submitting}
-                className="w-full bg-black px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                className="w-full bg-chocolate px-6 py-3 text-sm font-semibold uppercase tracking-wide text-cream transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {submitting ? 'Submitting…' : 'Submit'}
               </button>

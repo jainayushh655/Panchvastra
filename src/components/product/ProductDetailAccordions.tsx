@@ -78,10 +78,10 @@ function AccordionRow({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((x) => !x)}
-        className="flex w-full items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40"
+        className="flex w-full items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-soft-beige/80 dark:hover:bg-zinc-900/40"
       >
         <span
-          className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800"
+          className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-soft-beige dark:bg-zinc-800"
           aria-hidden
         >
           {icon}

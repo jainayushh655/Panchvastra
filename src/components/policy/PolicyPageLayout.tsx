@@ -78,7 +78,7 @@ export function PolicyList({ items }: { items: ReactNode[] }) {
  */
 export function PolicyPending({ children }: { children: ReactNode }) {
   return (
-    <p className="border-l-2 border-zinc-300 bg-zinc-50 px-4 py-3 text-sm leading-relaxed text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+    <p className="border-l-2 border-sand bg-soft-beige px-4 py-3 text-sm leading-relaxed text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
       <span className="font-semibold uppercase tracking-wide text-zinc-900 dark:text-zinc-200">
         To be confirmed:{' '}
       </span>

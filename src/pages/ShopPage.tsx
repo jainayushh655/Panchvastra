@@ -484,7 +484,7 @@ export function ShopPage() {
               </Button>
               <Link
                 to="/custom-piece"
-                className="inline-flex min-h-[42px] items-center justify-center border border-black px-6 text-xs font-bold uppercase tracking-[0.14em] text-black transition-colors hover:bg-black hover:text-white dark:border-white dark:text-white dark:hover:bg-white dark:hover:text-black"
+                className="inline-flex min-h-[42px] items-center justify-center border border-chocolate px-6 text-xs font-bold uppercase tracking-[0.14em] text-espresso transition-colors hover:bg-chocolate hover:text-cream dark:border-white dark:text-white dark:hover:bg-white dark:hover:text-black"
               >
                 Design your own
               </Link>
@@ -527,7 +527,7 @@ export function ShopPage() {
       ) : null}
 
       {loadError ? (
-        <div className="mt-8 border border-zinc-200 bg-[#f7f7f5] p-6 text-center" role="alert">
+        <div className="mt-8 border border-zinc-200 bg-soft-beige p-6 text-center" role="alert">
           <p className="text-sm text-zinc-700">{loadError}</p>
           <Button type="button" className="mt-4" onClick={() => void loadPage(pageRef.current, 'replace')}>
             Try Again

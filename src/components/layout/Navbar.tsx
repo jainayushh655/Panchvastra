@@ -47,12 +47,12 @@ export function Navbar() {
   }, [categoryOpen])
 
   const navLinkCls = ({ isActive }: { isActive: boolean }) =>
-    `text-xs font-semibold uppercase tracking-[0.14em] transition-colors hover:text-white ${
-      isActive ? 'text-white' : 'text-zinc-400'
+    `text-xs font-semibold uppercase tracking-[0.14em] transition-colors hover:text-cream ${
+      isActive ? 'text-cream' : 'text-sand'
     }`
 
   return (
-    <header className="sticky top-0 z-50 border-b border-zinc-800 bg-black text-white">
+    <header className="sticky top-0 z-50 border-b border-zinc-800 bg-chocolate text-cream">
       {/*
         Three tracks with a centred brand. The side tracks are equal `1fr`s, which is what
         keeps the wordmark optically centred on the full bar — but it also means the right
@@ -70,7 +70,7 @@ export function Navbar() {
         <div className="flex items-center gap-4">
           <button
             type="button"
-            className="rounded-md border border-zinc-700 p-1.5 text-white sm:p-2 md:hidden"
+            className="rounded-md border border-zinc-700 p-1.5 text-cream sm:p-2 md:hidden"
             aria-label="Open menu"
             aria-expanded={open}
             onClick={() => setOpen((x) => !x)}
@@ -103,7 +103,7 @@ export function Navbar() {
         <div className="flex items-center justify-self-end gap-0.5 sm:gap-2.5">
           <Link
             to="/wishlist"
-            className="relative rounded-md border border-zinc-700 p-2 text-white transition-colors hover:border-zinc-500 sm:p-2.5"
+            className="relative rounded-md border border-zinc-700 p-2 text-cream transition-colors hover:border-sand sm:p-2.5"
             aria-label="Wishlist"
           >
             <svg className="size-4 sm:size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
@@ -122,7 +122,7 @@ export function Navbar() {
           </Link>
           <Link
             to="/cart"
-            className="relative rounded-md border border-zinc-700 p-2 text-white transition-colors hover:border-zinc-500 sm:p-2.5"
+            className="relative rounded-md border border-zinc-700 p-2 text-cream transition-colors hover:border-sand sm:p-2.5"
             aria-label="Cart"
           >
             <svg className="size-4 sm:size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
@@ -144,21 +144,21 @@ export function Navbar() {
           <nav className="flex flex-col gap-1">
             <Link
               to="/shop"
-              className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-zinc-200 hover:bg-zinc-900"
+              className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-cream hover:bg-sand/15"
               onClick={() => setOpen(false)}
             >
               Shop
             </Link>
             <Link
               to="/about"
-              className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-zinc-200 hover:bg-zinc-900"
+              className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-cream hover:bg-sand/15"
               onClick={() => setOpen(false)}
             >
               About Us
             </Link>
             <Link
               to="/help-desk"
-              className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-zinc-200 hover:bg-zinc-900"
+              className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-cream hover:bg-sand/15"
               onClick={() => setOpen(false)}
             >
               Help Desk

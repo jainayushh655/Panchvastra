@@ -23,7 +23,7 @@ type ToastCtx = {
 const Ctx = createContext<ToastCtx | null>(null)
 
 const VARIANT_STYLES: Record<ToastVariant, { bubble: string; badge: string; icon: string }> = {
-  success: { bubble: 'bg-black', badge: 'bg-white text-black', icon: '✓' },
+  success: { bubble: 'bg-chocolate', badge: 'bg-cream text-espresso', icon: '✓' },
   warning: { bubble: 'bg-amber-600', badge: 'bg-white text-amber-700', icon: '!' },
 }
 

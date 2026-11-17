@@ -143,7 +143,7 @@ export function DeliveryAddressSection({
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <p className="font-sans text-sm font-bold text-black dark:text-white">{selected.fullName}</p>
                     {selected.isDefault ? (
-                      <span className="bg-zinc-100 px-2 py-0.5 font-sans text-[10px] font-semibold text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+                      <span className="bg-soft-beige px-2 py-0.5 font-sans text-[10px] font-semibold text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
                         Default
                       </span>
                     ) : null}

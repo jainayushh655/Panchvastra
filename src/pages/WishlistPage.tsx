@@ -72,7 +72,7 @@ export function WishlistPage() {
 
           <Link
             to="/shop"
-            className="mt-7 inline-flex items-center justify-center gap-2 bg-black px-7 py-3.5 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-zinc-800"
+            className="mt-7 inline-flex items-center justify-center gap-2 bg-chocolate px-7 py-3.5 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-zinc-800"
           >
             Explore the collection
             <IconArrowRight className="size-4" />
@@ -92,7 +92,7 @@ export function WishlistPage() {
                   </Link>
 
                   {off != null && off > 0 ? (
-                    <span className="absolute left-2 top-2 bg-black px-1.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+                    <span className="absolute left-2 top-2 bg-burgundy px-1.5 py-1 text-[10px] font-bold uppercase tracking-wide text-cream">
                       {off}% off
                     </span>
                   ) : null}
@@ -146,7 +146,7 @@ export function WishlistPage() {
                     <Link
                       to={`/product/${item.id}`}
                       aria-label={`Add ${item.name} to cart — choose a size`}
-                      className="flex min-h-[38px] w-full items-center justify-center bg-black px-2 text-center text-[11px] font-bold uppercase leading-tight tracking-[0.08em] text-white transition-colors hover:bg-zinc-800"
+                      className="flex min-h-[38px] w-full items-center justify-center bg-chocolate px-2 text-center text-[11px] font-bold uppercase leading-tight tracking-[0.08em] text-cream transition-colors hover:bg-espresso"
                     >
                       Add to cart
                     </Link>

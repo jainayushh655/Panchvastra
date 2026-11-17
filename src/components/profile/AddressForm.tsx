@@ -131,8 +131,8 @@ export function AddressForm({ isOpen, initialAddress, onSave, onClose }: Address
                     onClick={() => setField('type', opt.value)}
                     className={`border px-4 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
                       selected
-                        ? 'border-black bg-black text-white dark:border-white dark:bg-white dark:text-black'
-                        : 'border-zinc-300 bg-white text-black hover:border-black dark:border-zinc-700 dark:text-white'
+                        ? 'border-burgundy bg-burgundy text-cream dark:border-white dark:bg-white dark:text-black'
+                        : 'border-sand bg-cream text-espresso hover:border-burgundy dark:border-zinc-700 dark:text-white'
                     }`}
                   >
                     {opt.label}

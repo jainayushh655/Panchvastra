@@ -308,7 +308,7 @@ export function SignupPage() {
           <Button
             type="submit"
             size="lg"
-            className="w-full !border-black !bg-black !text-white hover:!bg-zinc-800 sm:col-span-2"
+            className="w-full !border-chocolate !bg-chocolate !text-cream hover:!bg-espresso sm:col-span-2"
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Creating...' : 'Create Account'}

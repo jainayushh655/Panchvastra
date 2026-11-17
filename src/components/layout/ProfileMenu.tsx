@@ -63,7 +63,7 @@ export function ProfileMenu() {
     <div className="relative" ref={menuRef}>
       <button
         type="button"
-        className="rounded-md border border-zinc-700 p-2 text-white transition-colors hover:border-zinc-500 sm:p-2.5"
+        className="rounded-md border border-zinc-700 p-2 text-cream transition-colors hover:border-sand sm:p-2.5"
         aria-label={user ? 'Open profile menu' : 'Open account menu'}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -83,7 +83,7 @@ export function ProfileMenu() {
         <div
           id="profile-menu"
           role="menu"
-          className="absolute right-0 top-full mt-2 w-44 rounded-lg border border-zinc-200 bg-white p-2 shadow-[0_16px_40px_-24px_rgba(0,0,0,0.45)]"
+          className="absolute right-0 top-full mt-2 w-44 rounded-lg border border-soft-beige bg-cream p-2 shadow-[0_16px_40px_-24px_rgba(43,23,17,0.45)]"
         >
           {menuItems.map((item) =>
             item.to ? (
@@ -91,7 +91,7 @@ export function ProfileMenu() {
                 key={item.label}
                 to={item.to}
                 role="menuitem"
-                className="flex items-center rounded-md px-3 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-black"
+                className="flex items-center rounded-md px-3 py-2 text-sm text-zinc-700 transition-colors hover:bg-soft-beige hover:text-espresso"
                 onClick={() => setOpen(false)}
               >
                 {item.label}
@@ -101,7 +101,7 @@ export function ProfileMenu() {
                 key={item.label}
                 type="button"
                 role="menuitem"
-                className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-black"
+                className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm text-zinc-700 transition-colors hover:bg-soft-beige hover:text-espresso"
                 onClick={() => {
                   item.onClick?.()
                   setOpen(false)

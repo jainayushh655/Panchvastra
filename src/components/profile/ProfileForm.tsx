@@ -186,7 +186,7 @@ export function ProfileForm({ profile, onSave, onCancel }: ProfileFormProps) {
           value={draft.email}
           disabled
           readOnly
-          className={`mt-1.5 ${inputCls} cursor-not-allowed bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-500`}
+          className={`mt-1.5 ${inputCls} cursor-not-allowed bg-soft-beige text-zinc-500 dark:bg-zinc-900 dark:text-zinc-500`}
         />
         <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">Your registered email can't be changed here.</p>
       </div>

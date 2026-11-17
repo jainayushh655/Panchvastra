@@ -55,10 +55,10 @@ export function AuthSplitLayout({
      * before padding, which would squeeze the sign-in form. Between `lg` and `xl` the split
      * therefore stays even, and nothing about the form changes at any width.
      */
-    <div className="min-h-svh bg-[#f7f7f5] lg:grid lg:grid-cols-2 xl:grid-cols-[3fr_2fr]">
+    <div className="min-h-svh bg-soft-beige lg:grid lg:grid-cols-2 xl:grid-cols-[3fr_2fr]">
       {/* ---------------------------------------------------------- brand panel */}
       <aside
-        className={`relative overflow-hidden bg-black ${
+        className={`relative overflow-hidden bg-chocolate ${
           mediaOnly
             ? // The poster is 16:9, so on a phone the panel takes that exact ratio and the
               // whole composition is visible rather than cropped into a letterbox strip.
@@ -86,7 +86,7 @@ export function AuthSplitLayout({
               aria-hidden
               style={{
                 backgroundImage:
-                  'repeating-linear-gradient(135deg, #ffffff 0 1px, transparent 1px 22px), repeating-linear-gradient(45deg, #ffffff 0 1px, transparent 1px 22px)',
+                  'repeating-linear-gradient(135deg, #f6ebdd 0 1px, transparent 1px 22px), repeating-linear-gradient(45deg, #f6ebdd 0 1px, transparent 1px 22px)',
               }}
             />
 

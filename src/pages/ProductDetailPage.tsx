@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { KeyHighlightsSection } from '@/components/product/KeyHighlightsSection'
 import { NotifyMeModal } from '@/components/product/NotifyMeModal'
 import { ProductDetailAccordions } from '@/components/product/ProductDetailAccordions'
@@ -100,6 +100,7 @@ export function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth();
   const { refreshCart } = useCart();
   const { showToast } = useToast();
@@ -108,9 +109,6 @@ export function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [productDto, setProductDto] =
     useState<ProductDetailDto | null>(null);
-
-  const [selectedVariantIndex, setSelectedVariantIndex] =
-    useState(0);
 
   const [size, setSize] = useState("");
 
@@ -126,8 +124,33 @@ export function ProductDetailPage() {
 
   const [shareCopied, setShareCopied] = useState(false);
 
+  /*
+   * The selected colour lives in the URL as `?sku=`, not in local state, so a refresh or a
+   * shared/bookmarked link reopens the same variant instead of snapping back to the default.
+   * The SKU is the identifier the backend already gives each variant, so it survives any
+   * re-ordering of `variants` — an index in the URL would not.
+   *
+   * With no `sku` (or one this product does not have — a stale link, or a SKU copied from
+   * another product) the product's own default variant is shown, falling back to the first
+   * one listed. That resolved SKU is then written back to the URL (see below), so the
+   * address bar always names the colour on screen rather than leaving the default implicit.
+   */
+  const variants = productDto?.variants ?? [];
+
+  const skuParam = searchParams.get('sku');
+
+  // `findIndex` returns -1 when there is no explicit default, which `Math.max` folds to 0.
+  const defaultVariantIndex =
+    Math.max(variants.findIndex((v) => v.is_default), 0);
+
+  const skuVariantIndex =
+    skuParam ? variants.findIndex((v) => v.sku === skuParam) : -1;
+
+  const selectedVariantIndex =
+    skuVariantIndex >= 0 ? skuVariantIndex : defaultVariantIndex;
+
   const currentVariant =
-    productDto?.variants[selectedVariantIndex];
+    variants[selectedVariantIndex];
 
   const selectedVariantSize =
     currentVariant?.sizes.find(
@@ -138,7 +161,7 @@ export function ProductDetailPage() {
     selectedVariantSize?.id ?? null;
 
   const hasVariantPicker =
-    (productDto?.variants.length ?? 0) > 1;
+    variants.length > 1;
 
   useEffect(() => {
     if (!id) return;
@@ -153,28 +176,11 @@ export function ProductDetailPage() {
 
         setProductDto(dto);
 
-        const defaultIndex =
-          dto.variants.findIndex((v) => v.is_default);
-
-        const variantIndex =
-          defaultIndex >= 0 ? defaultIndex : 0;
-
-        setSelectedVariantIndex(variantIndex);
-
         const mapped =
           mapProductDetail(dto);
 
         setProduct(mapped);
 
-        const defaultVariant =
-          dto.variants[variantIndex];
-
-        const defaultSize =
-          defaultVariant.sizes.find(
-            (s) => s.in_stock
-          );
-
-        setSize(defaultSize?.size ?? "");
         setQuantity(1);
 
         window.scrollTo({
@@ -196,6 +202,50 @@ export function ProductDetailPage() {
     };
 
   }, [id, navigate]);
+
+  /*
+   * Keep the URL naming the colour actually on screen: `/product/2` becomes
+   * `/product/2?sku=B-D2G` as soon as the product loads, and a `sku` this product does not
+   * have is corrected to the resolved one. So every PDP URL is shareable as-is, with no
+   * "whatever the default happens to be today" case.
+   *
+   * `replace` because this is the same page, not a new destination — pushing would put a
+   * param-less copy of this URL behind the shopper, so Back would appear to do nothing.
+   * The write is skipped once the param already matches, which is what stops it looping.
+   */
+  useEffect(() => {
+    if (!currentVariant) return;
+
+    if (skuParam === currentVariant.sku) return;
+
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('sku', currentVariant.sku);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [currentVariant, skuParam, setSearchParams]);
+
+  /*
+   * The first in-stock size of whichever variant is currently resolved. The fetch and the
+   * colour button used to set this separately; both now go through the URL, so the size is
+   * derived in one place and a refresh — or Back/Forward between two colours — lands on the
+   * same size a tap would. `currentVariant` is read off `productDto` state, so its identity
+   * changes only when the variant genuinely changes, not on every render.
+   */
+  useEffect(() => {
+    if (!currentVariant) {
+      setSize("");
+      return;
+    }
+
+    const firstAvailable =
+      currentVariant.sizes.find((s) => s.in_stock);
+
+    setSize(firstAvailable?.size ?? "");
+  }, [currentVariant]);
 
   useDocumentTitle(
     product?.name ?? "Product"
@@ -413,18 +463,27 @@ export function ProductDetailPage() {
 
           {hasVariantPicker ? (
             <ProductVariantPicker
-              variants={productDto?.variants ?? []}
+              variants={variants}
               currentIndex={selectedVariantIndex}
               onSelect={(index) => {
 
-                setSelectedVariantIndex(index);
+                const variant = variants[index];
 
-                const variant = productDto?.variants[index];
+                if (!variant) return;
 
-                const firstSize =
-                  variant?.sizes.find((s) => s.in_stock);
-
-                setSize(firstSize?.size ?? "");
+                /*
+                 * `replace` so a run of colour taps does not bury the page the shopper came
+                 * from under one history entry per colour — Back still returns to the
+                 * listing. Any other param is carried over rather than dropped.
+                 */
+                setSearchParams(
+                  (prev) => {
+                    const next = new URLSearchParams(prev);
+                    next.set('sku', variant.sku);
+                    return next;
+                  },
+                  { replace: true },
+                );
 
               }}
             />
@@ -461,9 +520,9 @@ export function ProductDetailPage() {
                     }
                   }}
                   className={`relative flex h-12 min-w-[52px] items-center justify-center overflow-hidden rounded-xl border font-sans text-sm font-semibold transition-all ${sz.size === size
-                      ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
+                      ? "border-sand bg-chocolate text-cream dark:border-white dark:bg-white dark:text-black"
                       : sz.inStock
-                        ? "border-zinc-300 text-zinc-700 hover:border-black dark:border-zinc-700 dark:text-zinc-200"
+                        ? "border-soft-beige text-zinc-700 hover:border-sand dark:border-zinc-700 dark:text-zinc-200"
                         : "border-zinc-200 text-zinc-400 dark:border-zinc-800 dark:text-zinc-600"
                     }`}
                 >
@@ -546,7 +605,7 @@ export function ProductDetailPage() {
                 // rather than a dead "Added to cart" label.
                 disabled={!canAdd}
                 aria-busy={adding}
-                className="type-btn flex-1 rounded-xl bg-black px-6 py-4 text-sm text-white transition hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-black"
+                className="type-btn flex-1 rounded-xl bg-chocolate px-6 py-4 text-sm text-cream transition hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-black"
               >
                 {adding ? 'ADDING…' : justAdded ? 'GO TO CART' : 'ADD TO CART'}
               </button>
@@ -557,8 +616,8 @@ export function ProductDetailPage() {
                 aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
                 className={`flex size-[52px] shrink-0 items-center justify-center rounded-xl border transition-colors ${
                   wishlisted
-                    ? 'border-black bg-black text-white dark:border-white dark:bg-white dark:text-black'
-                    : 'border-zinc-300 text-black hover:border-black dark:border-zinc-700 dark:text-white'
+                    ? 'border-burgundy bg-burgundy text-cream dark:border-white dark:bg-white dark:text-black'
+                    : 'border-sand text-espresso hover:border-burgundy dark:border-zinc-700 dark:text-white'
                 }`}
               >
                 <HeartIcon filled={wishlisted} />

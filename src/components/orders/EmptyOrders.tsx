@@ -56,7 +56,7 @@ export function EmptyOrders() {
 
       <Link
         to="/shop"
-        className="mt-7 inline-flex items-center justify-center gap-2 bg-black px-7 py-3.5 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-zinc-800"
+        className="mt-7 inline-flex items-center justify-center gap-2 bg-chocolate px-7 py-3.5 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-zinc-800"
       >
         Explore the collection
         <IconArrowRight className="size-4" />
