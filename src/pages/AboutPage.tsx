@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -8,11 +8,8 @@ export function AboutPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-16">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
+      {/* Same 500ms rise the motion component did, in CSS — see `pv-rise-in`. */}
+      <div className="pv-rise-in">
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-500">
           Our Story
         </p>
@@ -68,7 +65,7 @@ export function AboutPage() {
             </Button>
           </Link>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

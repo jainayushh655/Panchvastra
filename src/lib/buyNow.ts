@@ -104,9 +104,64 @@ export function clearBuyNowIntent(): void {
   }
 }
 
+/* ------------------------------------------------------------------ the URL */
+
+/**
+ * The essentials also travel in the URL, not only in `sessionStorage`.
+ *
+ * `sessionStorage` is per-tab and can be unavailable (Safari private mode, some enterprise
+ * policies). When it is lost, the page would previously fall back to CART mode — quietly
+ * turning a one-item purchase into a whole-cart checkout, or into a "your cart is empty"
+ * dead end when the cart happens to be empty. Neither is acceptable for a flow the
+ * shopper explicitly asked for.
+ *
+ * So the three values the order actually depends on ride in the query string, where they
+ * survive a refresh, a new tab, a shared link and a cleared storage. The display data
+ * (name, image, prices) stays in `sessionStorage`; when it is missing the checkout
+ * re-fetches the product rather than guessing.
+ */
+const PARAM_VARIANT_SIZE = 'vs'
+const PARAM_QUANTITY = 'qty'
+const PARAM_PRODUCT = 'p'
+
+/** What the URL alone can tell us: enough to place the order, not enough to draw it. */
+export type BuyNowKeys = {
+  variantSizeId: number
+  quantity: number
+  productId: number
+}
+
 /** The checkout URL for a Buy Now purchase. */
-export function buyNowCheckoutPath(): string {
-  return `/checkout?${BUY_NOW_PARAM}=${BUY_NOW_VALUE}`
+export function buyNowCheckoutPath(intent: BuyNowKeys): string {
+  const params = new URLSearchParams({
+    [BUY_NOW_PARAM]: BUY_NOW_VALUE,
+    [PARAM_VARIANT_SIZE]: String(intent.variantSizeId),
+    [PARAM_QUANTITY]: String(intent.quantity),
+    [PARAM_PRODUCT]: String(intent.productId),
+  })
+  return `/checkout?${params.toString()}`
+}
+
+/** True when the URL asks for Buy Now mode, whether or not an intent can be resolved. */
+export function isBuyNowRequested(params: URLSearchParams): boolean {
+  return params.get(BUY_NOW_PARAM) === BUY_NOW_VALUE
+}
+
+function positiveInt(raw: string | null): number | null {
+  if (!raw) return null
+  const value = Number(raw)
+  return Number.isInteger(value) && value > 0 ? value : null
+}
+
+/** Reads the order-critical values out of the URL. Null when any of them is unusable. */
+export function readBuyNowKeysFromParams(params: URLSearchParams): BuyNowKeys | null {
+  const variantSizeId = positiveInt(params.get(PARAM_VARIANT_SIZE))
+  const productId = positiveInt(params.get(PARAM_PRODUCT))
+  const quantity = positiveInt(params.get(PARAM_QUANTITY)) ?? 1
+
+  if (variantSizeId === null || productId === null) return null
+
+  return { variantSizeId, quantity, productId }
 }
 
 /**

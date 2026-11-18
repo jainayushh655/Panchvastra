@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { getCategories } from '@/api/category'
+import { getCategoriesCached } from '@/api/catalogCache'
 import { categoryNameToSlug } from '@/lib/categorySlug'
 import type { CategoryDto } from '@/types/api/CategoryDto'
 import { instagramPageUrl, phoneCallUrl, whatsAppPageUrl } from '@/lib/siteUrls'
@@ -36,7 +36,7 @@ function useShopLinks() {
   useEffect(() => {
     let active = true
 
-    getCategories()
+    getCategoriesCached()
       .then((data) => {
         if (active) setCategories(Array.isArray(data) ? data : [])
       })

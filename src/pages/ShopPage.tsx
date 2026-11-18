@@ -13,17 +13,17 @@ import {
 import { Button } from '@/components/ui/Button'
 
 import {
-  getAllProducts,
   getProductsPageList,
   readProductApiError,
   type ProductQueryParams,
   type ProductSortBy,
 } from '@/api/product'
-import { getCategories } from '@/api/category'
+import { getCategoriesCached, getSubCategoriesCached } from '@/api/catalogCache'
 import type { Product } from '@/types'
 import { mapProduct } from '@/mappers/productMapper'
-import { categoryNameToSlug } from '@/lib/categorySlug'
+import { categoryNameToSlug, subCategoryNameToSlug } from '@/lib/categorySlug'
 import type { CategoryDto } from '@/types/api/CategoryDto'
+import type { SubCategoryDto } from '@/types/api/SubCategoryDto'
 import type { SortKey } from '@/types'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
@@ -94,13 +94,13 @@ export function ShopPage() {
 
   const [categories, setCategories] = useState<CategoryDto[]>([])
   /**
-   * The FULL catalogue, used only to derive Sub Category options — never to render the
-   * grid. It is fetched across every page (`getAllProducts`) because a sub-category whose
-   * products all sit on page 2 would otherwise never appear as a filter option, and
-   * because deriving the options from the currently-filtered grid would make them
-   * shrink and flicker as Size/Search change.
+   * Sub-categories, used only to build the filter dropdown — never to render the grid.
+   *
+   * Read from their own endpoint rather than derived from products. See
+   * `subCategoryOptions` below for what that replaced and why it matters.
    */
-  const [facetProducts, setFacetProducts] = useState<Product[]>([])
+  const [subCategories, setSubCategories] = useState<SubCategoryDto[]>([])
+  /** Categories and sub-categories have arrived, so slugs can be resolved to ids. */
   const [catalogReady, setCatalogReady] = useState(false)
 
   /** The accumulated grid: page 1, plus every page infinite scroll has appended. */
@@ -122,11 +122,13 @@ export function ShopPage() {
   useEffect(() => {
     let active = true
 
-    Promise.all([getAllProducts(), getCategories()])
-      .then(([dtos, categoryList]) => {
+    // Two small, cached, public reads — shared with the navbar and footer, so on a
+    // navigation from anywhere else in the app these usually resolve without a request.
+    Promise.all([getCategoriesCached(), getSubCategoriesCached()])
+      .then(([categoryList, subCategoryList]) => {
         if (!active) return
-        setFacetProducts(dtos.map(mapProduct))
         setCategories(categoryList)
+        setSubCategories(subCategoryList)
       })
       .catch(() => {
         // The grid has its own error surface; losing the facet source only costs the
@@ -156,16 +158,36 @@ export function ShopPage() {
   const categoryHeading =
     category === 'all' ? 'All Products' : (categories.find((c) => categoryNameToSlug(c.name) === category)?.name ?? 'All Products')
 
+  /**
+   * Sub Category options, read from the sub-categories endpoint.
+   *
+   * ⚠️ THIS USED TO DOWNLOAD THE ENTIRE CATALOGUE.
+   *
+   * The previous version derived these from the products themselves, which meant calling
+   * `getAllProducts()` — a sequential crawl of every page of the catalogue, 100 products
+   * at a time, up to 2,000 products — on every single Shop page load. And because the
+   * grid was gated on that finishing, NOTHING rendered until the whole catalogue had
+   * arrived. On a 300-product shop that was three blocking round-trips before the first
+   * card appeared.
+   *
+   * It was never necessary. `/v1/sub_categories_management/` is public, unpaginated and
+   * returns exactly what this needs — `{ id, category_id, name, is_active }` — in one
+   * small request. Scoping to the selected category is now an `id` comparison rather than
+   * a scan of mapped products.
+   *
+   * It is also more correct: the old approach could only see sub-categories that had at
+   * least one product, so an empty one silently vanished from the filter.
+   */
   const subCategoryOptions: SubCategoryOption[] = useMemo(() => {
-    const scoped = category === 'all' ? facetProducts : facetProducts.filter((p) => p.categorySlug === category)
-    const bySlug = new Map<string, SubCategoryOption>()
-    for (const p of scoped) {
-      if (p.subCategorySlug && p.subCategoryName && p.subCategoryId != null && !bySlug.has(p.subCategorySlug)) {
-        bySlug.set(p.subCategorySlug, { slug: p.subCategorySlug, name: p.subCategoryName, id: p.subCategoryId })
-      }
-    }
-    return [...bySlug.values()].sort((a, b) => a.name.localeCompare(b.name))
-  }, [facetProducts, category])
+    const selectedCategoryId =
+      category === 'all' ? null : categories.find((c) => categoryNameToSlug(c.name) === category)?.id ?? null
+
+    return subCategories
+      .filter((sub) => sub.is_active !== false)
+      .filter((sub) => selectedCategoryId === null || sub.category_id === selectedCategoryId)
+      .map((sub) => ({ slug: subCategoryNameToSlug(sub.name), name: sub.name, id: sub.id }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [subCategories, categories, category])
 
   const subCategoryRaw = searchParams.get('subcategory')
   const subcategory =

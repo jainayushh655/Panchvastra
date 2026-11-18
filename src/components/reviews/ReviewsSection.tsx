@@ -1,8 +1,10 @@
 import { forwardRef, useCallback, useEffect, useRef, useState } from 'react'
+import { warnEndpointMissing } from '@/api/endpointAvailability'
 import {
   EMPTY_REVIEW_SUMMARY,
   deleteReview,
   getProductReviews,
+  isReviewsUnavailable,
   readReviewApiError,
 } from '@/api/productReviews'
 import { ReviewCard } from '@/components/reviews/ReviewCard'
@@ -59,12 +61,29 @@ type ReviewsSectionProps = {
   onWriteReview?: () => void
   /** True while that lookup is in flight, so the button can say so. */
   writeReviewBusy?: boolean
+  /**
+   * Reports whether `/v1/product_reviews/` is actually reachable.
+   *
+   * The button stays visible either way — hiding it made the feature look unbuilt, and
+   * left nothing to test against while the backend catches up. Instead the page passes
+   * this to the form, which says plainly at the top that reviews cannot be saved yet.
+   * The whole UI stays inspectable; nobody writes a review in the dark.
+   */
+  onAvailabilityChange?: (available: boolean) => void
 }
 
 type Tab = 'all' | 'photos'
 
 export const ReviewsSection = forwardRef<HTMLElement, ReviewsSectionProps>(function ReviewsSection(
-  { productId, onEditReview, refreshToken = 0, onSummaryLoaded, onWriteReview, writeReviewBusy = false },
+  {
+    productId,
+    onEditReview,
+    refreshToken = 0,
+    onSummaryLoaded,
+    onWriteReview,
+    writeReviewBusy = false,
+    onAvailabilityChange,
+  },
   ref,
 ) {
   const { showToast } = useToast()
@@ -83,6 +102,7 @@ export const ReviewsSection = forwardRef<HTMLElement, ReviewsSectionProps>(funct
   const [error, setError] = useState<string | null>(null)
 
   const [lightbox, setLightbox] = useState<{ review: ReviewDto; index: number } | null>(null)
+
 
   /** Newest request wins — a slow page-2 append can never land after a tab change. */
   const requestId = useRef(0)
@@ -110,6 +130,10 @@ export const ReviewsSection = forwardRef<HTMLElement, ReviewsSectionProps>(funct
 
         if (current !== requestId.current) return
 
+        // The endpoint answered, so clear any earlier "missing" verdict — this recovers
+        // on its own the moment the backend ships, with no reload.
+        onAvailabilityChange?.(true)
+
         const nextSummary = result.summary ?? EMPTY_REVIEW_SUMMARY
         setSummary(nextSummary)
 
@@ -131,6 +155,26 @@ export const ReviewsSection = forwardRef<HTMLElement, ReviewsSectionProps>(funct
       } catch (requestError) {
         if (current !== requestId.current) return
 
+        /*
+         * The endpoint is not deployed on this backend. That is a gap between this build
+         * and the API, not something the shopper caused or a Try Again can fix — so the
+         * block degrades to its normal empty state instead of putting a red error under
+         * the product. The warning goes to the console, where the audience for it is.
+         */
+        if (isReviewsUnavailable(requestError)) {
+          warnEndpointMissing(
+            'GET /v1/product_reviews/',
+            'The reviews block shows its empty state; the review form warns that it cannot save.',
+          )
+          onAvailabilityChange?.(false)
+          setReviews([])
+          setSummary(EMPTY_REVIEW_SUMMARY)
+          setBaseSummary(EMPTY_REVIEW_SUMMARY)
+          setHasNext(false)
+          setError(null)
+          return
+        }
+
         setError(readReviewApiError(requestError, 'Unable to load reviews right now.'))
         if (mode === 'replace') {
           setReviews([])
@@ -147,7 +191,7 @@ export const ReviewsSection = forwardRef<HTMLElement, ReviewsSectionProps>(funct
         }
       }
     },
-    [productId, sortBy, tab, onSummaryLoaded],
+    [productId, sortBy, tab, onSummaryLoaded, onAvailabilityChange],
   )
 
   // Back to page one whenever the query changes — product, tab, sort, or an external

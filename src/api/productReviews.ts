@@ -1,5 +1,6 @@
 import api from './axios'
 import { adminAuthConfig, MissingAdminSessionError } from './adminRequest'
+import { isEndpointMissing } from './endpointAvailability'
 
 import type {
   CreateReviewDto,
@@ -87,10 +88,22 @@ export function readReviewApiError(error: unknown, fallback: string): string {
 
   if (status === 401) return 'Please sign in to write a review.'
   if (status === 403) return 'You can only review a product you have received.'
-  if (status === 404) return 'That review could not be found.'
+  // A routing 404 is not a missing review — the endpoint itself is absent, which is a
+  // deployment gap rather than anything about this record. Saying "that review could not
+  // be found" would describe a record that was never the problem.
+  if (status === 404) {
+    return isEndpointMissing(error)
+      ? 'Reviews are not available right now. Please try again later.'
+      : 'That review could not be found.'
+  }
   if (status === 429) return 'Too many requests. Please try again in a moment.'
 
   return fallback
+}
+
+/** True when `/v1/product_reviews/` itself is not deployed. See `endpointAvailability`. */
+export function isReviewsUnavailable(error: unknown): boolean {
+  return isEndpointMissing(error)
 }
 
 /**

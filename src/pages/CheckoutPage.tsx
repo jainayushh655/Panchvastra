@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { CouponSection, type AppliedCoupon } from '@/components/checkout/CouponSection'
 import { DeliveryAddressSection } from '@/components/checkout/DeliveryAddressSection'
-import { removeCartItem } from '@/api/cart'
+import { addToCart, removeCartItem } from '@/api/cart'
 import {
   createCodOrder,
   createPaymentOrder,
   isBuyNowUnavailable,
+  isCartEmptyError,
   loadRazorpayScript,
   readInsufficientStock,
   readPaymentApiError,
@@ -18,12 +19,14 @@ import { useCart } from '@/context/CartProvider'
 import { formatInr } from '@/lib/format'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useAuth } from '@/context/AuthProvider'
+import { getProductById } from '@/api/product'
 import {
-  BUY_NOW_PARAM,
-  BUY_NOW_VALUE,
   bestTierForQuantity,
   clearBuyNowIntent,
+  isBuyNowRequested,
   readBuyNowIntent,
+  readBuyNowKeysFromParams,
+  saveBuyNowIntent,
   type BuyNowIntent,
 } from '@/lib/buyNow'
 import type { InsufficientStockDto, UnavailableItemDto } from '@/types/api/PaymentDto'
@@ -100,25 +103,123 @@ export function CheckoutPage() {
   const { user } = useAuth()
 
   /**
-   * Buy Now mode.
+   * ──────────────────────────────────────────────────────────────────────────
+   * BUY NOW MODE
+   * ──────────────────────────────────────────────────────────────────────────
+   * The URL decides the MODE; the intent supplies the detail. Keeping those two apart
+   * matters, because it is what lets the page tell "the shopper asked to buy one item and
+   * we lost the details" apart from "this is an ordinary cart checkout". Conflating them
+   * is what produced a cart-empty message on a purchase that never involved the cart.
    *
-   * Selected by a URL parameter AND a stashed intent — both are required. The parameter
-   * alone would leave a refreshed page in Buy Now mode with nothing to buy; the intent
-   * alone would hijack an ordinary cart checkout with a leftover from an abandoned
-   * attempt. Read once on mount: it must not change underneath an in-flight order.
+   * In this mode the cart is not read, not shown and not mentioned.
    */
-  const [buyNow] = useState<BuyNowIntent | null>(() =>
-    searchParams.get(BUY_NOW_PARAM) === BUY_NOW_VALUE ? readBuyNowIntent() : null,
+  const buyNowRequested = isBuyNowRequested(searchParams)
+
+  /** Order-critical values from the URL — these survive a refresh and a new tab. */
+  const buyNowKeys = useMemo(
+    () => (buyNowRequested ? readBuyNowKeysFromParams(searchParams) : null),
+    [buyNowRequested, searchParams],
   )
+
+  /**
+   * The full intent, including display data. Seeded from `sessionStorage`, and only when
+   * it matches the URL — a leftover from an abandoned attempt must never be shown against
+   * a different item.
+   */
+  const [buyNow, setBuyNow] = useState<BuyNowIntent | null>(() => {
+    if (!buyNowRequested) return null
+    const stored = readBuyNowIntent()
+    if (!stored) return null
+    const keys = readBuyNowKeysFromParams(searchParams)
+    // No keys in the URL: an older link, where storage was the only source.
+    if (!keys) return stored
+    return stored.variantSizeId === keys.variantSizeId ? stored : null
+  })
+
+  /**
+   * Set when Buy Now was asked for but the item could not be resolved at all.
+   *
+   * There is no separate "hydrating" flag: requested-but-unresolved-and-not-lost IS the
+   * loading state, and a second boolean tracking the same thing could only ever drift
+   * out of step with it.
+   */
+  const [buyNowLost, setBuyNowLost] = useState(false)
+
+  /**
+   * Rebuilds the intent from the URL when `sessionStorage` has nothing usable.
+   *
+   * This is the case that used to fall through to cart mode: a refresh in a browser that
+   * drops session storage, a link opened in a new tab, private browsing. The order data
+   * is already in the URL, so only the presentation has to be recovered — one product
+   * read, and the page looks exactly as it would have.
+   */
+  useEffect(() => {
+    if (!buyNowRequested || buyNow || !buyNowKeys) return
+
+    let active = true
+
+    getProductById(buyNowKeys.productId)
+      .then((detail) => {
+        if (!active) return
+
+        // Find the variant and size the URL names, so the summary shows what they chose
+        // rather than the product's default.
+        const variant = detail.variants?.find((candidate) =>
+          candidate.sizes?.some((size) => size.id === buyNowKeys.variantSizeId),
+        )
+        const size = variant?.sizes?.find((entry) => entry.id === buyNowKeys.variantSizeId)
+
+        if (!variant || !size) {
+          // The URL names a size this product no longer has — a stale link.
+          setBuyNowLost(true)
+          return
+        }
+
+        const rebuilt: BuyNowIntent = {
+          variantSizeId: buyNowKeys.variantSizeId,
+          quantity: buyNowKeys.quantity,
+          productId: detail.id,
+          name: detail.name,
+          image:
+            variant.images?.find((image) => image.media_type !== 'VIDEO')?.image_url?.trim() ||
+            '/images/no-image.png',
+          color: variant.color,
+          size: size.size,
+          unitPrice: variant.selling_price,
+          mrp: variant.mrp,
+          tiers: detail.quantity_discount_tiers ?? [],
+        }
+
+        setBuyNow(rebuilt)
+        // Written back so a second refresh costs nothing.
+        saveBuyNowIntent(rebuilt)
+      })
+      .catch(() => {
+        if (active) setBuyNowLost(true)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [buyNowRequested, buyNow, buyNowKeys])
+
+  // Asked for, but there is nothing in the URL to rebuild from either.
+  useEffect(() => {
+    if (buyNowRequested && !buyNow && !buyNowKeys) setBuyNowLost(true)
+  }, [buyNowRequested, buyNow, buyNowKeys])
+
   const isBuyNow = buyNow !== null
 
   /**
    * A stale intent is cleared the moment this page decides it is NOT in Buy Now mode, so
    * an abandoned attempt can never attach itself to the next ordinary cart checkout.
+   *
+   * Gated on `buyNowRequested`, not on `isBuyNow` — clearing while the intent is still
+   * being rebuilt would delete the very thing being recovered.
    */
   useEffect(() => {
-    if (!isBuyNow) clearBuyNowIntent()
-  }, [isBuyNow])
+    if (!buyNowRequested) clearBuyNowIntent()
+  }, [buyNowRequested])
 
   /**
    * The lines the summary shows: the whole cart, or the single Buy Now item.
@@ -265,6 +366,28 @@ export function CheckoutPage() {
       return true
     }
 
+    /*
+     * "Your cart is empty" during a BUY NOW order, AFTER the add-to-cart recovery in
+     * `submitOrder` has already run and been rejected too.
+     *
+     * Genuinely exceptional — the item was placed in the cart and the backend still could
+     * not see it. Nothing the shopper can fix, so they are not asked to retry the thing
+     * that just failed twice; they are pointed at the cart, which is where the item now
+     * actually is.
+     */
+    if (isBuyNow && isCartEmptyError(error)) {
+      setUnavailableItems([])
+      setInsufficientStock([])
+      setSubmitError(
+        'We could not complete this order. Your item has been saved to your cart — please try checking out from there, or contact support.',
+      )
+      console.error(
+        '[panchvastra] Buy Now failed even after the add-to-cart fallback. The checkout endpoint is not seeing the cart it was just given.',
+        { variantSizeId: buyNow?.variantSizeId, quantity: buyNow?.quantity },
+      )
+      return true
+    }
+
     const unavailable = readUnavailableItems(error)
     const insufficient = readInsufficientStock(error)
 
@@ -274,6 +397,60 @@ export function CheckoutPage() {
     setInsufficientStock(insufficient)
     setSubmitError(null)
     return true
+  }
+
+  /**
+   * Places the order, and recovers if the backend does not support Buy Now directly.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * WHY A FALLBACK EXISTS AT ALL
+   * ──────────────────────────────────────────────────────────────────────────
+   * The first attempt sends `variant_size_id` + `quantity`, which is the contract: the
+   * backend builds the order from that one item and ignores the cart. When it honours
+   * that, this is a single request and the fallback never runs.
+   *
+   * When it does NOT honour it, the endpoint falls through to cart logic, finds nothing,
+   * and answers "Your cart is empty." Showing that to someone who just pressed Buy Now is
+   * nonsense — they never involved their cart — and it leaves them with no way to buy the
+   * thing they asked for.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * WHY THE FALLBACK IS SAFE
+   * ──────────────────────────────────────────────────────────────────────────
+   * This runs on one condition only: the backend just told us the cart is EMPTY. So
+   * putting this single item into the cart makes the cart contain exactly this order, and
+   * a normal cart checkout then produces precisely the order Buy Now promised — one item,
+   * right size, right quantity. Nothing of the shopper's is swept in, because there was
+   * nothing there.
+   *
+   * It is deliberately NOT attempted for any other failure. A cart that already has items
+   * must never be checked out under a Buy Now button, so "cart is empty" is the entire
+   * licence for this path and the only thing that triggers it.
+   */
+  const submitOrder = async <T,>(
+    send: (buyNowFields: { variant_size_id?: number; quantity?: number }) => Promise<T>,
+  ): Promise<T> => {
+    const directFields = buyNow
+      ? { variant_size_id: buyNow.variantSizeId, quantity: buyNow.quantity }
+      : {}
+
+    try {
+      return await send(directFields)
+    } catch (error) {
+      if (!buyNow || !isCartEmptyError(error)) throw error
+
+      // Logged, not shown: the shopper gets a completed order, and whoever reads the
+      // console gets the reason the slow path ran.
+      console.warn(
+        '[panchvastra] Buy Now was rejected with a cart-empty error, so `variant_size_id` is being ignored by this endpoint. Falling back to add-to-cart; the cart was empty, so the order is unchanged.',
+        { variantSizeId: buyNow.variantSizeId, quantity: buyNow.quantity },
+      )
+
+      await addToCart(buyNow.variantSizeId, buyNow.quantity)
+
+      // Retried WITHOUT the Buy Now fields: the cart now is the order.
+      return send({})
+    }
   }
 
   /** Clears a blocking line from the cart, then re-reads so the summary matches. */
@@ -336,14 +513,16 @@ export function CheckoutPage() {
 
     let paymentOrder: Awaited<ReturnType<typeof createPaymentOrder>>
     try {
-      // Only send coupon_code when one is actually applied, and only send the Buy Now
-      // fields in Buy Now mode — sending them otherwise would reduce the whole cart to
-      // one item.
-      paymentOrder = await createPaymentOrder({
-        address_id: addressId,
-        ...(appliedCoupon?.code ? { coupon_code: appliedCoupon.code } : {}),
-        ...(buyNow ? { variant_size_id: buyNow.variantSizeId, quantity: buyNow.quantity } : {}),
-      })
+      // Only send coupon_code when one is actually applied. The Buy Now fields are
+      // supplied by `submitOrder`, which also owns the add-to-cart recovery for a backend
+      // that ignores them.
+      paymentOrder = await submitOrder((buyNowFields) =>
+        createPaymentOrder({
+          address_id: addressId,
+          ...(appliedCoupon?.code ? { coupon_code: appliedCoupon.code } : {}),
+          ...buyNowFields,
+        }),
+      )
     } catch (err) {
       // Razorpay checkout now returns `unavailable_items` too, not just COD.
       if (!handleCheckoutError(err)) {
@@ -485,13 +664,15 @@ export function CheckoutPage() {
 
     let codOrder: Awaited<ReturnType<typeof createCodOrder>>
     try {
-      // Only send coupon_code when a coupon is actually applied, and the Buy Now fields
-      // only in Buy Now mode.
-      codOrder = await createCodOrder({
-        address_id: addressId,
-        ...(appliedCoupon?.code ? { coupon_code: appliedCoupon.code } : {}),
-        ...(buyNow ? { variant_size_id: buyNow.variantSizeId, quantity: buyNow.quantity } : {}),
-      })
+      // Only send coupon_code when a coupon is actually applied. The Buy Now fields and
+      // the add-to-cart recovery are both handled by `submitOrder`.
+      codOrder = await submitOrder((buyNowFields) =>
+        createCodOrder({
+          address_id: addressId,
+          ...(appliedCoupon?.code ? { coupon_code: appliedCoupon.code } : {}),
+          ...buyNowFields,
+        }),
+      )
     } catch (err) {
       if (!handleCheckoutError(err)) {
         setSubmitError(readPaymentApiError(err, 'Could not place your order. Please try again.'))
@@ -516,6 +697,49 @@ export function CheckoutPage() {
   /** Routes Place Order to the flow the customer actually chose. */
   const submit = () => (pay === 'cod' ? submitCod() : payWithRazorpay())
 
+  /*
+   * Three different empty states, and keeping them apart is the whole point.
+   *
+   * Previously there was one: "Cart empty". A Buy Now purchase that lost its intent fell
+   * into it and told the shopper their CART was empty — on a page that has nothing to do
+   * with their cart, about an item they had just chosen. That is the bug this replaces.
+   */
+
+  // 1. Buy Now, still rebuilding the item from the URL.
+  if (buyNowRequested && !buyNow && !buyNowLost) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center text-zinc-600" role="status" aria-busy>
+        Loading your item…
+      </div>
+    )
+  }
+
+  // 2. Buy Now, and the item genuinely cannot be recovered — a stale or hand-edited link,
+  //    or a size the product no longer has. Never mention the cart here.
+  if (buyNowRequested && !buyNow) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <h1 className="type-page-title">We couldn&rsquo;t load that item</h1>
+        <p className="type-body mt-3">
+          The link may have expired, or the size you picked is no longer available. Choose it
+          again from the product page and your order will carry straight through.
+        </p>
+        <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+          {buyNowKeys ? (
+            <Button type="button" onClick={() => navigate(`/product/${buyNowKeys.productId}`)}>
+              Back to product
+            </Button>
+          ) : null}
+          <Button type="button" variant="outline" onClick={() => navigate('/shop')}>
+            Continue shopping
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // 3. An ordinary cart checkout with nothing in the cart. Unreachable in Buy Now mode,
+  //    because `items` is then the single chosen line.
   if (!items.length) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center text-zinc-600 dark:text-zinc-400">

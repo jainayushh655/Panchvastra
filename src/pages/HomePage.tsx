@@ -5,7 +5,7 @@ import { HomeCategoryGrid } from '@/components/home/HomeCategoryGrid'
 import { HomeCategoryFilters } from '@/components/home/HomeCategoryFilters'
 import { HomeProductGrid } from '@/components/home/HomeProductGrid'
 import { getProducts } from '@/api/product'
-import { getCategories } from '@/api/category'
+import { getCategoriesCached } from '@/api/catalogCache'
 import type { Product } from '@/types'
 import type { CategoryDto } from '@/types/api/CategoryDto'
 import { useAuthCarousel } from '@/hooks/useAuthCarousel'
@@ -41,7 +41,7 @@ export function HomePage() {
      * grid shows it directly, and New Arrivals keeps its own "new first" grouping rule
      * with each group internally in curated order. Still one request, as before.
      */
-    Promise.all([getProducts({ sort_by: 'display_order' }), getCategories()])
+    Promise.all([getProducts({ sort_by: 'display_order' }), getCategoriesCached()])
       .then(([dtos, categoryList]) => {
         if (!active) return
         setProducts(dtos.map(mapProduct))

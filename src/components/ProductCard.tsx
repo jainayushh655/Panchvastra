@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { WishlistHeartButton } from '@/components/wishlist/WishlistHeartButton'
 import { formatInr } from '@/lib/format'
@@ -39,7 +38,7 @@ export function ProductCard({ product, variant = 'shop', showWishlist = true }: 
 
   if (variant === 'homepage') {
     return (
-      <motion.article layout whileHover={{ y: -4 }} className="group relative">
+      <article className="group relative transition-transform duration-300 hover:-translate-y-1">
         {heart}
         <Link
           to={`/product/${product.id}`}
@@ -79,12 +78,12 @@ export function ProductCard({ product, variant = 'shop', showWishlist = true }: 
             </div>
           </div>
         </Link>
-      </motion.article>
+      </article>
     )
   }
 
   return (
-    <motion.article layout whileHover={{ y: -6 }} className="group relative">
+    <article className="group relative transition-transform duration-300 hover:-translate-y-1.5">
       {heart}
       <Link
         to={`/product/${product.id}`}
@@ -130,6 +129,6 @@ export function ProductCard({ product, variant = 'shop', showWishlist = true }: 
           </div>
         </div>
       </Link>
-    </motion.article>
+    </article>
   )
 }

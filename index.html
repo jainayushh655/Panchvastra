@@ -19,10 +19,33 @@
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      Fonts are loaded WITHOUT blocking the first paint.
+
+      As a plain stylesheet this was a render-blocking request to a third-party origin:
+      nothing on the page could paint until Google had answered, which on a mobile
+      connection is commonly 200–500ms of a blank screen.
+
+      `media="print"` makes the browser fetch it at low priority and not block on it;
+      the onload handler flips it to `all` the moment it arrives. Combined with
+      `display=swap` (already in the URL), text paints immediately in the fallback face
+      and swaps when the real one lands.
+
+      The <noscript> copy keeps the fonts working with JavaScript disabled, where the
+      onload trick cannot run.
+    -->
     <link
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'; this.onload=null;"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
     <title>PANCHVASTRA</title>
   </head>
   <body>

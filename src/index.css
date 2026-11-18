@@ -232,6 +232,34 @@
 
 .pv-toast-in { animation: pv-toast-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* ---------------------------------------------------------------- hero carousel
+ * These replace framer-motion, which cost 43 kB gzipped in the critical path — more
+ * than a third of the app's remaining first-load JavaScript — to provide a hover lift
+ * and two crossfades. The durations and easing below are copied from the values the
+ * motion components used, so the movement is unchanged.
+ *
+ * Each is applied to a KEYED element, so React remounts it when the slide changes and
+ * the animation restarts. That is what drives the transition; no JS is involved.
+ */
+@keyframes pv-hero-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pv-hero-enter {
+  from { opacity: 0; transform: translateX(2rem); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pv-rise-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.pv-hero-fade { animation: pv-hero-fade 450ms ease both; }
+.pv-hero-enter { animation: pv-hero-enter 380ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.pv-rise-in { animation: pv-rise-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 /* Honour the OS setting: no ambient motion, and the step transition becomes a plain fade. */
 @media (prefers-reduced-motion: reduce) {
   .pv-auth-drift,
@@ -243,6 +271,15 @@
   .pv-auth-rise {
     animation: pv-auth-rise 1ms linear both;
   }
+
+  /*
+   * Collapsed rather than removed. `animation: none` on these would leave the element at
+   * its FROM state — transparent and offset — because each uses `both`. Running them in
+   * 1ms lands on the end state immediately, which is the intended "no motion" result.
+   */
+  .pv-hero-fade { animation: pv-hero-fade 1ms linear both; }
+  .pv-hero-enter { animation: pv-hero-enter 1ms linear both; }
+  .pv-rise-in { animation: pv-rise-in 1ms linear both; }
 }
 
 /* Hides the native scrollbar on the mobile product-image carousel while keeping the element

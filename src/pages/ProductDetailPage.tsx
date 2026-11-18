@@ -155,6 +155,11 @@ export function ProductDetailPage() {
   >(null)
   /** True while the eligibility lookup behind "Add Review" is in flight. */
   const [checkingEligibility, setCheckingEligibility] = useState(false)
+  /**
+   * Whether the reviews endpoint is reachable, as reported by the reviews block's own
+   * read. Only used to warn inside the form — the button stays visible either way.
+   */
+  const [reviewsAvailable, setReviewsAvailable] = useState(true)
   /** Bumped to force the reviews block to re-read after a write, edit or delete. */
   const [reviewsToken, setReviewsToken] = useState(0)
 
@@ -389,10 +394,20 @@ export function ProductDetailPage() {
 
     setBuying(true)
 
-    saveBuyNowIntent({
+    /*
+     * The three order-critical values also go into the checkout URL. Storage alone is
+     * per-tab and can be unavailable, and when it is lost the checkout used to fall back
+     * to the cart — which is how a one-item purchase ended up showing a cart-empty error.
+     * With them in the URL the mode survives a refresh, a new tab and a shared link.
+     */
+    const keys = {
       variantSizeId: selectedVariantSizeId,
       quantity,
       productId: productDto.id,
+    }
+
+    saveBuyNowIntent({
+      ...keys,
       name: product.name,
       image: currentVariant.images?.find((img) => img.media_type !== 'VIDEO')?.image_url?.trim() || PLACEHOLDER,
       color: currentVariant.color,
@@ -403,13 +418,14 @@ export function ProductDetailPage() {
     })
 
     if (!isAuthenticated) {
-      // Returns to the Buy Now checkout, not to this page — the intent is already saved.
-      navigate('/login', { state: { from: buyNowCheckoutPath() } })
+      // Returns to the Buy Now checkout, not to this page — the intent is already saved,
+      // and the URL carries the keys so it works even if storage does not survive.
+      navigate('/login', { state: { from: buyNowCheckoutPath(keys) } })
       setBuying(false)
       return
     }
 
-    navigate(buyNowCheckoutPath())
+    navigate(buyNowCheckoutPath(keys))
   }
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : ''
@@ -823,6 +839,7 @@ export function ProductDetailPage() {
         onSummaryLoaded={handleSummaryLoaded}
         onWriteReview={() => void handleWriteReview()}
         writeReviewBusy={checkingEligibility}
+        onAvailabilityChange={setReviewsAvailable}
       />
 
       <RelatedProducts productId={productDto.id} />
@@ -846,6 +863,7 @@ export function ProductDetailPage() {
             size: reviewForm.size,
             color: reviewForm.color,
           }}
+          unavailable={!reviewsAvailable}
           onClose={() => setReviewForm(null)}
           // Re-reads the list and the summary, so the new rating is reflected in the stars
           // at the top of the page without a second product fetch.

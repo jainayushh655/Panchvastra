@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getWishlistPage, readWishlistApiError } from '@/api/wishlist'
+import { getWishlistPage, isWishlistUnavailable, readWishlistApiError } from '@/api/wishlist'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/context/ToastProvider'
 import { useWishlist } from '@/context/WishlistProvider'
@@ -90,6 +90,25 @@ export function WishlistPage() {
       pageRef.current = targetPage
     } catch (loadError) {
       if (current !== requestId.current) return
+
+      /*
+       * A missing endpoint is a deployment gap, not something the shopper did — and not
+       * something a Try Again button can fix. It degrades to the empty state instead,
+       * which is also what the header badge already shows, so the page and the chrome
+       * agree instead of one claiming an error while the other says zero.
+       *
+       * The warning goes to the console, where it is aimed: at whoever is wondering why
+       * the wishlist is empty on a build that has the feature.
+       */
+      if (isWishlistUnavailable(loadError)) {
+        console.warn(
+          '[panchvastra] GET /v1/wishlist/ returned 404 — the wishlist endpoint is not available on this backend. Showing the empty state.',
+        )
+        setItems([])
+        setError(null)
+        return
+      }
+
       setError(readWishlistApiError(loadError, 'Unable to load your wishlist right now.'))
       if (mode === 'replace') setItems([])
     } finally {

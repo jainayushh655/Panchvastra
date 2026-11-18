@@ -3,6 +3,7 @@ import { Breadcrumb } from '@/admin/components/Breadcrumb'
 import { AdminTable } from '@/admin/components/AdminTable'
 import { AdminBadge, AdminEmptyState, AdminErrorState, AdminLoadingState } from '@/admin/components/AdminStates'
 import { AdminConfirmModal } from '@/admin/components/AdminConfirmModal'
+import { clearCatalogCache } from '@/api/catalogCache'
 import {
   createSubCategory,
   deleteSubCategory,
@@ -171,6 +172,8 @@ export function AdminSubCategoriesPage() {
       setForm(null)
       setOriginal(null)
       setActionError(null)
+      // Same reason as Categories: the shop page's Sub Category filter reads a shared cache.
+      clearCatalogCache()
       setNotice(form.id === null ? 'Sub-category created.' : 'Sub-category updated.')
       // The backend is the source of truth — nothing is inserted into the list locally.
       await load()
@@ -191,6 +194,7 @@ export function AdminSubCategoriesPage() {
 
     try {
       await deleteSubCategory(pendingDelete.id)
+      clearCatalogCache()
       setPendingDelete(null)
       setNotice('Sub-category deleted.')
       await load()

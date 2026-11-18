@@ -206,9 +206,19 @@ export function ProductMediaGallery({ images, fallbackUrls = [], productName }: 
                 className="h-full w-full object-cover"
               />
             ) : (
+              /*
+                The product page's LCP element, so it is told so explicitly: `high`
+                priority puts it ahead of the thumbnail strip and the deferred review and
+                related-product requests in the browser's queue, and `async` decoding
+                keeps the decode off the main thread.
+
+                Deliberately NOT lazy — it is the thing the page exists to show.
+              */
               <img
                 src={active?.url ?? PLACEHOLDER}
                 alt={productName}
+                fetchPriority="high"
+                decoding="async"
                 className="h-full w-full object-cover"
               />
             )}

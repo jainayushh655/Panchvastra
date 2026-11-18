@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import {
   addToWishlist,
   getWishlistProductIds,
+  isWishlistUnavailable,
   readWishlistApiError,
   removeFromWishlist,
 } from '@/api/wishlist'
@@ -124,9 +125,18 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       const list = await getWishlistProductIds()
       if (current !== requestId.current) return
       setIds(new Set(list))
-    } catch {
+    } catch (error) {
       // The wishlist is secondary to every page it appears on. A failed read leaves the
       // hearts empty rather than breaking the product grid around them.
+      //
+      // Silent for the shopper, but NOT silent for a developer: a 404 here means the
+      // endpoint is not deployed, and without this line the only symptom is hearts that
+      // never fill — which looks like a frontend bug and is not one.
+      if (isWishlistUnavailable(error)) {
+        console.warn(
+          '[panchvastra] GET /v1/wishlist/?ids_only=true returned 404 — the wishlist endpoint is not available on this backend. Hearts will stay empty.',
+        )
+      }
       if (current === requestId.current) setIds(new Set<number>())
     } finally {
       if (current === requestId.current) setLoading(false)

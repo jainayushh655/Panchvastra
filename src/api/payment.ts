@@ -224,6 +224,25 @@ export function readInsufficientStock(error: unknown): InsufficientStockDto[] {
  * or a reworded prefix does not break the check. The caller sends the shopper back to the
  * product page, which is the only place they can pick a different size or colour.
  */
+/**
+ * True when the backend refused because it believes the CART is empty.
+ *
+ * Harmless in a normal cart checkout — it just means the cart emptied in another tab.
+ *
+ * In BUY NOW mode it means something quite different and much more useful: the request
+ * carried `variant_size_id`, so the backend should never have looked at the cart at all.
+ * Getting this back says the endpoint ignored the field — it has not deployed Buy Now
+ * support, or it expects a different field name. The checkout says so plainly instead of
+ * showing the shopper a cart error for an order that has nothing to do with their cart.
+ */
+export function isCartEmptyError(error: unknown): boolean {
+  const response = (error as { response?: { status?: number; data?: PaymentEnvelope } }).response
+  if (!response?.status || response.status >= 500) return false
+
+  const message = readMessage(response.data?.message).toLowerCase()
+  return message.includes('cart is empty') || message.includes('cart empty')
+}
+
 export function isBuyNowUnavailable(error: unknown): boolean {
   const response = (error as { response?: { status?: number; data?: PaymentEnvelope } }).response
   if (response?.status !== 400) return false

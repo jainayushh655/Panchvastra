@@ -50,6 +50,14 @@ type ReviewFormModalProps = {
   onClose: () => void
   /** Called after a successful save, so the caller can refresh its list. */
   onSaved: () => void
+  /**
+   * The reviews endpoint is not reachable on this backend.
+   *
+   * The form still opens and is fully usable — hiding it made the feature look unbuilt
+   * and left nothing to test against. It simply says so up front, so nobody writes a
+   * review and discovers at submit that it cannot be saved.
+   */
+  unavailable?: boolean
 }
 
 type PendingPhoto = { key: string; file: File; previewUrl: string }
@@ -88,7 +96,13 @@ function StarInput({ value, onChange, describedBy }: { value: number; onChange: 
   )
 }
 
-export function ReviewFormModal({ target, context, onClose, onSaved }: ReviewFormModalProps) {
+export function ReviewFormModal({
+  target,
+  context,
+  onClose,
+  onSaved,
+  unavailable = false,
+}: ReviewFormModalProps) {
   const { showToast } = useToast()
   const ids = useId()
   const fid = (name: string) => `${ids}-${name}`
@@ -324,6 +338,18 @@ export function ReviewFormModal({ target, context, onClose, onSaved }: ReviewFor
         ) : (
           <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
+              {/*
+                Stated at the TOP, before anything is typed — the whole point is that the
+                warning arrives before the effort, not after it.
+              */}
+              {unavailable ? (
+                <p className="rounded-lg border border-sand bg-soft-beige px-3.5 py-3 font-sans text-xs leading-relaxed text-espresso">
+                  <strong className="font-bold">Reviews aren&rsquo;t live yet.</strong> You can fill
+                  this in to see how it works, but it can&rsquo;t be saved until reviews are enabled
+                  on the server.
+                </p>
+              ) : null}
+
               <div>
                 <p className="font-sans text-sm font-semibold text-black">Your rating</p>
                 <StarInput value={rating} onChange={setRating} describedBy={fieldErrors.rating ? fid('rating-error') : undefined} />

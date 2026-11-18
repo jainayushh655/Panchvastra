@@ -1,4 +1,5 @@
 import api from './axios'
+import { isEndpointMissing } from './endpointAvailability'
 
 import type {
   WishlistItemDto,
@@ -46,9 +47,36 @@ export function readWishlistApiMessage(message: unknown, fallback: string): stri
   return fallback
 }
 
-/** Turns a thrown request error into a message that is safe to show. */
+/**
+ * True when the backend has no wishlist endpoint — a 404 on `/v1/wishlist/` itself.
+ *
+ * This is a DEPLOYMENT state, not a shopper problem: the storefront has shipped ahead of
+ * the API. Callers treat it as "no saved items" rather than as a failure, because a red
+ * error box on every visit is a worse answer than an empty wishlist, and the header badge
+ * already degrades to zero the same way.
+ *
+ * Deliberately narrow. A 404 from `DELETE ?product_id=` means "that product was not in
+ * the wishlist", which is a normal outcome handled separately in `removeFromWishlist`.
+ */
+export function isWishlistUnavailable(error: unknown): boolean {
+  // Delegated so "route missing" is decided the same way everywhere: by whether the 404's
+  // body is the API envelope or Django's HTML page. A plain status check would also catch
+  // a view's own 404, which is a different thing.
+  return isEndpointMissing(error)
+}
+
+/**
+ * Turns a thrown request error into a message that is safe to show.
+ *
+ * `detail` is read alongside `message` because Django REST Framework's own errors — the
+ * ones raised before a view runs, including a missing route — use that key. Without it
+ * every such failure collapsed into the caller's generic fallback, which is exactly how
+ * "the endpoint is not deployed" came to read as "Unable to load your wishlist right now."
+ */
 export function readWishlistApiError(error: unknown, fallback: string): string {
-  const response = (error as { response?: { status?: number; data?: Envelope<unknown> } }).response
+  const response = (error as { response?: { status?: number; data?: Envelope<unknown> & { detail?: unknown } } })
+    .response
+
   if (!response) return 'Unable to connect to the server. Check your connection and try again.'
 
   const status = response.status
@@ -56,7 +84,13 @@ export function readWishlistApiError(error: unknown, fallback: string): string {
   if (status && status >= 500) return 'The server is temporarily unavailable. Please try again shortly.'
   if (status === 401) return 'Please sign in to use your wishlist.'
 
-  return readWishlistApiMessage(response.data?.message, fallback)
+  const message = readWishlistApiMessage(response.data?.message, '')
+  if (message) return message
+
+  const detail = response.data?.detail
+  if (typeof detail === 'string' && detail.trim()) return detail.trim()
+
+  return fallback
 }
 
 /**
