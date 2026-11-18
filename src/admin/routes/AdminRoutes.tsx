@@ -14,6 +14,9 @@ import { AdminNotifyMePage } from '@/admin/pages/AdminNotifyMePage'
 import { AdminOrderDetailPage } from '@/admin/pages/AdminOrderDetailPage'
 import { AdminOrdersPage } from '@/admin/pages/AdminOrdersPage'
 import { AdminProductsPage } from '@/admin/pages/AdminProductsPage'
+import { AdminQuantityOffersPage } from '@/admin/pages/AdminQuantityOffersPage'
+import { AdminReviewsPage } from '@/admin/pages/AdminReviewsPage'
+import { AdminSizeChartsPage } from '@/admin/pages/AdminSizeChartsPage'
 
 export function AdminRoutes() {
   return (
@@ -41,7 +44,18 @@ export function AdminRoutes() {
 
           <Route path="sub-categories" element={<AdminSubCategoriesPage />} />
 
+          {/* Catalog: one size chart per category, shown on every product in it. */}
+          <Route path="size-charts" element={<AdminSizeChartsPage />} />
+
           <Route path="coupons" element={<AdminCouponsPage />} />
+
+          {/* Marketing: the "more you shop, more you save" ladder. Applies to the total
+              item count across a cart, not per product. */}
+          <Route path="quantity-offers" element={<AdminQuantityOffersPage />} />
+
+          {/* Community: moderation for customer reviews. Hiding is reversible; deleting
+              is not, and both sit inside the same ProtectedAdminRoute as everything else. */}
+          <Route path="reviews" element={<AdminReviewsPage />} />
 
           <Route path="notify-me" element={<AdminNotifyMePage />} />
 

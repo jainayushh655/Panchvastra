@@ -2,22 +2,58 @@ import { Fragment, Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { MainLayout } from '@/components/layout/MainLayout'
-import { AboutPage } from '@/pages/AboutPage'
-import { CartPage } from '@/pages/CartPage'
-import { CheckoutPage } from '@/pages/CheckoutPage'
-import { HelpDeskPage } from '@/pages/HelpDeskPage'
-import { CustomPiecePage } from '@/pages/CustomPiecePage'
+import { RouteFallback } from '@/components/layout/RouteFallback'
 import { HomePage } from '@/pages/HomePage'
-import { LoginPage } from '@/pages/LoginPage'
-import { ProductDetailPage } from '@/pages/ProductDetailPage'
-import { ProfilePage } from '@/pages/ProfilePage'
-import { ShopPage } from '@/pages/ShopPage'
-import { SignupPage } from '@/pages/SignupPage'
-import { OrdersPage } from '@/pages/OrdersPage'
-import { WishlistPage } from '@/pages/WishlistPage'
-import { RefundPolicyPage } from '@/pages/policies/RefundPolicyPage'
-import { PrivacyPolicyPage } from '@/pages/policies/PrivacyPolicyPage'
-import { TermsOfServicePage } from '@/pages/policies/TermsOfServicePage'
+
+/*
+ * ──────────────────────────────────────────────────────────────────────────────
+ * ROUTE-LEVEL CODE SPLITTING
+ * ──────────────────────────────────────────────────────────────────────────────
+ * Every customer page used to be a static import, so the first visit downloaded all of
+ * them before anything could render — the 1,000-line Custom Piece builder, the whole
+ * checkout, the orders screen, the help desk — for someone who had only opened the
+ * homepage. That one bundle was ~750 kB.
+ *
+ * Each page below is now its own chunk, fetched when its route is first opened and cached
+ * by the browser from then on.
+ *
+ * `HomePage` is deliberately NOT lazy. It is the most common landing page, and splitting
+ * it would put a second network round trip between the JavaScript arriving and the first
+ * paint — paying latency exactly where it is most visible. It is also small.
+ *
+ * The policy pages are grouped into ONE chunk rather than three. They are tiny, almost
+ * never visited, and three separate requests for a few kilobytes each is worse than one.
+ */
+
+const ShopPage = lazy(() => import('@/pages/ShopPage').then((m) => ({ default: m.ShopPage })))
+const ProductDetailPage = lazy(() =>
+  import('@/pages/ProductDetailPage').then((m) => ({ default: m.ProductDetailPage })),
+)
+const AboutPage = lazy(() => import('@/pages/AboutPage').then((m) => ({ default: m.AboutPage })))
+const HelpDeskPage = lazy(() => import('@/pages/HelpDeskPage').then((m) => ({ default: m.HelpDeskPage })))
+const CustomPiecePage = lazy(() =>
+  import('@/pages/CustomPiecePage').then((m) => ({ default: m.CustomPiecePage })),
+)
+
+const LoginPage = lazy(() => import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })))
+const SignupPage = lazy(() => import('@/pages/SignupPage').then((m) => ({ default: m.SignupPage })))
+
+const CartPage = lazy(() => import('@/pages/CartPage').then((m) => ({ default: m.CartPage })))
+const CheckoutPage = lazy(() => import('@/pages/CheckoutPage').then((m) => ({ default: m.CheckoutPage })))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })))
+const OrdersPage = lazy(() => import('@/pages/OrdersPage').then((m) => ({ default: m.OrdersPage })))
+const WishlistPage = lazy(() => import('@/pages/WishlistPage').then((m) => ({ default: m.WishlistPage })))
+
+/* The three policy pages share one chunk — see the note above. */
+const RefundPolicyPage = lazy(() =>
+  import('@/pages/policies').then((m) => ({ default: m.RefundPolicyPage })),
+)
+const PrivacyPolicyPage = lazy(() =>
+  import('@/pages/policies').then((m) => ({ default: m.PrivacyPolicyPage })),
+)
+const TermsOfServicePage = lazy(() =>
+  import('@/pages/policies').then((m) => ({ default: m.TermsOfServicePage })),
+)
 
 /*
  * The admin panel is the largest area of the app and no shopper ever loads it, so it is
@@ -30,8 +66,30 @@ export default function App() {
   return (
     <Fragment>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
+        {/*
+          Auth screens sit outside MainLayout and so outside its Suspense boundary, which
+          is why they carry their own. Without it a lazy login page would suspend with no
+          boundary above it and blank the app.
+        */}
+        <Route
+          path="/login"
+          element={(
+            <Suspense fallback={<RouteFallback />}>
+              <LoginPage />
+            </Suspense>
+          )}
+        />
+        <Route
+          path="/signup"
+          element={(
+            <Suspense fallback={<RouteFallback />}>
+              <SignupPage />
+            </Suspense>
+          )}
+        />
+
+        {/* MainLayout wraps its own <Outlet /> in Suspense, so the navbar and footer stay
+            painted while a page chunk loads instead of the whole screen going blank. */}
         <Route element={<MainLayout />}>
           <Route index element={<HomePage />} />
           <Route path="shop" element={<ShopPage />} />
@@ -52,6 +110,7 @@ export default function App() {
           <Route path="policies/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="policies/terms-of-service" element={<TermsOfServicePage />} />
         </Route>
+
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
             <Route path="cart" element={<CartPage />} />
@@ -62,6 +121,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Route>
+
         {/* Suspense is scoped to this one route, so nothing on a customer route can be
             held up by it. The fallback is deliberately blank: the admin shell paints its
             own chrome, and a spinner here would flash on every admin navigation. */}

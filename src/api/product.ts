@@ -86,6 +86,17 @@ export interface ProductQueryParams {
   page?: number;
   /** Rows per page. Omitting it uses the backend's default of 20. */
   page_size?: number;
+  /**
+   * Product id to find related products for — powers "You May Also Like".
+   *
+   * The backend owns the whole definition of "related": same category, the current
+   * product excluded, same sub-category ranked first. That logic stays server-side on
+   * purpose, because doing it on the client would mean fetching the category's entire
+   * catalogue just to drop one row from it.
+   *
+   * Composes with `page_size`; sending it alongside the other filters is not meaningful.
+   */
+  related_to?: number | string;
 }
 
 /** A single page of the list endpoint, with the paging metadata the caller needs. */
@@ -160,6 +171,28 @@ export async function getProductById(id: string | number) {
   );
 
   return response.data.data;
+}
+
+/**
+ * `GET /v1/products_management/?related_to=<id>` — the "You May Also Like" rail.
+ *
+ * Returns ordinary listing cards, so the existing `ProductCard` renders them unchanged.
+ * An empty result is a normal outcome (a category with one product), and the caller hides
+ * the whole section rather than showing an empty rail.
+ *
+ * Failure is swallowed into an empty list on purpose: this is a secondary rail at the
+ * bottom of the page and must never be able to break the product above it.
+ */
+export async function getRelatedProducts(
+  productId: string | number,
+  { pageSize = 8 }: { pageSize?: number } = {},
+): Promise<ProductDto[]> {
+  try {
+    const { products } = await getProductsPageList({ related_to: productId, page_size: pageSize });
+    return products;
+  } catch {
+    return [];
+  }
 }
 /* ------------------------------------------------------------------ admin (CRUD) */
 

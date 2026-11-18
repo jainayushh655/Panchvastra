@@ -123,6 +123,28 @@ export async function getOrders(query: OrderQuery = {}): Promise<OrderListResult
   return readListResponse(response.data, query.page ?? 1)
 }
 
+/**
+ * `GET /v1/orders/?id={id}` as the CUSTOMER — one of their own orders, in full.
+ *
+ * Same URL as `getAdminOrderDetail` but through the shared client, so it carries the
+ * shopper's token and the backend scopes it to their own orders. The two are separate
+ * functions with separate configs on purpose: reusing the admin one here would send an
+ * admin credential, and reusing this one there would send a shopper's.
+ *
+ * This is what the orders list calls when a card is expanded. The list response carries
+ * enough to render a summary row, but `price_summary` — and `items[].review_id`, which
+ * decides whether a delivered line offers "Write a review" or "Edit your review" — are
+ * detail-only fields.
+ */
+export async function getCustomerOrderDetail(id: number | string): Promise<OrderDetail | null> {
+  const response = await api.get<OrderEnvelope<OrderDetailDto>>('/v1/orders/', { params: { id } })
+  const data = response.data?.data
+  // An `?id=` read returns a single object. An array (or nothing) means the backend did
+  // not resolve the order, which is reported as "not found" rather than guessed at.
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+  return mapOrderDetail(data)
+}
+
 /* ------------------------------------------------------------------ admin: read */
 
 /**

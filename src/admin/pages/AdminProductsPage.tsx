@@ -9,6 +9,7 @@ import {
   toPendingImages,
   type PendingImage,
 } from '@/admin/components/ProductImageUploader'
+import { ProductVideoUploader } from '@/admin/components/ProductVideoUploader'
 import {
   createProduct,
   deleteProduct,
@@ -295,8 +296,14 @@ export function AdminProductsPage() {
     setFormError(null)
   }
 
-  /** Loads the full record (the list is variant-flattened and has no nested variants). */
-  const openEdit = async (product: ProductDto) => {
+  /**
+   * Loads the full record (the list is variant-flattened and has no nested variants).
+   *
+   * Takes only the two fields it actually reads rather than a whole `ProductDto`, so it
+   * can also be used to RE-READ the product already being edited — which is what happens
+   * after a video is attached, since that lands server-side outside the form's own save.
+   */
+  const openEdit = async (product: { id: number; name: string }) => {
     setFormError(null)
     setFormLoading(true)
     setForm({ ...emptyForm(), id: product.id, name: product.name })
@@ -1321,6 +1328,22 @@ export function AdminProductsPage() {
                       onRemoveExisting={(imageId) => removeExistingImage(vIndex, imageId)}
                       onReorder={(tokens) => reorderVariantImages(vIndex, tokens)}
                       disabled={saving}
+                    />
+
+                    {/*
+                      Videos take a separate, direct-to-storage path: the product form is
+                      images-only and rejects a video, and attaching one needs a variant
+                      that already exists. On success the product is re-read so the clip
+                      appears in the gallery above, where it reorders and deletes like any
+                      other item.
+                    */}
+                    <ProductVideoUploader
+                      variantId={variant.id}
+                      disabled={saving}
+                      onUploaded={() => {
+                        if (form.id === null) return
+                        return openEdit({ id: form.id, name: form.name })
+                      }}
                     />
                   </div>
                 ))}

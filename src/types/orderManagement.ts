@@ -31,6 +31,22 @@ export interface OrderItem {
   totalAmount: number | null
   sku: string | null
   imageUrl: string | null
+  /**
+   * The review this customer already wrote for this line, or null.
+   *
+   * null on a DELIVERED order is the "Write a review" entry point; a value is "Edit your
+   * review". Reviews attach to an ORDER ITEM, not a product.
+   */
+  reviewId: number | null
+  /**
+   * The line's own backend id, as a number, for `POST /v1/product_reviews/`.
+   *
+   * `key` carries the same value as a string but is documented as a render key, and a
+   * render key is allowed to be a synthesised fallback when the response has no id. This
+   * is null in exactly that case, which is what stops the review button appearing for a
+   * line that cannot actually be reviewed.
+   */
+  orderItemId: number | null
 }
 
 /**
@@ -83,8 +99,15 @@ export interface OrderAddress {
 
 export interface OrderPriceSummary {
   subtotal: number | null
-  /** Positive in the payload; the UI renders it as "- ₹499". */
+  /**
+   * Positive in the payload; the UI renders it as "- ₹499".
+   *
+   * COMBINED: quantity offer + coupon. The coupon part is
+   * `discountAmount − quantityDiscountAmount` — there is no separate coupon field.
+   */
   discountAmount: number | null
+  /** The quantity-offer portion of `discountAmount`. null/0 when no tier applied. */
+  quantityDiscountAmount: number | null
   shippingAmount: number | null
   taxAmount: number | null
   grandTotal: number | null

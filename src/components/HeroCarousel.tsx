@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { HomepageHeroSlide } from '@/types/homepage'
@@ -299,24 +298,22 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
-          <AnimatePresence mode="wait" initial={false}>
-            {bgImage ? (
-              <motion.div
-                key={`bg-${slide.id}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.45 }}
-                // No grayscale and nothing laid over the top: these are admin-uploaded
-                // carousel images from /v1/auth_carousel/, so they show in their real
-                // colours at full strength. The `opacity` here is the crossfade between
-                // slides only — it animates to 1 and stays there.
-                className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
-                style={{ backgroundImage: `url(${JSON.stringify(bgImage)})` }}
-                aria-hidden
-              />
-            ) : null}
-          </AnimatePresence>
+          {/*
+            The `key` is what animates this: changing slide remounts the element, which
+            restarts the CSS fade. Same 450ms as the motion component it replaces.
+
+            No grayscale and nothing laid over the top: these are admin-uploaded carousel
+            images from /v1/auth_carousel/, so they show in their real colours at full
+            strength. The fade is the transition between slides only.
+          */}
+          {bgImage ? (
+            <div
+              key={`bg-${slide.id}`}
+              className="pv-hero-fade pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: `url(${JSON.stringify(bgImage)})` }}
+              aria-hidden
+            />
+          ) : null}
           {/* Nothing is laid over the artwork. The faint diagonal hatch is only the
               no-artwork fallback, so it never touches a real carousel image. */}
           {bgImage ? null : (
@@ -334,20 +331,19 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
               item sized to its content and `mx-auto` would centre it instead of keeping the
               usual left-aligned 6xl container. */}
           <div className="relative mx-auto w-full max-w-6xl">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={slide.id}
-                initial={{ opacity: 0, x: 32 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -28 }}
-                transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-                // The single call to action sits at the BOTTOM of this block, centred, so it
-                // lands at the bottom of the hero image itself.
-                className="flex min-h-[230px] items-end justify-center md:min-h-[300px]"
-              >
-                {renderActions(slide)}
-              </motion.div>
-            </AnimatePresence>
+            {/*
+              Keyed on the slide, so it remounts and replays the CSS enter animation —
+              same 380ms and same easing curve as before.
+
+              The single call to action sits at the BOTTOM of this block, centred, so it
+              lands at the bottom of the hero image itself.
+            */}
+            <div
+              key={slide.id}
+              className="pv-hero-enter flex min-h-[230px] items-end justify-center md:min-h-[300px]"
+            >
+              {renderActions(slide)}
+            </div>
           </div>
 
           {/* --------------------------------- desktop prev / next, 2+ slides only */}

@@ -73,6 +73,10 @@ function mapItem(dto: OrderItemDto, index: number): OrderItem {
     totalAmount: num(dto.total_amount),
     sku: text(dto.sku),
     imageUrl: text(dto.image_url),
+    reviewId: num(dto.review_id),
+    // Only a real backend id, never the synthesised `key` fallback — a review cannot be
+    // attached to a line the response did not actually identify.
+    orderItemId: num(dto.id),
   }
 }
 
@@ -135,6 +139,7 @@ function mapPriceSummary(dto: OrderPriceSummaryDto | null | undefined): OrderPri
   return {
     subtotal: num(dto.subtotal),
     discountAmount: num(dto.discount_amount),
+    quantityDiscountAmount: num(dto.quantity_discount_amount),
     shippingAmount: num(dto.shipping_amount),
     taxAmount: num(dto.tax_amount),
     grandTotal: num(dto.grand_total),

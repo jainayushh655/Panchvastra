@@ -10,8 +10,23 @@
  * `address_id` (integer, required) and `coupon_code` (string, nullable).
  */
 
+/**
+ * Buy Now fields, accepted by BOTH checkout endpoints.
+ *
+ * ⚠️ Sending `variant_size_id` changes what the order IS. The backend then builds the
+ * order from that one item and ignores the cart entirely. Leaking these fields into an
+ * ordinary cart checkout would silently reduce a full cart to a single item, so they are
+ * only ever set from the Buy Now flow and are omitted — not nulled — otherwise.
+ */
+export interface BuyNowFields {
+  /** The exact variant size being bought. Its presence is what selects Buy Now mode. */
+  variant_size_id?: number
+  /** Units of that size. Only meaningful alongside `variant_size_id`. */
+  quantity?: number
+}
+
 /** Request body for POST /v1/checkout_payment/. `coupon_code` is omitted when unused. */
-export interface CreatePaymentOrderDto {
+export interface CreatePaymentOrderDto extends BuyNowFields {
   address_id: number
   coupon_code?: string
 }
@@ -63,9 +78,43 @@ export interface RazorpayHandlerResponse {
  * omitted entirely when no coupon is applied — never sent as "" or null, and `coupon_id`
  * is never sent at all.
  */
-export interface CreateCodOrderDto {
+export interface CreateCodOrderDto extends BuyNowFields {
   address_id: number
   coupon_code?: string
+}
+
+/**
+ * An item the backend refused because it is no longer purchasable.
+ *
+ * Returned inside a 400 as `data.unavailable_items`, by BOTH the COD and the Razorpay
+ * endpoints. `cart_item_id` is what the remove call needs, so the checkout can offer to
+ * clear the blockage rather than leaving the shopper stuck.
+ */
+export interface UnavailableItemDto {
+  cart_item_id: number
+  product_name: string
+  size: string | null
+  color: string | null
+}
+
+/**
+ * An item the backend refused because the cart asks for more than exists.
+ *
+ * Returned inside a 400 as `data.insufficient_stock`. There is no `cart_item_id` here —
+ * the fix is to reduce the quantity, not to remove the line.
+ */
+export interface InsufficientStockDto {
+  product_name: string
+  size: string | null
+  color: string | null
+  requested: number
+  available: number
+}
+
+/** The `data` block a 400 from either checkout endpoint can carry. */
+export interface CheckoutErrorData {
+  unavailable_items?: UnavailableItemDto[]
+  insufficient_stock?: InsufficientStockDto[]
 }
 
 /**
@@ -79,7 +128,15 @@ export interface CodOrderData {
   payment_status: string
   order_status: string
   subtotal: number
+  /**
+   * The COMBINED saving: quantity offer + coupon.
+   *
+   * To show them separately, the coupon part is `discount_amount − quantity_discount_amount`.
+   * There is no separate coupon field, so that subtraction is the only way to split them.
+   */
   discount_amount: number
+  /** The quantity-offer portion of `discount_amount`. Optional on older responses. */
+  quantity_discount_amount?: number
   grand_total: number
 }
 

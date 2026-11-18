@@ -4,7 +4,7 @@ import { BrandMark } from '@/components/BrandMark'
 import { ProfileMenu } from '@/components/layout/ProfileMenu'
 import { useCart } from '@/context/CartProvider'
 import { useWishlist } from '@/context/WishlistProvider'
-import { getCategories } from '@/api/category'
+import { getCategoriesCached } from '@/api/catalogCache'
 import type { CategoryDto } from '@/types/api/CategoryDto'
 
 export function Navbar() {
@@ -18,7 +18,7 @@ export function Navbar() {
   const categoryRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    void getCategories().then((data) => setCategories(data))
+    void getCategoriesCached().then((data) => setCategories(data))
   }, [])
 
   const activeCategorySlug = searchParams.get('category')

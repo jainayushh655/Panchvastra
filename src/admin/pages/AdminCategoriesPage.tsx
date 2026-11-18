@@ -3,6 +3,7 @@ import { Breadcrumb } from '@/admin/components/Breadcrumb'
 import { AdminTable } from '@/admin/components/AdminTable'
 import { AdminBadge, AdminEmptyState, AdminErrorState, AdminLoadingState } from '@/admin/components/AdminStates'
 import { AdminConfirmModal } from '@/admin/components/AdminConfirmModal'
+import { clearCatalogCache } from '@/api/catalogCache'
 import {
   createCategory,
   deleteCategory,
@@ -178,6 +179,9 @@ export function AdminCategoriesPage() {
 
       setForm(null)
       setActionError(null)
+      // The storefront's navbar, footer and shop filter read categories from a shared
+      // five-minute cache. An admin edit is precisely the case that cache must not survive.
+      clearCatalogCache()
       setNotice(form.id === null ? 'Category created.' : 'Category updated.')
       // The backend is the source of truth — nothing is inserted into the list locally.
       await load()
@@ -198,6 +202,7 @@ export function AdminCategoriesPage() {
 
     try {
       await deleteCategory(pendingDelete.id)
+      clearCatalogCache()
       setPendingDelete(null)
       setNotice('Category deleted.')
       await load()

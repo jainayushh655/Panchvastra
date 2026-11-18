@@ -67,6 +67,17 @@ export interface OrderItemDto {
   total_amount?: number | string | null
   sku?: string | null
   image_url?: string | null
+  /**
+   * The review this customer has already written for this item, or null.
+   *
+   * Drives the entry point into the review flow: null on a DELIVERED order means "Write a
+   * review"; a value means "Edit your review". Reviews are per ORDER ITEM — which is what
+   * makes "Verified Purchase" true by construction and limits each purchase to one
+   * review — so this id lives here rather than on the product.
+   *
+   * Optional, so an older response still types; absent is read as "not reviewed".
+   */
+  review_id?: number | null
 }
 
 /**
@@ -118,7 +129,16 @@ export interface OrderAddressDto {
 /** Detail-only money breakdown. `discount_amount` is POSITIVE and displayed as "- ₹499". */
 export interface OrderPriceSummaryDto {
   subtotal?: number | string | null
+  /**
+   * The COMBINED saving: quantity offer + coupon.
+   *
+   * To show the two separately, the coupon part is
+   * `discount_amount − quantity_discount_amount`. There is no separate coupon field, so
+   * that subtraction is the only way to split them.
+   */
   discount_amount?: number | string | null
+  /** The quantity-offer portion of `discount_amount`. Optional on older responses. */
+  quantity_discount_amount?: number | string | null
   shipping_amount?: number | string | null
   tax_amount?: number | string | null
   grand_total?: number | string | null
