@@ -253,11 +253,26 @@
 
 .pv-toast-in { animation: pv-toast-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* ------------------------------------------------------------- homepage hero
+   The desktop hero's call-to-action entrance. This replaces the `framer-motion`
+   `AnimatePresence` block in the Vite `HeroCarousel`, with the same values that component
+   animated: 32px on the x axis, 380ms, and the same easing curve. It replays because
+   React is given a `key` on the slide id, so the element remounts when the slide changes.
+   The background crossfade is a plain `transition-opacity` utility on the stacked slides
+   and needs no keyframe. */
+@keyframes pv-hero-copy-in {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.pv-hero-copy-in { animation: pv-hero-copy-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 /* Honour the OS setting: no ambient motion, and the step transition becomes a plain fade. */
 @media (prefers-reduced-motion: reduce) {
   .pv-auth-drift,
   .pv-auth-sweep,
-  .pv-toast-in {
+  .pv-toast-in,
+  .pv-hero-copy-in {
     animation: none;
   }
 

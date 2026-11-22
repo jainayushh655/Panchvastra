@@ -1,61 +1,55 @@
 'use client'
 
+import { AuthProvider } from '@/context/AuthProvider'
+import { CartProvider } from '@/context/CartProvider'
 import { ToastProvider } from '@/context/ToastProvider'
+import { WishlistProvider } from '@/context/WishlistProvider'
 
 /**
  * The single Client Component boundary for the whole application.
  *
- * Everything above this in the tree — the root layout, every page that does not opt in —
- * stays a Server Component. Putting the providers in one file keeps that boundary
- * explicit and in one place, instead of scattering `'use client'` through the layout.
+ * Everything above this in the tree — the root layout, the storefront layout, every page
+ * that does not opt in — stays a Server Component. Putting the providers in one file keeps
+ * that boundary explicit and in one place, instead of scattering `'use client'` through
+ * the layouts.
  *
  * ──────────────────────────────────────────────────────────────────────────────
- * THE TARGET NESTING ORDER
+ * THE NESTING ORDER
  * ──────────────────────────────────────────────────────────────────────────────
- * The Vite app's `main.tsx` nests the providers in this order, and the order is not
- * arbitrary — each one consumes the one above it:
+ * This is the order the Vite app's `main.tsx` uses, and the order is not arbitrary — each
+ * provider consumes the one above it:
  *
  *     ToastProvider          (no dependencies)
  *       AuthProvider         (owns the session; everything below reads `token`)
  *         CartProvider       (re-fetches the server cart whenever `token` changes)
  *           WishlistProvider (scopes its localStorage key by the signed-in email)
- *             AddressProvider(re-fetches the address book whenever `token` changes)
  *
- * Phase 2 ships only `ToastProvider`: it is self-contained, has no auth dependency and
- * nothing to hydrate, so it can land now without touching authentication. The remaining
- * four arrive in Phase 3, inserted at the marked position in exactly that order.
+ * `AddressProvider` is the fifth in the Vite stack and is deliberately NOT here: its only
+ * consumers are the checkout and profile screens, which are Phase 4. Mounting it now would
+ * fire `GET /v1/address_management/` on every storefront page for a signed-in visitor,
+ * including pages that never read an address. It is ported with the screens that use it.
+ *
+ * `AdminAuthProvider` is not part of this stack either: it belongs in `app/admin/layout.tsx`
+ * so the admin CSS and its provider never load for a shopper.
  *
  * ──────────────────────────────────────────────────────────────────────────────
- * THE HYDRATION RULE FOR THE PROVIDERS STILL TO COME
+ * HYDRATION
  * ──────────────────────────────────────────────────────────────────────────────
- * `AuthProvider` and `WishlistProvider` currently seed their initial state straight from
- * `localStorage` inside a `useState` initialiser:
- *
- *     const [user, setUser] = useState(() => readStoredSession().user)   // Vite
- *
- * That cannot be ported as-is. The server renders with no storage, so the first client
- * render would disagree with the server HTML and React would discard it — producing a
- * wrong first paint (signed-out chrome for a signed-in user, an empty wishlist badge)
- * rather than a crash, which is what makes it easy to miss. The migration audit rated
- * this the single most likely hydration failure.
- *
- * The fix, applied when those providers are ported: start from the EMPTY state that the
- * server also renders, then load from storage in an effect, and gate anything
- * storage-derived on `useHydrated()` (see `@/hooks/useHydrated`).
+ * None of these providers reads `localStorage` during render. `AuthProvider` restores the
+ * stored session in an effect after mount, and `WishlistProvider` keys its state by the
+ * email that session produces, so the server HTML and the first client render agree on the
+ * signed-out, empty-cart, empty-wishlist view. See `AuthProvider` and `WishlistProvider`
+ * for the full reasoning, including the stored-wishlist overwrite that the keyed state
+ * exists to prevent.
  */
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ToastProvider>
-      {/*
-        Phase 3 inserts, in this order:
-          <AuthProvider>
-            <CartProvider>
-              <WishlistProvider>
-                <AddressProvider>
-        ...wrapping {children}. AdminAuthProvider is NOT part of this stack: it lives in
-        `app/admin/layout.tsx` so the admin CSS and its provider never load for a shopper.
-      */}
-      {children}
+      <AuthProvider>
+        <CartProvider>
+          <WishlistProvider>{children}</WishlistProvider>
+        </CartProvider>
+      </AuthProvider>
     </ToastProvider>
   )
 }

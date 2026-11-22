@@ -1,0 +1,662 @@
+'use client'
+
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { NotifyMeModal } from '@/components/product/NotifyMeModal'
+import { ProductDetailAccordions } from '@/components/product/ProductDetailAccordions'
+import { ProductImageGallery } from '@/components/product/ProductImageGallery'
+import { ProductVariantPicker } from '@/components/product/ProductVariantPicker'
+import { SizeChart } from '@/components/product/SizeChart'
+import { useAuth } from '@/context/AuthProvider'
+import { useCart } from '@/context/CartProvider'
+import { useToast } from '@/context/ToastProvider'
+import { useWishlist, type WishlistItem } from '@/context/WishlistProvider'
+import { formatInr } from '@/lib/format'
+import { MISSING_IMAGE } from '@/lib/homeCategories'
+import type { SizeChart as SizeChartData } from '@/lib/sizeChart'
+import { addToCart } from '@/services/cart'
+import type { ProductDetailDto } from '@/types/api/ProductDetailDto'
+import type { Product } from '@/types'
+
+/**
+ * The product detail page's interactive body.
+ *
+ * ──────────────────────────────────────────────────────────────────────────────
+ * WHY THIS IS ONE ISLAND AND NOT FOUR
+ * ──────────────────────────────────────────────────────────────────────────────
+ * Almost everything on this page is downstream of one choice — which variant is selected.
+ * The gallery shows that variant's photographs, the price is that variant's price, the
+ * size buttons are that variant's sizes, the stock warning is that size's stock, and Add
+ * to Cart posts that size's id. Splitting those into separate islands would mean four
+ * components re-deriving the same answer from the URL, and four chances for them to
+ * disagree about which colour is on screen.
+ *
+ * So the whole two-column body is one Client Component. That is NOT a loss of
+ * server-rendering: a Client Component is still rendered to HTML on the server, so the
+ * product name, price, subtitle, sizes and highlights are all in the markup a crawler
+ * reads. What stays genuinely server-only is everything that never needs to re-render —
+ * the page shell, the metadata, the JSON-LD and the Key Highlights list, which arrives
+ * through `highlights` as already-rendered server output rather than being bundled.
+ *
+ * ──────────────────────────────────────────────────────────────────────────────
+ * `?sku=` IS STILL THE SOURCE OF TRUTH
+ * ──────────────────────────────────────────────────────────────────────────────
+ * The selected colour lives in the URL, exactly as in the Vite page, so a refresh or a
+ * shared link reopens the same variant. The SKU is the identifier the backend already
+ * gives each variant, so it survives any re-ordering of `variants` — an index would not.
+ *
+ * The server resolved that same parameter before rendering, and `initialSku` is what it
+ * resolved, so the first client render agrees with the HTML. After that `useSearchParams`
+ * drives it. Colour taps write the URL with `history.replaceState` rather than a router
+ * navigation: the page's own data does not change with the SKU (every variant arrives in
+ * one product response), so asking the server to re-render would be a round trip for
+ * markup it would produce identically.
+ */
+
+/**
+ * Standard apparel run, used ONLY to order the sizes a variant actually has. It is never a
+ * list of sizes to render — a size absent from the API is a size this product does not come
+ * in, so it is not shown at all.
+ */
+const UI_SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'] as const
+
+/**
+ * A configured size is buyable only when the backend both lists it in stock and has
+ * quantity for it. A configured size with `stock_quantity: 0` stays visible and becomes
+ * the Notify Me path — it is out of stock, not non-existent.
+ */
+function isSizeAvailable(sz: { in_stock: boolean; stock_quantity: number }): boolean {
+  return sz.in_stock !== false && sz.stock_quantity > 0
+}
+
+/**
+ * At or below this many units left, the selected size shows a red "N left" warning.
+ * Above it nothing is shown — a running count on every size reads as inventory data
+ * rather than scarcity, and stops meaning anything when it matters.
+ */
+const LOW_STOCK_THRESHOLD = 3
+
+function HeartIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      className="size-5"
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="1.75"
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 20.25s-7.5-4.6-9.75-9.1C.75 7.6 2.6 4.5 6 4.5c2 0 3.5 1 6 3.3 2.5-2.3 4-3.3 6-3.3 3.4 0 5.25 3.1 3.75 6.65-2.25 4.5-9.75 9.1-9.75 9.1z"
+      />
+    </svg>
+  )
+}
+
+function WhatsAppIcon() {
+  return (
+    <svg className="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.39 1.26 4.81L2 22l5.42-1.34a9.9 9.9 0 004.62 1.14h.01c5.46 0 9.9-4.45 9.9-9.9C21.96 6.45 17.5 2 12.04 2zm0 18.02h-.01a8.2 8.2 0 01-4.13-1.13l-.3-.17-3.05.76.82-2.97-.2-.31a8.13 8.13 0 01-1.25-4.29c0-4.5 3.66-8.16 8.15-8.16 2.18 0 4.22.85 5.76 2.39a8.1 8.1 0 012.39 5.77c0 4.5-3.66 8.15-8.18 8.15zm4.47-6.1c-.24-.12-1.45-.71-1.68-.8-.22-.08-.39-.12-.55.12-.16.24-.63.8-.78.96-.14.16-.28.18-.53.06-.24-.12-1.03-.38-1.97-1.21-.73-.65-1.22-1.45-1.36-1.7-.14-.24-.02-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.55-1.32-.75-1.8-.2-.48-.4-.42-.55-.42h-.47c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.11.16 1.53.1.47-.07 1.45-.59 1.65-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.46-.28z" />
+    </svg>
+  )
+}
+
+function FacebookIcon() {
+  return (
+    <svg className="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M13.5 21v-7.5h2.5l.5-3h-3V8.5c0-.9.25-1.5 1.53-1.5H16.5V4.3C16.2 4.26 15.2 4.17 14 4.17c-2.4 0-4 1.46-4 4.15V10.5H7.5v3H10V21h3.5z" />
+    </svg>
+  )
+}
+
+function XIcon() {
+  return (
+    <svg className="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M18.244 2H21.5l-7.5 8.57L22.9 22h-6.86l-5.37-6.63L4.5 22H1.24l8.02-9.17L1.1 2h7.03l4.86 6.06L18.244 2z" />
+    </svg>
+  )
+}
+
+function InstagramIcon() {
+  return (
+    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function ProductDetailView({
+  dto,
+  product,
+  initialSku,
+  sizeChart,
+  shareUrl: serverShareUrl,
+  highlights,
+}: {
+  dto: ProductDetailDto
+  product: Product
+  /** The SKU the SERVER resolved for this URL, so the first client render matches the HTML. */
+  initialSku: string | null
+  /** Resolved on the server from the category/subcategory pairing. Null means no chart. */
+  sizeChart: SizeChartData | null
+  /** Absolute URL for the share links, or '' when no public origin is configured. */
+  shareUrl: string
+  /** Server-rendered Key Highlights, passed through so its code never reaches the browser. */
+  highlights: ReactNode
+}) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const { isAuthenticated } = useAuth()
+  const { refreshCart } = useCart()
+  const { showToast } = useToast()
+  const { isWishlisted, toggleWishlist } = useWishlist()
+
+  const [size, setSize] = useState('')
+  const [quantity, setQuantity] = useState(1)
+  /** True only while the add-to-cart request for the CURRENT selection is in flight. */
+  const [adding, setAdding] = useState(false)
+  const [sizeChartOpen, setSizeChartOpen] = useState(false)
+  const [notifyMeOpen, setNotifyMeOpen] = useState(false)
+  const [notifyMePreselect, setNotifyMePreselect] = useState<string | undefined>(undefined)
+  const [shareCopied, setShareCopied] = useState(false)
+
+  const variants = dto.variants ?? []
+
+  // On the first render this is `initialSku`, which is what the server resolved, so the
+  // markup matches. Afterwards the live URL wins.
+  const skuParam = searchParams.get('sku') ?? initialSku
+
+  // `findIndex` returns -1 when there is no explicit default, which `Math.max` folds to 0.
+  const defaultVariantIndex = Math.max(
+    variants.findIndex((v) => v.is_default),
+    0,
+  )
+  const skuVariantIndex = skuParam ? variants.findIndex((v) => v.sku === skuParam) : -1
+  const selectedVariantIndex = skuVariantIndex >= 0 ? skuVariantIndex : defaultVariantIndex
+  const currentVariant = variants[selectedVariantIndex]
+
+  const selectedVariantSize = currentVariant?.sizes.find((s) => s.size === size)
+  const selectedVariantSizeId = selectedVariantSize?.id ?? null
+  const hasVariantPicker = variants.length > 1
+
+  /**
+   * Writes the resolved SKU into the URL.
+   *
+   * `/product/2` becomes `/product/2?sku=B-D2G` as soon as the page loads, and a `sku`
+   * this product does not have is corrected to the resolved one — so every PDP URL is
+   * shareable as-is, with no "whatever the default happens to be today" case.
+   *
+   * `replaceState` rather than a router navigation, for the reason in the header: the
+   * server's render does not depend on the SKU, so there is nothing to re-fetch. It also
+   * replaces rather than pushes, because this is the same page — pushing would put a
+   * param-less copy of this URL behind the shopper and Back would appear to do nothing.
+   * The write is skipped once the parameter already matches, which is what stops it
+   * looping.
+   */
+  const writeSku = useCallback(
+    (sku: string) => {
+      const next = new URLSearchParams(searchParams.toString())
+      next.set('sku', sku)
+      window.history.replaceState(null, '', `${pathname}?${next}`)
+    },
+    [pathname, searchParams],
+  )
+
+  useEffect(() => {
+    if (!currentVariant) return
+    if (searchParams.get('sku') === currentVariant.sku) return
+    writeSku(currentVariant.sku)
+  }, [currentVariant, searchParams, writeSku])
+
+  /**
+   * The first in-stock size of whichever variant is currently resolved.
+   *
+   * Derived in one place, so a refresh — or Back/Forward between two colours — lands on
+   * the same size a tap would.
+   */
+  useEffect(() => {
+    if (!currentVariant) {
+      setSize('')
+      return
+    }
+    const firstAvailable = currentVariant.sizes.find((s) => s.in_stock)
+    setSize(firstAvailable?.size ?? '')
+  }, [currentVariant])
+
+  /**
+   * Whether THIS visit has just added this size to the cart.
+   *
+   * Deliberately a transient local flag rather than a lookup against the cart contents.
+   * The button is a step in a flow — add, then go to the cart — so it has to reset once
+   * the shopper comes back, even though the item is of course still in their cart.
+   */
+  const [justAdded, setJustAdded] = useState(false)
+
+  // A different size (or colour — the id covers both) is a different line, so it is offered
+  // fresh. Quantity restarts at 1 for the same reason.
+  useEffect(() => {
+    setQuantity(1)
+    setJustAdded(false)
+  }, [selectedVariantSizeId])
+
+  const canAdd = Boolean(selectedVariantSizeId) && !adding
+
+  /** Units left for the selected size, but only while that count is 3, 2 or 1. */
+  const lowStockRemaining =
+    selectedVariantSize &&
+    selectedVariantSize.in_stock &&
+    selectedVariantSize.stock_quantity > 0 &&
+    selectedVariantSize.stock_quantity <= LOW_STOCK_THRESHOLD
+      ? selectedVariantSize.stock_quantity
+      : null
+
+  /**
+   * Sends a signed-out shopper to sign in, carrying where to come back to.
+   *
+   * The Vite app passes the return path through react-router's `location.state`. The App
+   * Router has no equivalent, so it travels as a `?next=` parameter instead — a visible,
+   * shareable, refresh-proof equivalent. ⚠️ The login page is Phase 4B's successor phase;
+   * it must read `next` for this to complete, and that is recorded in the phase report.
+   */
+  const requireSignIn = useCallback(() => {
+    const here = searchParams.toString() ? `${pathname}?${searchParams}` : pathname
+    router.push(`/login?next=${encodeURIComponent(here)}`)
+  }, [pathname, router, searchParams])
+
+  const handleAddToCart = async () => {
+    if (!selectedVariantSizeId || adding) return
+
+    if (!isAuthenticated) {
+      requireSignIn()
+      return
+    }
+
+    setAdding(true)
+    try {
+      /*
+       * Re-adding the same size is intentional and additive: the backend documents this
+       * POST as "Adds a specific variant size product to the user's cart. If it already
+       * exists, increments quantity." So a second add raises the line's quantity and the
+       * cart badge rather than erroring or overwriting — no client-side merging needed.
+       */
+      await addToCart(selectedVariantSizeId, quantity)
+      await refreshCart()
+      setJustAdded(true)
+      showToast('Added to cart', { description: 'Product added successfully' })
+    } catch (error) {
+      console.error('Failed to add product to cart', error)
+      showToast('Could not add to cart', { variant: 'warning', description: 'Please try again.' })
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  /** One control, two steps: add the item, then take the shopper to the cart. */
+  const handlePrimaryAction = () => {
+    if (justAdded) {
+      router.push('/cart')
+      return
+    }
+    void handleAddToCart()
+  }
+
+  const handleWishlistToggle = () => {
+    if (!isAuthenticated) {
+      requireSignIn()
+      return
+    }
+
+    const item: WishlistItem = {
+      id: product.id,
+      name: product.name,
+      image: currentVariant?.images[0]?.image_url?.trim() || product.images[0] || MISSING_IMAGE,
+      price: currentVariant?.selling_price ?? product.price,
+      compareAtPrice: currentVariant?.mrp ?? product.compareAtPrice ?? null,
+    }
+
+    toggleWishlist(item)
+  }
+
+  /*
+   * The share target.
+   *
+   * The server supplies an absolute URL built from the configured public origin, so the
+   * links are correct in the HTML and a crawler or a no-JS visitor sees real ones. Only
+   * when no origin is configured (a preview deployment) does this fall back to the live
+   * address after mount — an update AFTER hydration, never a different first render.
+   */
+  const [shareUrl, setShareUrl] = useState(serverShareUrl)
+  useEffect(() => {
+    if (!serverShareUrl) setShareUrl(window.location.href)
+  }, [serverShareUrl])
+
+  const shareTitle = product.name
+  const shareLinks = useMemo(
+    () => ({
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(`${shareTitle} ${shareUrl}`)}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+      x: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareTitle)}&url=${encodeURIComponent(shareUrl)}`,
+    }),
+    [shareTitle, shareUrl],
+  )
+
+  // Instagram has no browser URL-share endpoint for arbitrary links. On devices that support
+  // the Web Share API, the OS-level share sheet (which can include Instagram) is used — a
+  // genuinely real flow. Otherwise, the link is copied so it can be pasted into Instagram
+  // manually, rather than pretending a direct share happened.
+  const handleInstagramShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: shareTitle, url: shareUrl })
+      } catch {
+        // User cancelled the native share sheet — nothing to do.
+      }
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+    } catch {
+      // Clipboard unavailable — silently ignore.
+    }
+  }
+
+  const productSizes = currentVariant?.sizes ?? []
+  const allSizesOutOfStock = productSizes.length > 0 && !productSizes.some(isSizeAvailable)
+  const wishlisted = isWishlisted(product.id)
+  const maxQty = selectedVariantSize ? Math.max(1, Math.min(selectedVariantSize.stock_quantity, 10)) : 1
+  const subtitle = [dto.category?.name, dto.sub_category?.name].filter(Boolean).join(' · ')
+
+  // Only the sizes this variant is actually configured with are rendered, in the standard
+  // run's order. Sizes the API does not return are simply not offered; a configured size
+  // with zero stock is still shown, marked unavailable.
+  const sizeRank = new Map<string, number>(UI_SIZE_OPTIONS.map((label, index) => [label, index]))
+  const uiSizes = productSizes
+    .map((apiSize) => ({
+      size: apiSize.size,
+      id: apiSize.id,
+      inStock: isSizeAvailable(apiSize),
+      stockQuantity: apiSize.stock_quantity,
+    }))
+    // Anything outside the standard run keeps its API order, after the known sizes.
+    .sort(
+      (a, b) =>
+        (sizeRank.get(a.size) ?? Number.MAX_SAFE_INTEGER) - (sizeRank.get(b.size) ?? Number.MAX_SAFE_INTEGER),
+    )
+
+  // Single source of truth for the Notify Me modal too. Every entry here is a real
+  // configured size carrying its backend `variant_size_id`, so a restock notification can
+  // only ever be requested for a size the product actually comes in.
+  const unavailableSizes = uiSizes.filter((sz) => !sz.inStock).map((sz) => ({ size: sz.size, variantSizeId: sz.id }))
+
+  return (
+    <>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)] lg:gap-12">
+        <div className="lg:sticky lg:top-24 lg:h-fit">
+          <ProductImageGallery
+            // Resetting on the SKU rather than the index: the index can mean a different
+            // colour after a catalogue edit, the sku cannot.
+            key={currentVariant?.sku ?? 'default'}
+            images={
+              currentVariant?.images.map((img) => (img.image_url?.trim() ? img.image_url : MISSING_IMAGE)) ??
+              product.images
+            }
+          />
+        </div>
+
+        {/*
+          `min-w-0` because this is a grid item, and a grid item's default `min-width: auto`
+          lets its widest content set its size. The colour row's intrinsic width was doing
+          exactly that — stretching this column to `max-w-xl` on a 390px phone and pushing
+          the page sideways. With the floor at 0 the column follows the viewport and the
+          colour row's own `overflow-x-auto` finally has somewhere to scroll.
+        */}
+        <div className="flex min-w-0 max-w-xl flex-col gap-7 lg:max-w-none lg:gap-8">
+          <div>
+            <h1 className="type-product-detail-title">{product.name}</h1>
+            {subtitle ? <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">{subtitle}</p> : null}
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="type-price-lg">{formatInr(currentVariant?.selling_price ?? product.price)}</span>
+
+              {(currentVariant?.mrp ?? product.compareAtPrice ?? 0) >
+              (currentVariant?.selling_price ?? product.price) ? (
+                <>
+                  <span className="text-lg text-zinc-400 line-through">
+                    {formatInr(currentVariant?.mrp ?? product.compareAtPrice ?? 0)}
+                  </span>
+
+                  <span className="rounded-full border border-black px-3 py-1 font-sans text-sm font-semibold text-black">
+                    {currentVariant?.discount_percentage ?? product.salePct ?? 0}% OFF
+                  </span>
+                </>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="border-t border-zinc-200 dark:border-zinc-800" />
+
+          {hasVariantPicker ? (
+            <ProductVariantPicker
+              variants={variants}
+              currentIndex={selectedVariantIndex}
+              onSelect={(index) => {
+                const variant = variants[index]
+                if (!variant) return
+                writeSku(variant.sku)
+              }}
+            />
+          ) : null}
+
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+              <p className="font-sans text-sm font-semibold text-zinc-900 dark:text-white">Select Size</p>
+              {/* Hidden entirely when this category/subcategory has no configured chart. */}
+              {sizeChart ? (
+                <button
+                  type="button"
+                  onClick={() => setSizeChartOpen(true)}
+                  className="inline-flex min-h-[32px] items-center font-sans text-xs font-semibold uppercase tracking-wide text-zinc-600 underline underline-offset-2 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white"
+                >
+                  Size Chart
+                </button>
+              ) : null}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              {uiSizes.map((sz) => (
+                <button
+                  key={sz.size}
+                  type="button"
+                  aria-disabled={!sz.inStock}
+                  onClick={() => {
+                    if (sz.inStock) {
+                      setSize(sz.size)
+                    } else if (unavailableSizes.length > 0) {
+                      // Only open Notify Me when something is actually subscribable —
+                      // otherwise the modal would contradict the crossed-out size shown here.
+                      setNotifyMePreselect(sz.size)
+                      setNotifyMeOpen(true)
+                    }
+                  }}
+                  className={`relative flex h-12 min-w-[52px] items-center justify-center overflow-hidden rounded-xl border font-sans text-sm font-semibold transition-all ${
+                    sz.size === size
+                      ? 'border-sand bg-chocolate text-cream dark:border-white dark:bg-white dark:text-black'
+                      : sz.inStock
+                        ? 'border-soft-beige text-zinc-700 hover:border-sand dark:border-zinc-700 dark:text-zinc-200'
+                        : 'border-zinc-200 text-zinc-400 dark:border-zinc-800 dark:text-zinc-600'
+                  }`}
+                >
+                  {sz.size}
+                  {!sz.inStock ? (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute left-1/2 top-1/2 h-px w-[140%] -translate-x-1/2 -translate-y-1/2 -rotate-[24deg] bg-zinc-300 dark:bg-zinc-600"
+                    />
+                  ) : null}
+                </button>
+              ))}
+            </div>
+            {/*
+              Low-stock warning for the SELECTED size only, and only once it is genuinely
+              scarce — 3, 2 or 1 remaining. Below that bar it is urgency the shopper can
+              act on; above it ("8 left") it is just inventory noise on every size. Red,
+              because it is a warning rather than a spec.
+            */}
+            {lowStockRemaining !== null ? (
+              <p className="mt-3 font-sans text-xs font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">
+                {lowStockRemaining} left
+              </p>
+            ) : null}
+            {/* Shown only when there is a size the user can actually subscribe to, so the
+                row never appears alongside a modal that has nothing to offer. Same
+                `unavailableSizes` list the modal renders — one source of truth. */}
+            {unavailableSizes.length > 0 ? (
+              <div className="mt-3 flex items-center justify-between gap-4">
+                <p className="font-sans text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Size not available?
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNotifyMePreselect(undefined)
+                    setNotifyMeOpen(true)
+                  }}
+                  className="inline-flex min-h-[32px] items-center font-sans text-xs font-semibold uppercase tracking-wide text-black underline underline-offset-2 dark:text-white"
+                >
+                  Notify Me
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          {!allSizesOutOfStock ? (
+            <div>
+              <p className="font-sans text-sm font-semibold text-zinc-900 dark:text-white">Quantity</p>
+              <div className="mt-3 inline-flex items-center gap-4 border border-zinc-300 px-3 py-2 dark:border-zinc-700">
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  disabled={quantity <= 1 || justAdded}
+                  aria-label="Decrease quantity"
+                  className="flex size-9 items-center justify-center text-lg font-semibold text-black transition disabled:opacity-30 sm:size-8 dark:text-white"
+                >
+                  −
+                </button>
+                <span className="w-6 text-center text-sm font-semibold text-black dark:text-white">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
+                  disabled={quantity >= maxQty || justAdded}
+                  aria-label="Increase quantity"
+                  className="flex size-9 items-center justify-center text-lg font-semibold text-black transition disabled:opacity-30 sm:size-8 dark:text-white"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handlePrimaryAction}
+                // Stays ENABLED after a successful add — it becomes the route to the cart
+                // rather than a dead "Added to cart" label.
+                disabled={!canAdd}
+                aria-busy={adding}
+                className="type-btn flex-1 rounded-xl bg-chocolate px-6 py-4 text-sm text-cream transition hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-black"
+              >
+                {adding ? 'ADDING…' : justAdded ? 'GO TO CART' : 'ADD TO CART'}
+              </button>
+              <button
+                type="button"
+                onClick={handleWishlistToggle}
+                aria-pressed={wishlisted}
+                aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                className={`flex size-[52px] shrink-0 items-center justify-center rounded-xl border transition-colors ${
+                  wishlisted
+                    ? 'border-burgundy bg-burgundy text-cream dark:border-white dark:bg-white dark:text-black'
+                    : 'border-sand text-espresso hover:border-burgundy dark:border-zinc-700 dark:text-white'
+                }`}
+              >
+                <HeartIcon filled={wishlisted} />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="font-sans text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400">
+                Share
+              </span>
+              <a
+                href={shareLinks.whatsapp}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Share on WhatsApp"
+                title="Share on WhatsApp"
+                className="flex size-8 items-center justify-center rounded-full border border-zinc-300 text-black transition-colors hover:border-black dark:border-zinc-700 dark:text-white"
+              >
+                <WhatsAppIcon />
+              </a>
+              <a
+                href={shareLinks.facebook}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Share on Facebook"
+                title="Share on Facebook"
+                className="flex size-8 items-center justify-center rounded-full border border-zinc-300 text-black transition-colors hover:border-black dark:border-zinc-700 dark:text-white"
+              >
+                <FacebookIcon />
+              </a>
+              <a
+                href={shareLinks.x}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Share on X"
+                title="Share on X"
+                className="flex size-8 items-center justify-center rounded-full border border-zinc-300 text-black transition-colors hover:border-black dark:border-zinc-700 dark:text-white"
+              >
+                <XIcon />
+              </a>
+              <button
+                type="button"
+                onClick={handleInstagramShare}
+                aria-label="Share on Instagram"
+                title="Share on Instagram"
+                className="flex size-8 items-center justify-center rounded-full border border-zinc-300 text-black transition-colors hover:border-black dark:border-zinc-700 dark:text-white"
+              >
+                <InstagramIcon />
+              </button>
+              {shareCopied ? (
+                <span className="font-sans text-xs text-zinc-500 dark:text-zinc-400">Link copied</span>
+              ) : null}
+            </div>
+          </div>
+
+          <div>
+            {highlights}
+            <ProductDetailAccordions product={product} />
+          </div>
+        </div>
+      </div>
+
+      {sizeChart ? (
+        <SizeChart isOpen={sizeChartOpen} onClose={() => setSizeChartOpen(false)} chart={sizeChart} />
+      ) : null}
+
+      <NotifyMeModal
+        isOpen={notifyMeOpen}
+        unavailableSizes={unavailableSizes}
+        preselectedSize={notifyMePreselect}
+        onClose={() => setNotifyMeOpen(false)}
+      />
+    </>
+  )
+}

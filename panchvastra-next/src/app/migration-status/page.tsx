@@ -41,14 +41,34 @@ const PHASES: { phase: string; title: string; detail: string; state: PhaseState 
   {
     phase: 'Phase 3',
     title: 'Shared components and layouts',
-    detail: 'Storefront layout, navbar, footer, and the remaining four providers.',
-    state: 'current',
+    detail: 'Storefront layout, navbar, footer, and the toast, auth, cart and wishlist providers.',
+    state: 'done',
   },
   {
-    phase: 'Phase 4',
-    title: 'Customer website',
-    detail: 'Home, shop, product detail, auth, cart, checkout, orders, profile.',
-    state: 'planned',
+    phase: 'Phase 4A',
+    title: 'Homepage',
+    detail: 'Hero carousel, new arrivals, category tiles, category filter and the custom studio banner — server-rendered.',
+    state: 'done',
+  },
+  {
+    phase: 'Phase 4B',
+    title: 'Shop and product detail',
+    detail:
+      'Server-rendered catalogue with filters, sorting and infinite scroll; product detail with variants, sizes, size charts, Notify Me and Product structured data.',
+    state: 'done',
+  },
+  {
+    phase: 'Phase 4C',
+    title: 'Cart and wishlist',
+    detail:
+      'Server cart with quantity, removal and move-to-wishlist; per-account saved items; the customer-area route guard.',
+    state: 'done',
+  },
+  {
+    phase: 'Phase 4D',
+    title: 'Remaining customer pages',
+    detail: 'Auth, checkout, orders, profile, custom piece, help desk and the policy pages.',
+    state: 'current',
   },
   {
     phase: 'Phase 5',

@@ -87,6 +87,24 @@ export const rootMetadata: Metadata = {
 }
 
 /**
+ * Metadata for a signed-in customer page — the cart, the wishlist, and the account pages
+ * that follow.
+ *
+ * `noindex` here is PERMANENT, not part of the migration-wide block above. These pages
+ * show one shopper's own data and have nothing to offer a search result; a crawler
+ * reaching `/cart` can only ever see the signed-out shell. `follow` stays on, so the
+ * ordinary storefront links in the header and footer are still discovered through them.
+ *
+ * No canonical is declared: a page that must not be indexed has no canonical to assert.
+ */
+export function accountPageMetadata(title: string): Metadata {
+  return {
+    title,
+    robots: { index: false, follow: true },
+  }
+}
+
+/**
  * Metadata for an internal page that must never be indexed, whatever Phase 7 decides
  * about the rest of the site. Used by `/migration-status`.
  */

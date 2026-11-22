@@ -19,6 +19,9 @@ next-env.d.ts
 # template stays in version control while real values never are.
 !.env.example
 
+# Committed production build values (public, no secrets) — see the file header.
+!.env.production
+
 # Vercel
 /.vercel
 

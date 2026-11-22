@@ -29,6 +29,33 @@ function readOrigin(raw: string | undefined): URL | null {
 
 const apiOrigin = readOrigin(process.env.API_ORIGIN) ?? readOrigin(process.env.NEXT_PUBLIC_API_BASE_URL)
 
+/**
+ * True when the configured API origin is this machine or a private network address.
+ *
+ * Next 16 refuses to optimise an image whose host resolves to a private IP, and says so:
+ * "hostname resolved to private IP … use images.dangerouslyAllowLocalIP = true". That
+ * guard is right for a public deployment — it is what stops the optimizer being used to
+ * fetch internal URLs — but it also means a developer running Django on
+ * `http://127.0.0.1:8000` gets a broken image for every product, with a 400 that reads
+ * like a configuration error.
+ *
+ * So the escape hatch below is opened ONLY when the API origin is itself local. On a real
+ * deployment `api.panchvastra.com` is a public host, this is false, and the guard stays
+ * fully on. The optimizer additionally only accepts hosts in `remotePatterns`, which is
+ * this one origin and nothing else, so even when it is open the set of fetchable URLs is
+ * exactly the backend the app is already talking to.
+ */
+function isLocalHostname(hostname: string): boolean {
+  if (hostname === 'localhost' || hostname === '::1' || hostname.endsWith('.localhost')) return true
+  if (/^127\./.test(hostname)) return true
+  if (/^10\./.test(hostname)) return true
+  if (/^192\.168\./.test(hostname)) return true
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return true
+  return false
+}
+
+const apiOriginIsLocal = apiOrigin ? isLocalHostname(apiOrigin.hostname) : false
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
@@ -117,31 +144,76 @@ const nextConfig: NextConfig = {
     }
   },
 
+  /**
+   * The ONE host whose images may go through the Next image optimizer, published to the
+   * browser bundle so `components/BackendImage.tsx` can decide per image without a second
+   * variable to keep in step. Empty when no API origin is configured, which disables
+   * optimisation rather than risking a 400 from the optimizer.
+   *
+   * It is deliberately derived from the same `apiOrigin` that builds `remotePatterns`
+   * below: the allow-list and the decision to use it cannot drift apart, because they are
+   * the same value read twice.
+   */
+  env: {
+    // `host`, not `hostname`: it carries the port, so an image on the right machine but
+    // the wrong port is not mistaken for an optimisable one.
+    NEXT_PUBLIC_OPTIMIZED_IMAGE_HOST: apiOrigin?.host ?? '',
+  },
+
   images: {
     /**
-     * ⚠️ UNRESOLVED, carried over from the Phase 1 audit.
+     * WHAT THE REPOSITORY ACTUALLY ESTABLISHES (Phase 4B review point 1):
      *
-     * Every product, category and carousel image is a remote URL returned by the backend,
-     * and no absolute image URL appears anywhere in the Vite source — so the host that
-     * actually serves them could not be confirmed from the repository. One live product
-     * response settles it.
+     *   - The Django API origin is `https://api.panchvastra.com`. Not a guess: it is the
+     *     `/v1` proxy target hardcoded in the Vite `vite.config.ts`, and `src/api/order.ts`
+     *     records endpoints "verified 2026-10-03 against https://api.panchvastra.com".
+     *   - The frontend NEVER builds or prefixes an image URL. Every mapper passes
+     *     `primary_image` / `image_url` straight through (`productMapper`,
+     *     `productListMapper`, `productDetailMapper`, `orderMapper`, `authCarousel`), and
+     *     the only transformation anywhere is the empty-string fallback to the local
+     *     `/images/no-image.png`. So the backend returns ABSOLUTE urls and their host is
+     *     whatever it puts in the field.
+     *   - No sample response is committed, so which host that is cannot be read off the
+     *     repository. It is very likely the Django host above serving `/media/`, but
+     *     "likely" is not "confirmed", and no other hostname is invented here.
      *
-     * Until then: the API origin's own host is allowed, because images served from the
-     * Django host are the likely case, and nothing else is guessed. If images turn out to
-     * come from a CDN or a blob store, that host is added here. A remote host that is not
-     * listed makes `next/image` throw at request time rather than render a broken image,
-     * which is the safe direction — a missing pattern is a loud, obvious failure.
-     *
-     * Phase 4 is the first time a remote image is actually rendered.
+     * THE RESULT: the API origin's host is allowed, exactly as before. `BackendImage`
+     * optimises an image only when its URL is on that host and falls back to an
+     * unoptimised render otherwise — so if the images turn out to live on a CDN, they
+     * still display correctly and simply go unoptimised until that host is added here.
+     * The failure mode this avoids was measured, not assumed: an unlisted host renders
+     * valid-looking markup and then answers every `/_next/image` request with
+     * `400 "url" parameter is not allowed`.
      */
     remotePatterns: apiOrigin
       ? [
           {
             protocol: apiOrigin.protocol.replace(':', '') as 'http' | 'https',
             hostname: apiOrigin.hostname,
+            /*
+             * THE PORT IS LOAD-BEARING, and it was missing until the browser proved it.
+             *
+             * An omitted `port` in a remote pattern means "the protocol's default port
+             * only". So an API origin on any other port — a staging backend on :8000, the
+             * local fixture server these pages were tested against on :4010 — matched
+             * nothing, and `/_next/image` answered 400 for every product photo while the
+             * build, the markup and the page all looked healthy. Every image on Shop and
+             * on the product page was broken.
+             *
+             * `URL.port` is '' for a default port, which is exactly what the pattern wants
+             * in that case, so `https://api.panchvastra.com` keeps matching as before.
+             */
+            port: apiOrigin.port,
           },
         ]
       : [],
+
+    /**
+     * Opened only for a LOCAL api origin — see `apiOriginIsLocal` above for the full
+     * reasoning. False for every public deployment, which is every deployment that
+     * matters for this flag.
+     */
+    dangerouslyAllowLocalIP: apiOriginIsLocal,
   },
 
   /**
