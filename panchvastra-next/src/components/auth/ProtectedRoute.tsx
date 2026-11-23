@@ -47,11 +47,22 @@ import { useAuth } from '@/context/AuthProvider'
  * server HTML and the first client render agree and hydration is clean.
  */
 export function ProtectedRoute({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
-  const { isAuthenticated, isSessionLoaded } = useAuth()
+  const { isAuthenticated, isSessionLoaded, isSigningOut } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
     if (!isSessionLoaded || isAuthenticated) return
+
+    /*
+     * A deliberate sign-out is already going somewhere — the homepage — so this must not
+     * redirect on top of it.
+     *
+     * Measured, not theorised: without this, logging out from `/profile` landed the
+     * customer on `/login?next=%2Fprofile`, because the guard's redirect ran after the
+     * handler's own navigation. The Vite app sends them home. The page's children are
+     * still withheld below, so suppressing the redirect reveals nothing.
+     */
+    if (isSigningOut) return
 
     /*
      * The return path is read from `window.location`, not from `usePathname` /
@@ -70,7 +81,7 @@ export function ProtectedRoute({ children, fallback }: { children: ReactNode; fa
     // `replace`, like the Vite `<Navigate replace>`: the guarded page must not sit in the
     // history behind the login screen, or Back would bounce the shopper straight out again.
     router.replace(`/login?next=${encodeURIComponent(here)}`)
-  }, [isAuthenticated, isSessionLoaded, router])
+  }, [isAuthenticated, isSessionLoaded, isSigningOut, router])
 
   if (!isSessionLoaded || !isAuthenticated) {
     return <>{fallback ?? null}</>

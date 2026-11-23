@@ -1,0 +1,121 @@
+import type { ReactNode } from 'react'
+
+/**
+ * Split-screen shell shared by the customer login, signup and admin login screens.
+ *
+ * Layout only — it holds no authentication state and makes no requests. Desktop puts a
+ * black editorial brand panel on the left and the form on the right at roughly 50/50;
+ * below `lg` the panel collapses to a compact banner above the form so the form never
+ * gets squeezed into a narrow column.
+ *
+ * The brand panel is built from CSS and type rather than an image, so it stays sharp,
+ * needs no new asset or dependency, and matches the site's black/white editorial language.
+ * Its ambient motion is disabled under `prefers-reduced-motion` (see index.css).
+ */
+export function AuthSplitLayout({
+  eyebrow,
+  headline,
+  tagline = 'Premium essentials, made to be worn every day.',
+  media,
+  mediaOnly = false,
+  children,
+}: {
+  /** Small uppercase label above the headline in the brand panel. Unused when `mediaOnly`. */
+  eyebrow?: string
+  /** Large editorial headline in the brand panel. Unused when `mediaOnly`. */
+  headline?: ReactNode
+  /** Supporting line under the headline. Unused when `mediaOnly`. */
+  tagline?: string
+  /**
+   * Optional imagery for the brand panel, rendered behind the headline. Opt-in, so the
+   * screens that do not pass it (admin login) keep the CSS-only panel exactly as before.
+   */
+  media?: ReactNode
+  /**
+   * Shows the artwork on its own: no scrim, no CSS texture, no sweep, no frame and no
+   * overlaid wording. For a finished poster that already carries the brand mark and its
+   * own composition, every one of those layers is something painted on top of a designed
+   * image. The customer login and signup screens use this; the admin login does not, and
+   * keeps the CSS-only panel it has always had.
+   */
+  mediaOnly?: boolean
+  /** The authentication form. */
+  children: ReactNode
+}) {
+  return (
+    /*
+     * 50/50 at `lg`, then 60/40 from `xl` up.
+     *
+     * The poster is 16:9 and the panel is full viewport height, so the wider the panel the
+     * more of its height the artwork covers without being cropped. At 1280 the 50/50 split
+     * left the poster filling only 40% of the panel; 60/40 takes that to roughly half, and
+     * on a 1920 screen from 60% to about 72%.
+     *
+     * The step waits until `xl` on purpose: at 1024 a 40% form column is only ~410px wide
+     * before padding, which would squeeze the sign-in form. Between `lg` and `xl` the split
+     * therefore stays even, and nothing about the form changes at any width.
+     */
+    <div className="min-h-svh bg-soft-beige lg:grid lg:grid-cols-2 xl:grid-cols-[3fr_2fr]">
+      {/* ---------------------------------------------------------- brand panel */}
+      <aside
+        className={`relative overflow-hidden bg-chocolate ${
+          mediaOnly
+            ? // The poster is 16:9, so on a phone the panel takes that exact ratio and the
+              // whole composition is visible rather than cropped into a letterbox strip.
+              'flex aspect-[16/9] w-full items-center justify-center lg:aspect-auto lg:min-h-svh'
+            : 'flex min-h-[168px] items-end px-6 py-8 sm:min-h-[200px] lg:min-h-svh lg:px-12 lg:py-14'
+        }`}
+        // Decorative: the form beside it carries every piece of information on the screen.
+        aria-hidden={mediaOnly || !media ? true : undefined}
+      >
+        {media ? <div className="absolute inset-0">{media}</div> : null}
+
+        {mediaOnly ? null : (
+          <>
+            {media ? (
+              /* Scrim so the headline stays legible over any photograph. */
+              <div
+                className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25"
+                aria-hidden
+              />
+            ) : null}
+
+            {/* Very slow, very faint diagonal weave — the "fabric" texture, drawn in CSS. */}
+            <div
+              className="pv-auth-drift pointer-events-none absolute inset-0 opacity-[0.13]"
+              aria-hidden
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(135deg, #f6ebdd 0 1px, transparent 1px 22px), repeating-linear-gradient(45deg, #f6ebdd 0 1px, transparent 1px 22px)',
+              }}
+            />
+
+            {/* Single soft light pass, so the panel is never completely static. */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+              <div className="pv-auth-sweep absolute inset-x-0 h-1/2 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
+            </div>
+
+            {/* Hairline frame, echoing the thin borders used across the site. */}
+            <div className="pointer-events-none absolute inset-4 border border-white/15 lg:inset-8" aria-hidden />
+
+            <div className="pointer-events-none relative">
+              <p className="text-[10px] font-bold uppercase tracking-[0.34em] text-white/60">{eyebrow}</p>
+              <p className="mt-3 text-3xl font-bold uppercase leading-[0.95] tracking-tight text-white sm:text-4xl lg:text-6xl">
+                {headline}
+              </p>
+              <div className="mt-5 hidden h-px w-16 bg-white/40 lg:block" />
+              <p className="mt-5 hidden max-w-xs text-sm leading-relaxed text-white/55 lg:block">
+                {tagline}
+              </p>
+            </div>
+          </>
+        )}
+      </aside>
+
+      {/* ---------------------------------------------------------- form side */}
+      <main className="flex items-center justify-center px-4 py-10 sm:px-6 lg:min-h-svh lg:px-12 lg:py-14">
+        <div className="w-full max-w-md">{children}</div>
+      </main>
+    </div>
+  )
+}

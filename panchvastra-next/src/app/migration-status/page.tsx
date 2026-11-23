@@ -66,8 +66,21 @@ const PHASES: { phase: string; title: string; detail: string; state: PhaseState 
   },
   {
     phase: 'Phase 4D',
+    title: 'Authentication and account',
+    detail:
+      'Login with OTP and Google, the validated ?next= return path, session expiry, profile, address book and order history.',
+    state: 'done',
+  },
+  {
+    phase: 'Phase 4E-1',
+    title: 'Signup',
+    detail: 'Registration, email verification and the shared return path between sign-in and sign-up.',
+    state: 'done',
+  },
+  {
+    phase: 'Phase 4E-2',
     title: 'Remaining customer pages',
-    detail: 'Auth, checkout, orders, profile, custom piece, help desk and the policy pages.',
+    detail: 'Checkout, custom piece, help desk, about and the policy pages.',
     state: 'current',
   },
   {

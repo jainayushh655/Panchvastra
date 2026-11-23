@@ -80,6 +80,23 @@ type AuthContextValue = {
    * `user === null` while this is false means "not known yet", not "signed out".
    */
   isSessionLoaded: boolean
+  /**
+   * True for a moment after a DELIBERATE sign-out, so the route guard can tell "this
+   * person just logged out and is on their way somewhere" apart from "this person is not
+   * allowed here".
+   *
+   * Without it, logging out from a guarded page is a race the user loses: `logout()`
+   * clears the session, the guard's effect sees no session and replaces the URL with
+   * `/login?next=/profile`, and that lands AFTER the handler's own `router.replace('/')`
+   * — so signing out dumps the customer on a sign-in screen asking them to come back to
+   * the page they just left. The Vite app sends them to the homepage, and so should this.
+   *
+   * It is not a security relaxation: the guard still refuses to render the page's
+   * children, so nothing private is shown during the window. All it suppresses is the
+   * redirect, and it clears itself on a timer so a later unauthenticated visit is
+   * redirected normally.
+   */
+  isSigningOut: boolean
   sendOtpForEmail: (input: { email: string }) => Promise<{ ok: true; message?: string } | { ok: false; error: string }>
   verifyOtpAndLogin: (input: { email: string; otp: string }) => Promise<{ ok: true; user: AuthUser } | { ok: false; error: string }>
   /**
@@ -184,6 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [isSessionLoaded, setIsSessionLoaded] = useState(false)
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
   /**
    * Restores the stored session once, after mount.
@@ -216,6 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       roleId: nextUser.roleId ?? null,
     }
 
+    setIsSigningOut(false)
     setUser(normalizedUser)
     setToken(normalizedToken)
     // A fresh session re-arms the one-shot expiry latch, so if THIS token later expires
@@ -228,12 +247,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const logout = useCallback(() => {
+    // Set BEFORE the session is cleared, so the guard never observes a cleared session
+    // without also seeing that this was deliberate. See `isSigningOut` on the context.
+    setIsSigningOut(true)
     setUser(null)
     setToken(null)
     clearSession()
     // Re-arm, so a later expiry on the next session is signalled again.
     resetSessionExpiryLatch()
   }, [])
+
+  /**
+   * Clears the sign-out grace period.
+   *
+   * A client navigation completes in a few tens of milliseconds; a second is generous
+   * and bounded. While it is open the guard shows its fallback rather than the page, so
+   * the only thing deferred is the redirect.
+   */
+  useEffect(() => {
+    if (!isSigningOut) return
+    const timer = window.setTimeout(() => setIsSigningOut(false), 1000)
+    return () => window.clearTimeout(timer)
+  }, [isSigningOut])
 
   /**
    * The backend has stopped accepting the stored token.
@@ -253,6 +288,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(
     () =>
       onSessionExpired(() => {
+        // NOT a deliberate sign-out: an expired session must still send the customer to
+        // the login screen with their return path, which is what the guard does when
+        //  is false.
+        setIsSigningOut(false)
         setUser(null)
         setToken(null)
         clearSession()
@@ -392,6 +431,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       token,
       isAuthenticated: Boolean(user && token),
       isSessionLoaded,
+      isSigningOut,
       sendOtpForEmail,
       verifyOtpAndLogin,
       loginWithGoogleCredential,
@@ -399,6 +439,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       isSessionLoaded,
+      isSigningOut,
       logout,
       loginWithGoogleCredential,
       sendOtpForEmail,

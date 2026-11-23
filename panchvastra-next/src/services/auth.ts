@@ -2,12 +2,16 @@
  * Authentication — the three calls the session provider makes.
  *
  * Ported from the Vite application's `src/api/auth.ts`, contracts unchanged:
+ *   POST /v1/register_user/ `{ first_name, last_name, email, phone_number }`
+ *                                               -> `{ success, message }`
  *   POST /v1/login_user/    `{ email }`          -> `{ success, message }`
  *   POST /v1/verify_email/  `{ email, otp }`     -> `{ success, message, token }`
  *   POST /v1/google_login/  `{ credential }`     -> `{ message, token, user }`, status 200|201
  *
- * `registerUser` is NOT here: it belongs to the sign-up screen, which is Phase 4. Only
- * what `AuthProvider` needs is ported, so Phase 3 adds no unused request surface.
+ * `registerUser` joined them in Phase 4E-1 with the sign-up screen that calls it. It is
+ * the only request that screen makes on its own: the code it triggers is then verified
+ * through the SAME `verifyOtpAndLogin` the login screen uses, so there is exactly one
+ * place a session is established.
  *
  * All three go through the shared client. A 401 from any of them is the FORM's own error
  * message, never a session expiry — they are on `CALLER_HANDLED_401` in `endpoints.ts`,
@@ -18,11 +22,27 @@ import api from '@/services/http/client'
 import { ENDPOINTS } from '@/services/endpoints'
 import { readApiMessage } from '@/services/http/apiMessage'
 import type { GoogleLoginRequestDto, GoogleLoginResponseDto } from '@/types/api/GoogleLoginDto'
+import type { RegisterRequestDto, RegisterResponseDto } from '@/types/api/RegisterDto'
 
 type AuthApiResponse = {
   success?: boolean
   message?: string
   token?: string | null
+}
+
+/**
+ * POST /v1/register_user/ — creates the account and sends the verification code.
+ *
+ * The response is the backend's own `{ success, message }` envelope and is returned
+ * unchanged: the sign-up screen reads `success` to decide whether to show the code step,
+ * and shows `message` verbatim when it is false, exactly as the Vite page does.
+ *
+ * It issues NO token. The account is not signed in until the emailed code is verified
+ * through `verifyEmail`, which is what actually returns the JWT.
+ */
+export async function registerUser(payload: RegisterRequestDto) {
+  const response = await api.post<RegisterResponseDto>(ENDPOINTS.registerUser, payload)
+  return response.data
 }
 
 export async function loginUser(payload: { email: string }) {
