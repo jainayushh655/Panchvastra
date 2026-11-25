@@ -95,3 +95,52 @@ export function safeNextPath(raw: string | null | undefined): string {
   // never the raw string with whatever the parser quietly ignored still in it.
   return `${resolved.pathname}${resolved.search}${resolved.hash}`
 }
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ * ADMIN DESTINATIONS
+ * ────────────────────────────────────────────────────────────────────────────── */
+
+/** Where an admin lands when no safe destination was supplied. */
+export const DEFAULT_ADMIN_NEXT_PATH = '/admin/dashboard'
+
+/** The admin sign-in screen — never a post-sign-in destination, or it loops. */
+const ADMIN_LOGIN_PATH = '/admin/login'
+
+/**
+ * Where to send an admin after they sign in.
+ *
+ * `safeNextPath` above already rules out every open-redirect shape — another origin, a
+ * protocol-relative `//host`, a `/\host`, a control character, anything the URL parser
+ * disagrees with. This NARROWS that result to the admin area, which matters for a reason
+ * the storefront version does not have to care about:
+ *
+ * the admin login screen is the one place in the application where someone has just
+ * proved they hold elevated privilege. Bouncing them from there to an arbitrary internal
+ * path on a `?next=` an attacker chose is a far more useful lever than the same trick on
+ * the customer login — `/admin/login?next=/some/page/that/acts/on/arrival` would run
+ * with an admin session a moment old. So anything that is not an `/admin/...` path
+ * resolves to the dashboard instead.
+ *
+ * `/admin/login` itself is refused for the ordinary reason: signing in only to be
+ * returned to the sign-in screen is a loop. `/admin/api/...` is refused too — a Route
+ * Handler is not a page to land on, and navigating a browser to one after sign-in would
+ * render JSON.
+ */
+export function safeAdminNextPath(raw: string | null | undefined): string {
+  const candidate = safeNextPath(raw)
+
+  // `safeNextPath` returns DEFAULT_NEXT_PATH ('/') for anything it rejected.
+  if (candidate === DEFAULT_NEXT_PATH) return DEFAULT_ADMIN_NEXT_PATH
+
+  // Must be inside the admin area. `/admin` alone is allowed; `/administrators` is not,
+  // which is why the check is on the segment boundary rather than a bare `startsWith`.
+  const [pathname] = candidate.split(/[?#]/)
+  if (pathname !== '/admin' && !pathname.startsWith('/admin/')) return DEFAULT_ADMIN_NEXT_PATH
+
+  if (pathname === ADMIN_LOGIN_PATH) return DEFAULT_ADMIN_NEXT_PATH
+
+  // A Route Handler is not a destination.
+  if (pathname.startsWith('/admin/api/')) return DEFAULT_ADMIN_NEXT_PATH
+
+  return candidate
+}

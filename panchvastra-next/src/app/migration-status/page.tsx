@@ -102,19 +102,41 @@ const PHASES: { phase: string; title: string; detail: string; state: PhaseState 
     phase: 'Phase 4F-3',
     title: 'Help Desk',
     detail: 'The support form on the public support_query endpoint, and the /contact redirect target.',
-    state: 'current',
+    state: 'done',
   },
   {
     phase: 'Phase 4F-4',
     title: 'Custom Piece',
-    detail: 'The five-step custom builder, server-rendered options and the authenticated multipart request.',
-    state: 'planned',
+    detail:
+      'The six-step custom builder on server-rendered options, with the authenticated multipart request, the design-file rules and the draft kept across sign-in.',
+    state: 'done',
   },
   {
-    phase: 'Phase 5',
-    title: 'Admin panel',
-    detail: 'All thirteen admin screens, plus the httpOnly cookie bridge.',
-    state: 'planned',
+    phase: 'Phase 4F-5',
+    title: 'Storefront verification sweep',
+    detail:
+      'All 16 storefront routes measured at 320–1440px with no overflow, every internal link resolving, titles · canonicals · robots read back from the server HTML, and the static pages confirmed to ship no page-specific client JavaScript.',
+    state: 'done',
+  },
+  {
+    phase: 'Phase 5A',
+    title: 'Admin cookie bridge',
+    detail:
+      'The httpOnly admin session cookie, scoped to /admin, set only after the backend confirms the token on an admin-only endpoint — plus the Edge proxy gate for future /admin routes. No admin UI yet.',
+    state: 'done',
+  },
+  {
+    phase: 'Phase 5B',
+    title: 'Admin shell, login and route guard',
+    detail:
+      'Admin sign-in on the existing OTP flow, the shell (sidebar, topbar, breadcrumbs, mobile drawer), shared table / state / confirm primitives, and a server-verified guard that every protected page awaits before rendering anything. Dashboard metrics and the eleven management screens are later phases.',
+    state: 'done',
+  },
+  {
+    phase: 'Phase 5C+',
+    title: 'Admin management screens',
+    detail: 'The eleven management screens and their admin services, starting with custom requests.',
+    state: 'current',
   },
   {
     phase: 'Phase 6',

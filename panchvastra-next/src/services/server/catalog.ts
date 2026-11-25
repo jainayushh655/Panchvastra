@@ -1,7 +1,9 @@
 import { ENDPOINTS } from '@/services/endpoints'
+import { EMPTY_CUSTOM_OPTIONS, toCustomOptions } from '@/lib/customOptions'
 import { REVALIDATE, ServerApiError, serverGetData, serverGetPage } from '@/services/server/serverApi'
 import type { AuthCarouselDto } from '@/types/api/AuthCarouselDto'
 import type { CategoryDto } from '@/types/api/CategoryDto'
+import type { CustomOptionsDto } from '@/types/api/CustomPieceDto'
 import type { Pagination } from '@/services/http/pagination'
 import type { ProductDetailDto } from '@/types/api/ProductDetailDto'
 import type { ProductDto } from '@/types/api/ProductDto'
@@ -224,5 +226,47 @@ export async function getProductDetail(id: string): Promise<ProductDetailDto | n
     if (error instanceof ServerApiError && error.status === 404) return null
     warn(`product ${id}`, error)
     return null
+  }
+}
+
+/**
+ * GET /v1/custom_options/ — the garments, colours, sizes and print types the Custom Piece
+ * builder is rendered from.
+ *
+ * ──────────────────────────────────────────────────────────────────────────────
+ * WHY THIS READ BELONGS ON THE SERVER
+ * ──────────────────────────────────────────────────────────────────────────────
+ * This endpoint **changes its response for a privileged token**, so the storefront read
+ * must carry no Authorization header — otherwise a signed-in visitor would be offered a
+ * different set of options from a signed-out one. The Vite app achieves that with a bare
+ * axios client (`publicApi`, ported into `http/client.ts`). Reading it here achieves the
+ * same thing structurally rather than by convention: `serverGet` has no credential to
+ * attach and no interceptor to bypass. It also puts the builder's real choices in the
+ * server-rendered HTML instead of painting "Loading options…" first.
+ *
+ * ──────────────────────────────────────────────────────────────────────────────
+ * WHY IT DEGRADES INSTEAD OF THROWING, AND WHAT THE CALLER DOES WITH THAT
+ * ──────────────────────────────────────────────────────────────────────────────
+ * `ok` separates "the backend answered with an empty catalogue" from "the read failed",
+ * because the Vite page shows different things for the two — its own load-error line for a
+ * failure, and simply no choices for an empty list. Throwing instead would hand the whole
+ * page to `error.tsx` and would also stop `next build` prerendering it in an environment
+ * with no API origin configured, which is the environment this migration is developed in.
+ *
+ * A failure here is not the end of the story: the builder island re-reads the same
+ * endpoint from the browser through `publicApi` when it is handed nothing, which is the
+ * Vite code path exactly. So a page prerendered before the API was reachable still fills
+ * in for the visitor.
+ */
+export async function getCustomPieceOptions(): Promise<{ options: CustomOptionsDto; ok: boolean }> {
+  try {
+    const data = await serverGetData<CustomOptionsDto>(ENDPOINTS.customOptions, {
+      revalidate: REVALIDATE.catalogue,
+      tags: ['custom-options'],
+    })
+    return { options: toCustomOptions(data), ok: true }
+  } catch (error) {
+    warn('custom piece options', error)
+    return { options: EMPTY_CUSTOM_OPTIONS, ok: false }
   }
 }

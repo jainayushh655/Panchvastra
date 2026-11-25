@@ -46,6 +46,16 @@ export function IconInstagram({ className }: { className?: string }) {
   )
 }
 
+/** Envelope — used beside an email address. */
+export function IconMail({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+      <rect x="3" y="5" width="18" height="14" rx="2" strokeWidth={1.6} />
+      <path d="m3.5 7 8.5 6 8.5-6" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 /** Handset — used for click-to-call. */
 export function IconPhone({ className }: { className?: string }) {
   return (
