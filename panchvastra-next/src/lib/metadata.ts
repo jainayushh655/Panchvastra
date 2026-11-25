@@ -95,12 +95,19 @@ export const rootMetadata: Metadata = {
  * reaching `/cart` can only ever see the signed-out shell. `follow` stays on, so the
  * ordinary storefront links in the header and footer are still discovered through them.
  *
+ * `follow` can be turned off for a page where even link discovery is pointless. Checkout
+ * passes `{ follow: false }`: it is a transactional page reachable only with a cart, and a
+ * crawler following links out of it gains nothing the storefront does not already expose.
+ *
  * No canonical is declared: a page that must not be indexed has no canonical to assert.
  */
-export function accountPageMetadata(title: string): Metadata {
+export function accountPageMetadata(
+  title: string,
+  { follow = true }: { follow?: boolean } = {},
+): Metadata {
   return {
     title,
-    robots: { index: false, follow: true },
+    robots: { index: false, follow },
   }
 }
 
@@ -112,5 +119,62 @@ export function internalPageMetadata(title: string): Metadata {
   return {
     title,
     robots: { index: false, follow: false, nocache: true },
+  }
+}
+
+/**
+ * Metadata for a PUBLIC, indexable storefront page — About, Help Desk, Custom Piece and
+ * the policy pages.
+ *
+ * WHY THIS EXISTS. `/`, `/shop` and `/product/[id]` each hand-rolled the same five-key
+ * block, and Phase 4F adds six more public pages. Writing it eleven times is eleven
+ * chances for one page to lose its canonical or ship a title that does not match its Open
+ * Graph title. The shape below is the one those three pages already established, lifted
+ * unchanged — this helper introduces no new SEO policy, it just stops the policy being
+ * retyped.
+ *
+ * ⚠️ IT DELIBERATELY DOES NOT TOUCH `robots`. The site-wide `noindex, nofollow` from
+ * Phase 2 (see `rootMetadata`) is still in force while this application runs alongside the
+ * live Vite storefront, and these pages inherit it. Everything a crawler needs is present
+ * and correct; lifting the block is the Phase 7 cutover decision, not a per-page one. A
+ * helper that quietly set `index: true` would publish six pages into search results ahead
+ * of that decision.
+ *
+ * `canonical` is required rather than optional, and that is the point: it is the one key
+ * `skipTrailingSlashRedirect` makes mandatory (`/about` and `/about/` both return 200), so
+ * a public page cannot be added without naming its single address.
+ *
+ * `title` is the bare page title — the root `title.template` appends `· PANCHVASTRA`.
+ * Open Graph and Twitter get the composed form, because those are read standalone with no
+ * template applied.
+ */
+export function publicPageMetadata({
+  title,
+  description,
+  canonical,
+}: {
+  title: string
+  description: string
+  canonical: string
+}): Metadata {
+  const composed = `${title} · ${SITE_NAME}`
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: 'website',
+      url: canonical,
+      siteName: SITE_NAME,
+      title: composed,
+      description,
+      locale: 'en_IN',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: composed,
+      description,
+    },
   }
 }

@@ -78,10 +78,37 @@ const PHASES: { phase: string; title: string; detail: string; state: PhaseState 
     state: 'done',
   },
   {
-    phase: 'Phase 4E-2',
-    title: 'Remaining customer pages',
-    detail: 'Checkout, custom piece, help desk, about and the policy pages.',
+    phase: 'Phase 4E-2A',
+    title: 'Checkout foundation',
+    detail:
+      'Order review, delivery address selection, coupons and the payable total. No payment: order placement is 4E-2B.',
+    state: 'done',
+  },
+  {
+    phase: 'Phase 4E-2B',
+    title: 'Payment and order placement',
+    detail:
+      'Razorpay checkout, server-side verification and cash on delivery. ⚠️ Backend reconciliation for an interrupted verification is still required before cutover.',
+    state: 'done',
+  },
+  {
+    phase: 'Phase 4F-1 · 4F-2',
+    title: 'About and the policy pages',
+    detail:
+      'The brand story, refund, privacy and terms — server-rendered with no client JavaScript — plus the public metadata helper, shared contact icons and the /contact redirect. ⚠️ Nine policy placeholders still need business sign-off before launch.',
+    state: 'done',
+  },
+  {
+    phase: 'Phase 4F-3',
+    title: 'Help Desk',
+    detail: 'The support form on the public support_query endpoint, and the /contact redirect target.',
     state: 'current',
+  },
+  {
+    phase: 'Phase 4F-4',
+    title: 'Custom Piece',
+    detail: 'The five-step custom builder, server-rendered options and the authenticated multipart request.',
+    state: 'planned',
   },
   {
     phase: 'Phase 5',

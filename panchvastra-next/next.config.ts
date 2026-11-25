@@ -145,6 +145,37 @@ const nextConfig: NextConfig = {
   },
 
   /**
+   * `/contact` -> `/help-desk`, permanently (308).
+   *
+   * WHAT THE VITE APP DOES, AND WHY THIS IS BETTER. `App.tsx` maps BOTH paths to the same
+   * `HelpDeskPage` component:
+   *
+   *     <Route path="help-desk" element={<HelpDeskPage />} />
+   *     <Route path="contact" element={<HelpDeskPage />} />
+   *
+   * So one page answers on two URLs with no canonical between them — duplicate content,
+   * with any ranking the support page earns split across both addresses. The second route
+   * exists only so links and bookmarks from when the page was `/contact` keep working,
+   * which a redirect does properly: the old URL keeps resolving, and crawlers are told
+   * once, authoritatively, where the page now lives.
+   *
+   * `permanent: true` emits 308 rather than 307, which is what consolidates the two
+   * addresses. The Help Desk page then declares `canonical: '/help-desk'` (Phase 4F-3), so
+   * the one surviving URL names itself.
+   *
+   * ⚠️ BOTH SLASH FORMS ARE LISTED ON PURPOSE, and that is because of
+   * `skipTrailingSlashRedirect` above: with normalisation off, `/contact/` is NOT folded
+   * into `/contact` first, so a single rule would leave the trailing-slash form falling
+   * through to a 404. Verified both ways in the browser.
+   */
+  async redirects() {
+    return [
+      { source: '/contact', destination: '/help-desk', permanent: true },
+      { source: '/contact/', destination: '/help-desk', permanent: true },
+    ]
+  },
+
+  /**
    * The ONE host whose images may go through the Next image optimizer, published to the
    * browser bundle so `components/BackendImage.tsx` can decide per image without a second
    * variable to keep in step. Empty when no API origin is configured, which disables

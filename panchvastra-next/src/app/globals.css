@@ -267,12 +267,30 @@
 
 .pv-hero-copy-in { animation: pv-hero-copy-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* ------------------------------------------------------------- editorial pages
+   A static page's entrance. This replaces the `framer-motion` `motion.div` on the Vite
+   About page, with that component's own values: `y: 20` -> `translateY(20px)`,
+   `duration: 0.5` -> 500ms. The easing is the curve the rest of this file already uses,
+   since framer's default is not expressible as a single cubic-bezier.
+
+   It is a pure CSS animation on purpose. `framer-motion` is not a dependency of this
+   application and must not become one for a single fade — importing it would also force
+   the page to be a Client Component, which is the opposite of what the About and policy
+   pages are for. `HeroCarousel` and `ProductCard` dropped it the same way in 4A/4B. */
+@keyframes pv-page-rise {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.pv-page-rise { animation: pv-page-rise 500ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 /* Honour the OS setting: no ambient motion, and the step transition becomes a plain fade. */
 @media (prefers-reduced-motion: reduce) {
   .pv-auth-drift,
   .pv-auth-sweep,
   .pv-toast-in,
-  .pv-hero-copy-in {
+  .pv-hero-copy-in,
+  .pv-page-rise {
     animation: none;
   }
 
