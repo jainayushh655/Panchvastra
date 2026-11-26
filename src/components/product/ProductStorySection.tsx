@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { OVERLAY_Z, Portal } from '@/components/ui/Portal'
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 
 /**
  * "THE DETAILS — Crafted in Every Stitch".
@@ -42,21 +44,19 @@ export function ProductStorySection({
 
   const [zoomed, setZoomed] = useState(false)
 
-  // Scroll lock while the overlay is open, restored to whatever the page had before.
+  // Shared, reference-counted lock — see `useBodyScrollLock` for why the per-component
+  // save-and-restore this replaces broke whenever two overlays were open at once.
+  useBodyScrollLock(zoomed)
+
   useEffect(() => {
     if (!zoomed) return
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
 
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setZoomed(false)
     }
     window.addEventListener('keydown', onKey)
 
-    return () => {
-      document.body.style.overflow = previous
-      window.removeEventListener('keydown', onKey)
-    }
+    return () => window.removeEventListener('keydown', onKey)
   }, [zoomed])
 
   if (!body && items.length === 0) return null
@@ -132,32 +132,37 @@ export function ProductStorySection({
         </div>
       </div>
 
+      {/* Portalled to the body: this section sits inside the product page's grid, and an
+          overlay left in that subtree is ranked inside whatever stacking context an
+          ancestor happens to create rather than against the page. See `Portal`. */}
       {zoomed && imageUrl ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${productName} detail`}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-espresso/90 p-4"
-          onClick={() => setZoomed(false)}
-        >
-          <button
-            type="button"
+        <Portal>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${productName} detail`}
+            className={`fixed inset-0 ${OVERLAY_Z.lightbox} flex items-center justify-center bg-espresso/95 p-4`}
             onClick={() => setZoomed(false)}
-            aria-label="Close"
-            className="absolute right-4 top-4 flex size-10 items-center justify-center rounded-full border border-cream/40 text-cream transition-colors hover:bg-cream/10"
           >
-            <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-              <path d="M6 6l12 12M18 6L6 18" strokeWidth={1.8} strokeLinecap="round" />
-            </svg>
-          </button>
+            <button
+              type="button"
+              onClick={() => setZoomed(false)}
+              aria-label="Close"
+              className="absolute right-4 top-4 flex size-10 items-center justify-center rounded-full border border-cream/40 text-cream transition-colors hover:bg-cream/10"
+            >
+              <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                <path d="M6 6l12 12M18 6L6 18" strokeWidth={1.8} strokeLinecap="round" />
+              </svg>
+            </button>
 
-          <img
-            src={imageUrl}
-            alt={`${productName} detail`}
-            onClick={(event) => event.stopPropagation()}
-            className="max-h-[88vh] max-w-full rounded-lg object-contain"
-          />
-        </div>
+            <img
+              src={imageUrl}
+              alt={`${productName} detail`}
+              onClick={(event) => event.stopPropagation()}
+              className="max-h-[88vh] max-w-full rounded-lg object-contain"
+            />
+          </div>
+        </Portal>
       ) : null}
     </section>
   )

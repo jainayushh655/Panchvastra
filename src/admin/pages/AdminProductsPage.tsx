@@ -175,6 +175,18 @@ export function AdminProductsPage() {
 
   const [form, setForm] = useState<ProductForm | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+
+  /*
+   * Two separate notices for image optimisation, because they answer different questions
+   * and neither is an error.
+   *
+   * `imageWorkNote` is "something is happening" while files are being re-encoded —
+   * without it, picking six 2 MB photos looks like the picker did nothing for a second.
+   * `imageSavingNote` is the result, kept on screen afterwards so the admin can see what
+   * the shop will actually serve.
+   */
+  const [imageWorkNote, setImageWorkNote] = useState<string | null>(null)
+  const [imageSavingNote, setImageSavingNote] = useState<string | null>(null)
   const [formLoading, setFormLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<ProductDto | null>(null)
@@ -489,8 +501,25 @@ export function AdminProductsPage() {
       prev ? { ...prev, key_highlights: prev.key_highlights.filter((_, i) => i !== index) } : prev,
     )
 
-  const addVariantImages = (index: number, files: FileList) => {
-    const { accepted, rejected } = toPendingImages(files)
+  /*
+   * Async because every picked file is now re-encoded before it joins the queue — see
+   * `toPendingImages`. The admin sees "Optimising images…" while that runs; on a handful
+   * of 2 MB exports it is well under a second, and it is the difference between the
+   * catalogue serving ~2 MB per photo and ~150 kB.
+   */
+  const addVariantImages = async (index: number, files: FileList) => {
+    setImageWorkNote('Optimising images…')
+
+    let accepted: PendingImage[]
+    let rejected: string[]
+    let originalBytes: number
+    let uploadBytes: number
+    let optimisedCount: number
+    try {
+      ;({ accepted, rejected, originalBytes, uploadBytes, optimisedCount } = await toPendingImages(files))
+    } finally {
+      setImageWorkNote(null)
+    }
 
     if (rejected.length) {
       setFormError(
@@ -503,6 +532,24 @@ export function AdminProductsPage() {
     }
 
     if (!accepted.length) return
+
+    /*
+     * Reported, not silent: the admin should be able to see that the 2 MB export they
+     * picked is not what the shop is about to serve.
+     *
+     * The count is `optimisedCount`, NOT `accepted.length` — a small file, a GIF, or one
+     * that re-encoded no smaller is passed through untouched, and counting those as
+     * "optimised" would be a number that does not match the bytes beside it. When nothing
+     * was re-encoded the notice is omitted entirely rather than claiming a saving of zero.
+     */
+    if (optimisedCount > 0 && uploadBytes < originalBytes) {
+      const mb = (bytes: number) => (bytes / 1024 / 1024).toFixed(2)
+      const saved = Math.round((1 - uploadBytes / originalBytes) * 100)
+      setImageSavingNote(
+        `Optimised ${optimisedCount} image${optimisedCount === 1 ? '' : 's'}: ` +
+          `${mb(originalBytes)} MB → ${mb(uploadBytes)} MB (${saved}% smaller).`,
+      )
+    }
 
     setForm((prev) =>
       prev
@@ -1323,7 +1370,7 @@ export function AdminProductsPage() {
                       existingImages={variant.existingImages}
                       pendingImages={variant.newImages}
                       imageOrder={variant.imageOrder}
-                      onAdd={(files) => addVariantImages(vIndex, files)}
+                      onAdd={(files) => void addVariantImages(vIndex, files)}
                       onRemovePending={(key) => removeVariantImage(vIndex, key)}
                       onRemoveExisting={(imageId) => removeExistingImage(vIndex, imageId)}
                       onReorder={(tokens) => reorderVariantImages(vIndex, tokens)}
@@ -1355,6 +1402,14 @@ export function AdminProductsPage() {
                 >
                   + Add variant
                 </button>
+
+                {/* `aria-live` rather than `role="alert"`: this is progress and a result,
+                    not a problem, and it should not interrupt what is being read. */}
+                {imageWorkNote || imageSavingNote ? (
+                  <p className="admin-form__hint" aria-live="polite">
+                    {imageWorkNote ?? imageSavingNote}
+                  </p>
+                ) : null}
 
                 {formError ? (
                   <p className="admin-form__error" role="alert">

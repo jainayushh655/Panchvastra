@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { compressImages } from '@/admin/utils/imageCompression'
 import type { VariantImageDto } from '@/types/api/ProductDetailDto'
 
 /**
@@ -17,22 +18,73 @@ export type PendingImage = {
 let pendingSeq = 0
 const nextKey = () => `pending-${++pendingSeq}`
 
-/** Wraps picked files as pending entries, splitting out anything that is not an image. */
-export function toPendingImages(files: FileList | File[]): { accepted: PendingImage[]; rejected: string[] } {
-  const accepted: PendingImage[] = []
+export type PendingImageSelection = {
+  accepted: PendingImage[]
+  rejected: string[]
+  /** Total bytes of the accepted files as picked, and as they will actually be uploaded. */
+  originalBytes: number
+  uploadBytes: number
+  /**
+   * How many accepted files were ACTUALLY re-encoded.
+   *
+   * Not the same as `accepted.length`: a file already under the skip threshold, a GIF, or
+   * one whose re-encode came out no smaller is passed through untouched. Reporting the
+   * accepted count as the optimised count would overstate what happened, so the two are
+   * kept apart and the admin notice uses this one.
+   */
+  optimisedCount: number
+}
+
+/**
+ * Wraps picked files as pending entries, splitting out anything that is not an image —
+ * and re-encodes each accepted one before it is ever queued for upload.
+ *
+ * ──────────────────────────────────────────────────────────────────────────────
+ * WHY THE COMPRESSION BELONGS HERE AND NOT AT THE CALL SITE
+ * ──────────────────────────────────────────────────────────────────────────────
+ * This is the ONE place a picked file becomes a `PendingImage`, which is the only thing
+ * the save path ever uploads. Compressing here means every current and future entry point
+ * — the file input, a drag and drop, a paste — is covered, and no caller can forget.
+ *
+ * The type check is unchanged and still the only thing that can REJECT a file. The
+ * backend contract specifies no size limit and none is invented: an oversized file is
+ * still accepted, it is simply sent as a fraction of the bytes. See `compressImage` for
+ * what the catalogue looked like without this, and for why every failure path returns the
+ * original file rather than refusing it.
+ *
+ * `previewUrl` is deliberately built from the COMPRESSED file — it is what will be
+ * stored, so the admin's preview is a true picture of the result rather than of the
+ * source they picked.
+ */
+export async function toPendingImages(files: FileList | File[]): Promise<PendingImageSelection> {
   const rejected: string[] = []
+  const images: File[] = []
 
   for (const file of Array.from(files)) {
     // Only a type check — no size or dimension limits are invented, because the backend
     // contract does not specify any.
     if (file.type && file.type.startsWith('image/')) {
-      accepted.push({ key: nextKey(), file, previewUrl: URL.createObjectURL(file) })
+      images.push(file)
     } else {
       rejected.push(file.name)
     }
   }
 
-  return { accepted, rejected }
+  const { results, originalBytes, compressedBytes } = await compressImages(images)
+
+  const accepted = results.map((result) => ({
+    key: nextKey(),
+    file: result.file,
+    previewUrl: URL.createObjectURL(result.file),
+  }))
+
+  return {
+    accepted,
+    rejected,
+    originalBytes,
+    uploadBytes: compressedBytes,
+    optimisedCount: results.filter((result) => result.changed).length,
+  }
 }
 
 /**

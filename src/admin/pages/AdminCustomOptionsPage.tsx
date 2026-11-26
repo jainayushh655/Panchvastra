@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { compressImage } from '@/admin/utils/imageCompression'
 import { Breadcrumb } from '@/admin/components/Breadcrumb'
 import { AdminConfirmModal } from '@/admin/components/AdminConfirmModal'
 import { AdminTable } from '@/admin/components/AdminTable'
@@ -211,13 +212,24 @@ export function AdminCustomOptionsPage() {
     const order = form.displayOrder.trim() ? Number(form.displayOrder.trim()) : undefined
 
     try {
+      /*
+       * Garment and print-type artwork is shown in the Custom Piece builder, so it is
+       * served to shoppers like every other catalogue image and gets the same treatment.
+       *
+       * Computed once, before the create/update branch, so both paths send the same file.
+       * `compressImage` returns the original if it cannot do better, so this cannot fail
+       * a save. Null when this option type carries no image at all, which the existing
+       * `HAS_IMAGE` guards below already handle.
+       */
+      const image = HAS_IMAGE[form.type] && form.image ? (await compressImage(form.image)).file : null
+
       if (form.id === null) {
         await createCustomOption({
           option_type: form.type,
           name: form.name.trim(),
           ...(HAS_DESCRIPTION[form.type] && form.description.trim() ? { description: form.description.trim() } : {}),
           ...(form.type === 'COLOUR' ? { hex_code: form.hexCode.trim() } : {}),
-          ...(HAS_IMAGE[form.type] && form.image ? { image: form.image } : {}),
+          ...(image ? { image } : {}),
           ...(form.type === 'GARMENT' ? { colour_ids: form.colourIds } : {}),
           ...(order ? { display_order: order } : {}),
           is_active: form.isActive,
@@ -229,7 +241,7 @@ export function AdminCustomOptionsPage() {
           name: form.name.trim(),
           ...(HAS_DESCRIPTION[form.type] ? { description: form.description.trim() } : {}),
           ...(form.type === 'COLOUR' ? { hex_code: form.hexCode.trim() } : {}),
-          ...(HAS_IMAGE[form.type] && form.image ? { image: form.image } : {}),
+          ...(image ? { image } : {}),
           ...(form.type === 'GARMENT' ? { colour_ids: form.colourIds } : {}),
           ...(order ? { display_order: order } : {}),
           is_active: form.isActive,

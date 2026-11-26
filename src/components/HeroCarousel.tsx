@@ -1,6 +1,51 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router-dom'
 import type { HomepageHeroSlide } from '@/types/homepage'
+
+/**
+ * `true` once the viewport is at Tailwind's `lg` breakpoint or wider.
+ *
+ * ──────────────────────────────────────────────────────────────────────────────
+ * WHY THE TWO HERO BRANCHES ARE NO LONGER BOTH IN THE DOM
+ * ──────────────────────────────────────────────────────────────────────────────
+ * The hero's artwork used to be painted as a CSS `background-image`, which has one
+ * accidental virtue — a `display: none` element never fetches it, so the `lg:hidden`
+ * mobile track cost a desktop visitor nothing — and one serious cost: a background image
+ * is invisible to the browser's preload scanner. It is discovered only after the CSS that
+ * names it has been parsed, which here means after the whole JavaScript bundle has
+ * downloaded, parsed, run and rendered. On a phone that is the single largest delay
+ * before the hero — the page's LCP element — appears.
+ *
+ * An `<img>` fixes the discovery problem (and can carry `fetchpriority`), but it is
+ * fetched even inside a `display: none` subtree. Swapping the markup alone would have
+ * made every desktop visitor download the mobile slides as well as the desktop ones.
+ *
+ * So the branch is now CHOSEN rather than hidden: exactly one of the two is rendered, and
+ * a desktop visitor never has the mobile track's images in the document at all. This is a
+ * client-rendered app, so the first render already knows the real viewport width — there
+ * is no hydration pass to mismatch, and nothing flashes.
+ *
+ * `useSyncExternalStore` subscribes to the media query itself rather than to a resize
+ * listener, so it fires once on an actual breakpoint crossing instead of on every pixel
+ * of a window drag.
+ */
+const LG_QUERY = '(min-width: 1024px)'
+
+function subscribeToLg(onChange: () => void) {
+  if (typeof window === 'undefined') return () => {}
+  const mql = window.matchMedia(LG_QUERY)
+  mql.addEventListener('change', onChange)
+  return () => mql.removeEventListener('change', onChange)
+}
+
+function useIsDesktop(): boolean {
+  return useSyncExternalStore(
+    subscribeToLg,
+    () => window.matchMedia(LG_QUERY).matches,
+    // Server snapshot: mobile-first, matching how the rest of the app is written.
+    () => false,
+  )
+}
 
 export type HeroCarouselSlide = HomepageHeroSlide
 
@@ -25,6 +70,7 @@ const arrowClass = (position: string) =>
   position
 
 export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
+  const isDesktop = useIsDesktop()
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(false)
   const n = slides.length
@@ -77,13 +123,20 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
     else if (physical === n + 1) track.scrollTo({ left: width, behavior: 'instant' })
   }
 
-  // Start on the first REAL slide rather than the leading clone.
+  /*
+   * Start on the first REAL slide rather than the leading clone.
+   *
+   * `isDesktop` is a dependency because the mobile track is now mounted and unmounted at
+   * the `lg` breakpoint rather than hidden with CSS. Without it, dragging a desktop window
+   * narrow would mount a fresh track at `scrollLeft: 0` — which is the clone of the LAST
+   * slide — and the hero would open on the wrong image.
+   */
   useEffect(() => {
     const read = readTrack()
     if (!read || !loop) return
     read.track.scrollTo({ left: read.width, behavior: 'instant' })
-    // Only on mount and when the slide count changes.
-  }, [loop, n])
+    // Only on mount, when the slide count changes, and when the track reappears.
+  }, [loop, n, isDesktop])
 
   /*
    * Keeps the mobile track in step with `i`.
@@ -184,8 +237,15 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
 
   return (
     <>
-      {/* ------------------------------------------ mobile: native swipe carousel */}
-      <section className="relative border-b border-zinc-800 bg-espresso lg:hidden">
+      {/*
+        ------------------------------------------ mobile: native swipe carousel
+
+        Rendered only below `lg`. The `lg:hidden` it replaces still put every slide's
+        `<img>` in the document on a desktop, and a `display: none` ancestor does not stop
+        an `<img>` from being fetched — see `useIsDesktop`.
+      */}
+      {isDesktop ? null : (
+      <section className="relative border-b border-zinc-800 bg-espresso">
         <div
           ref={trackRef}
           /*
@@ -242,7 +302,25 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
                 className="relative flex aspect-[16/9] w-full shrink-0 snap-start flex-col justify-end px-4 pb-11 pt-5 sm:pb-16 sm:pt-4"
               >
                 {bg ? (
-                  <div
+                  <img
+                    src={bg}
+                    alt=""
+                    aria-hidden
+                    /*
+                     * The hero is the homepage's LCP element on a phone, and this is the
+                     * only image on the first screen that matters. `high` priority moves it
+                     * ahead of everything else the browser has queued; `eager` keeps it out
+                     * of the lazy queue it would otherwise share with the off-screen slides.
+                     *
+                     * Physical index 1 is the FIRST REAL slide — index 0 is the clone of the
+                     * last one that makes the swipe loop continuous (see above). Every other
+                     * slide is off to the side and lazy, so a visitor who never swipes never
+                     * downloads them. Before this they all loaded at once, competing with
+                     * the one slide actually on screen.
+                     */
+                    fetchPriority={physical === 1 ? 'high' : 'low'}
+                    loading={physical === 1 ? 'eager' : 'lazy'}
+                    decoding="async"
                     /*
                      * One ratio at every width: the artwork's own 16:9.
                      *
@@ -254,9 +332,7 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
                      * the message. Matching the source ratio means `cover` is an exact fit
                      * and nothing is cropped on any screen.
                      */
-                    className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
-                    style={{ backgroundImage: `url(${JSON.stringify(bg)})` }}
-                    aria-hidden
+                    className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
                   />
                 ) : null}
                 <div className="relative">
@@ -278,11 +354,13 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
           {renderDots()}
         </div>
       </section>
+      )}
 
       {/* ------------------------------- desktop: existing fade carousel */}
       {/* Dots live outside the image box (below it, like the mobile track) so the button
           itself can sit at the true bottom of the artwork instead of sharing that space. */}
-      <div className="hidden border-b border-zinc-800 bg-espresso lg:block">
+      {isDesktop ? (
+      <div className="border-b border-zinc-800 bg-espresso">
         <section
           /*
            * The carousel artwork is 16:9 (verified: 1280x720 and 1920x1080). The hero used to
@@ -307,11 +385,15 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
             strength. The fade is the transition between slides only.
           */}
           {bgImage ? (
-            <div
+            <img
               key={`bg-${slide.id}`}
-              className="pv-hero-fade pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
-              style={{ backgroundImage: `url(${JSON.stringify(bgImage)})` }}
+              src={bgImage}
+              alt=""
               aria-hidden
+              // The desktop hero's LCP element, and the only slide in the DOM at a time.
+              fetchPriority="high"
+              decoding="async"
+              className="pv-hero-fade pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
             />
           ) : null}
           {/* Nothing is laid over the artwork. The faint diagonal hatch is only the
@@ -379,6 +461,7 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
           </div>
         </section>
       </div>
+      ) : null}
     </>
   )
 }

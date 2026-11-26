@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { compressImage } from '@/admin/utils/imageCompression'
 import { Breadcrumb } from '@/admin/components/Breadcrumb'
 import { AdminTable } from '@/admin/components/AdminTable'
 import { AdminBadge, AdminEmptyState, AdminErrorState, AdminLoadingState } from '@/admin/components/AdminStates'
@@ -131,10 +132,22 @@ export function AdminAuthCarouselPage() {
     setFormError(null)
 
     try {
+      /*
+       * The hero is the homepage's LCP element, so these are the single most
+       * performance-sensitive images in the shop — and they were uploaded at whatever
+       * size the admin picked, up to the 5 MB ceiling above.
+       *
+       * A larger `maxEdge` than product photography gets: this artwork is full-bleed 16:9
+       * across a 1920px desktop, where downscaling to the default 1600 would show.
+       * `compressImage` returns the original file unchanged if it cannot do better, so a
+       * hero upload can never fail because of this.
+       */
+      const image = form.image ? (await compressImage(form.image, { maxEdge: 1920 })).file : null
+
       if (isCreate) {
         // Omitting display_order lets the backend assign the current highest + 1.
         await createAuthCarouselImage({
-          image: form.image as File,
+          image: image as File,
           ...(displayOrder !== undefined ? { display_order: displayOrder } : {}),
           is_active: form.is_active,
         })
@@ -145,7 +158,7 @@ export function AdminAuthCarouselPage() {
           id: form.id as number,
           ...(displayOrder !== undefined ? { display_order: displayOrder } : {}),
           is_active: form.is_active,
-          image: form.image,
+          image,
         })
       }
 

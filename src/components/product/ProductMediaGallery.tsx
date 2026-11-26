@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { OVERLAY_Z, Portal } from '@/components/ui/Portal'
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 import type { MediaType, VariantImageDto } from '@/types/api/ProductDetailDto'
 
 /**
@@ -98,15 +100,12 @@ export function ProductMediaGallery({ images, fallbackUrls = [], productName }: 
     if (video && !video.paused) video.pause()
   }, [activeIndex])
 
-  // Body scroll lock while the lightbox is open, restored exactly as it was.
-  useEffect(() => {
-    if (!lightboxOpen) return
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = previous
-    }
-  }, [lightboxOpen])
+  /*
+   * Shared, reference-counted lock. The product page can have the size guide or the
+   * Notify Me dialog open as well, and the per-component save-and-restore this replaces
+   * left the body stuck at `overflow: hidden` whenever two of them overlapped.
+   */
+  useBodyScrollLock(lightboxOpen)
 
   useEffect(() => {
     if (!lightboxOpen) return
@@ -239,64 +238,77 @@ export function ProductMediaGallery({ images, fallbackUrls = [], productName }: 
         </div>
       </div>
 
+      {/*
+        PORTALLED TO document.body ON PURPOSE — do not inline it back into this tree.
+
+        The gallery's column on the product page is `lg:sticky lg:top-24`, and
+        `position: sticky` creates a stacking context unconditionally. Rendered in place,
+        this overlay's `z-[100]` was only a ranking INSIDE that column: the sticky navbar
+        and every positioned element in the product-info column next to it (colour
+        swatches, size tiles, the offer banner) painted over the open lightbox, bright and
+        still clickable above the dimmed backdrop. Raising the number cannot fix it; the
+        overlay has to leave the subtree. See `Portal` for the full explanation.
+      */}
       {lightboxOpen && imageItems.length > 0 ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${productName} images`}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-espresso/90 p-4"
-          onClick={() => setLightboxOpen(false)}
-        >
-          <button
-            type="button"
+        <Portal>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${productName} images`}
+            className={`fixed inset-0 ${OVERLAY_Z.lightbox} flex items-center justify-center bg-espresso/95 p-4`}
             onClick={() => setLightboxOpen(false)}
-            aria-label="Close"
-            className="absolute right-4 top-4 flex size-10 items-center justify-center rounded-full border border-cream/40 text-cream transition-colors hover:bg-cream/10"
           >
-            <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-              <path d="M6 6l12 12M18 6L6 18" strokeWidth={1.8} strokeLinecap="round" />
-            </svg>
-          </button>
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(false)}
+              aria-label="Close"
+              className="absolute right-4 top-4 flex size-10 items-center justify-center rounded-full border border-cream/40 text-cream transition-colors hover:bg-cream/10"
+            >
+              <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                <path d="M6 6l12 12M18 6L6 18" strokeWidth={1.8} strokeLinecap="round" />
+              </svg>
+            </button>
 
-          <img
-            src={imageItems[lightboxIndex]?.url ?? PLACEHOLDER}
-            alt={productName}
-            // Stops a click on the image itself from closing the dialog behind it.
-            onClick={(event) => event.stopPropagation()}
-            className="max-h-[88vh] max-w-full rounded-lg object-contain"
-          />
+            <img
+              src={imageItems[lightboxIndex]?.url ?? PLACEHOLDER}
+              alt={productName}
+              // Stops a click on the image itself from closing the dialog behind it.
+              onClick={(event) => event.stopPropagation()}
+              className="max-h-[88vh] max-w-full rounded-lg object-contain"
+            />
 
-          {imageItems.length > 1 ? (
-            <>
-              <button
-                type="button"
-                aria-label="Previous image"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  setLightboxIndex((i) => (i - 1 + imageItems.length) % imageItems.length)
-                }}
-                className="absolute left-3 flex size-10 items-center justify-center rounded-full border border-cream/40 text-cream transition-colors hover:bg-cream/10"
-              >
-                <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-                  <path d="M15 5l-7 7 7 7" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                aria-label="Next image"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  setLightboxIndex((i) => (i + 1) % imageItems.length)
-                }}
-                className="absolute right-3 flex size-10 items-center justify-center rounded-full border border-cream/40 text-cream transition-colors hover:bg-cream/10"
-              >
-                <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-                  <path d="M9 5l7 7-7 7" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </>
-          ) : null}
-        </div>
+            {imageItems.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  aria-label="Previous image"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setLightboxIndex((i) => (i - 1 + imageItems.length) % imageItems.length)
+                  }}
+                  className="absolute left-3 flex size-10 items-center justify-center rounded-full border border-cream/40 text-cream transition-colors hover:bg-cream/10"
+                >
+                  <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                    <path d="M15 5l-7 7 7 7" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next image"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setLightboxIndex((i) => (i + 1) % imageItems.length)
+                  }}
+                  className="absolute right-3 flex size-10 items-center justify-center rounded-full border border-cream/40 text-cream transition-colors hover:bg-cream/10"
+                >
+                  <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                    <path d="M9 5l7 7-7 7" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </>
+            ) : null}
+          </div>
+        </Portal>
       ) : null}
     </div>
   )
