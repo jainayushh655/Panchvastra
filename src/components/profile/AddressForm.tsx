@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { OVERLAY_Z, Portal } from '@/components/ui/Portal'
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 import { Button } from '@/components/ui/Button'
 import {
   validateAddressLine1,
@@ -52,6 +54,11 @@ export function AddressForm({ isOpen, initialAddress, onSave, onClose }: Address
     return () => window.removeEventListener('keydown', onKey)
   }, [isOpen, onClose])
 
+  // Freezes the page behind the dialog. Shared and reference-counted, because these
+  // dialogs stack (the address picker opens the address form over itself) and a
+  // per-component save-and-restore unlocks the page while one is still open.
+  useBodyScrollLock(isOpen)
+
   if (!isOpen) return null
 
   const isEditing = Boolean(initialAddress)
@@ -97,216 +104,220 @@ export function AddressForm({ isOpen, initialAddress, onSave, onClose }: Address
     }
   }
 
+  /* Portalled to `document.body` — see `Portal` for why a `z-index` alone cannot keep
+     an overlay above the page it covers. */
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-8" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={isEditing ? 'Edit address' : 'Add new address'}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg border border-zinc-200 bg-white p-6 shadow-[0_30px_60px_-36px_rgba(0,0,0,0.3)] dark:border-zinc-800 dark:bg-zinc-950"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <h2 className="type-section-title">{isEditing ? 'Edit Address' : 'Add New Address'}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex size-8 shrink-0 items-center justify-center rounded-full border border-zinc-300 text-zinc-600 transition-colors hover:border-black hover:text-black dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-white dark:hover:text-white"
-          >
-            ✕
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} noValidate className="mt-5 space-y-5">
-          <div>
-            <p className="type-label">Address Type</p>
-            <div className="mt-2 flex gap-2">
-              {ADDRESS_TYPE_OPTIONS.map((opt) => {
-                const selected = draft.type === opt.value
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setField('type', opt.value)}
-                    className={`border px-4 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
-                      selected
-                        ? 'border-burgundy bg-burgundy text-cream dark:border-white dark:bg-white dark:text-black'
-                        : 'border-sand bg-cream text-espresso hover:border-burgundy dark:border-zinc-700 dark:text-white'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label htmlFor="addr-full-name" className="type-label">
-                Full Name
-              </label>
-              <input
-                id="addr-full-name"
-                type="text"
-                value={draft.fullName}
-                onChange={(e) => setField('fullName', e.target.value)}
-                className={`mt-1.5 ${inputCls}`}
-              />
-              {errors.fullName ? <p className="mt-1.5 text-xs text-red-600">{errors.fullName}</p> : null}
-            </div>
-
-            <div className="sm:col-span-2">
-              <label htmlFor="addr-phone" className="type-label">
-                Phone Number
-              </label>
-              <input
-                id="addr-phone"
-                type="tel"
-                value={draft.phone}
-                onChange={(e) => setField('phone', e.target.value)}
-                className={`mt-1.5 ${inputCls}`}
-              />
-              {errors.phone ? <p className="mt-1.5 text-xs text-red-600">{errors.phone}</p> : null}
-            </div>
-
-            <div className="sm:col-span-2">
-              <label htmlFor="addr-line1" className="type-label">
-                Address Line 1
-              </label>
-              <input
-                id="addr-line1"
-                type="text"
-                value={draft.addressLine1}
-                onChange={(e) => setField('addressLine1', e.target.value)}
-                className={`mt-1.5 ${inputCls}`}
-              />
-              {errors.addressLine1 ? <p className="mt-1.5 text-xs text-red-600">{errors.addressLine1}</p> : null}
-            </div>
-
-            <div className="sm:col-span-2">
-              <label htmlFor="addr-line2" className="type-label">
-                Address Line 2
-              </label>
-              <input
-                id="addr-line2"
-                type="text"
-                value={draft.addressLine2}
-                onChange={(e) => setField('addressLine2', e.target.value)}
-                className={`mt-1.5 ${inputCls}`}
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label htmlFor="addr-landmark" className="type-label">
-                Landmark
-              </label>
-              <input
-                id="addr-landmark"
-                type="text"
-                value={draft.landmark}
-                onChange={(e) => setField('landmark', e.target.value)}
-                className={`mt-1.5 ${inputCls}`}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="addr-city" className="type-label">
-                City
-              </label>
-              <input
-                id="addr-city"
-                type="text"
-                value={draft.city}
-                onChange={(e) => setField('city', e.target.value)}
-                className={`mt-1.5 ${inputCls}`}
-              />
-              {errors.city ? <p className="mt-1.5 text-xs text-red-600">{errors.city}</p> : null}
-            </div>
-
-            <div>
-              <label htmlFor="addr-state" className="type-label">
-                State
-              </label>
-              <select
-                id="addr-state"
-                value={draft.state}
-                onChange={(e) => setField('state', e.target.value)}
-                className={`mt-1.5 ${inputCls} cursor-pointer`}
-              >
-                <option value="">Select state</option>
-                {INDIAN_STATES_AND_UT.map((state) => (
-                  <option key={state} value={state}>
-                    {state}
-                  </option>
-                ))}
-              </select>
-              {errors.state ? <p className="mt-1.5 text-xs text-red-600">{errors.state}</p> : null}
-            </div>
-
-            <div>
-              <label htmlFor="addr-pin" className="type-label">
-                PIN Code
-              </label>
-              <input
-                id="addr-pin"
-                type="text"
-                inputMode="numeric"
-                value={draft.postalCode}
-                onChange={(e) => setField('postalCode', e.target.value)}
-                className={`mt-1.5 ${inputCls}`}
-              />
-              {errors.postalCode ? <p className="mt-1.5 text-xs text-red-600">{errors.postalCode}</p> : null}
-            </div>
-
-            <div>
-              <label htmlFor="addr-country" className="type-label">
-                Country
-              </label>
-              <select
-                id="addr-country"
-                value={draft.country}
-                onChange={(e) => setField('country', e.target.value)}
-                className={`mt-1.5 ${inputCls} cursor-pointer`}
-              >
-                <option value="India">India</option>
-              </select>
-            </div>
-          </div>
-
-          <label className="flex cursor-pointer items-center gap-2.5">
-            <input
-              type="checkbox"
-              checked={draft.isDefault}
-              onChange={(e) => setField('isDefault', e.target.checked)}
-              className="size-4 cursor-pointer accent-black"
-            />
-            <span className="font-sans text-sm text-zinc-700 dark:text-zinc-300">Set as default address</span>
-          </label>
-
-          {submitError ? (
-            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-              {submitError}
-            </p>
-          ) : null}
-
-          <div className="flex justify-end gap-3 border-t border-zinc-200 pt-5 dark:border-zinc-800">
-            <Button
+    <Portal>
+      <div className={`fixed inset-0 ${OVERLAY_Z.modal} flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-8`} onClick={onClose}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={isEditing ? 'Edit address' : 'Add new address'}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-lg border border-zinc-200 bg-white p-6 shadow-[0_30px_60px_-36px_rgba(0,0,0,0.3)] dark:border-zinc-800 dark:bg-zinc-950"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <h2 className="type-section-title">{isEditing ? 'Edit Address' : 'Add New Address'}</h2>
+            <button
               type="button"
-              variant="ghostLight"
               onClick={onClose}
-              className="border-zinc-300"
-              disabled={saving}
+              aria-label="Close"
+              className="flex size-8 shrink-0 items-center justify-center rounded-full border border-zinc-300 text-zinc-600 transition-colors hover:border-black hover:text-black dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-white dark:hover:text-white"
             >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Saving…' : isEditing ? 'Update Address' : 'Save Address'}
-            </Button>
+              ✕
+            </button>
           </div>
-        </form>
+
+          <form onSubmit={handleSubmit} noValidate className="mt-5 space-y-5">
+            <div>
+              <p className="type-label">Address Type</p>
+              <div className="mt-2 flex gap-2">
+                {ADDRESS_TYPE_OPTIONS.map((opt) => {
+                  const selected = draft.type === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setField('type', opt.value)}
+                      className={`border px-4 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
+                        selected
+                          ? 'border-burgundy bg-burgundy text-cream dark:border-white dark:bg-white dark:text-black'
+                          : 'border-sand bg-cream text-espresso hover:border-burgundy dark:border-zinc-700 dark:text-white'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label htmlFor="addr-full-name" className="type-label">
+                  Full Name
+                </label>
+                <input
+                  id="addr-full-name"
+                  type="text"
+                  value={draft.fullName}
+                  onChange={(e) => setField('fullName', e.target.value)}
+                  className={`mt-1.5 ${inputCls}`}
+                />
+                {errors.fullName ? <p className="mt-1.5 text-xs text-red-600">{errors.fullName}</p> : null}
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="addr-phone" className="type-label">
+                  Phone Number
+                </label>
+                <input
+                  id="addr-phone"
+                  type="tel"
+                  value={draft.phone}
+                  onChange={(e) => setField('phone', e.target.value)}
+                  className={`mt-1.5 ${inputCls}`}
+                />
+                {errors.phone ? <p className="mt-1.5 text-xs text-red-600">{errors.phone}</p> : null}
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="addr-line1" className="type-label">
+                  Address Line 1
+                </label>
+                <input
+                  id="addr-line1"
+                  type="text"
+                  value={draft.addressLine1}
+                  onChange={(e) => setField('addressLine1', e.target.value)}
+                  className={`mt-1.5 ${inputCls}`}
+                />
+                {errors.addressLine1 ? <p className="mt-1.5 text-xs text-red-600">{errors.addressLine1}</p> : null}
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="addr-line2" className="type-label">
+                  Address Line 2
+                </label>
+                <input
+                  id="addr-line2"
+                  type="text"
+                  value={draft.addressLine2}
+                  onChange={(e) => setField('addressLine2', e.target.value)}
+                  className={`mt-1.5 ${inputCls}`}
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="addr-landmark" className="type-label">
+                  Landmark
+                </label>
+                <input
+                  id="addr-landmark"
+                  type="text"
+                  value={draft.landmark}
+                  onChange={(e) => setField('landmark', e.target.value)}
+                  className={`mt-1.5 ${inputCls}`}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="addr-city" className="type-label">
+                  City
+                </label>
+                <input
+                  id="addr-city"
+                  type="text"
+                  value={draft.city}
+                  onChange={(e) => setField('city', e.target.value)}
+                  className={`mt-1.5 ${inputCls}`}
+                />
+                {errors.city ? <p className="mt-1.5 text-xs text-red-600">{errors.city}</p> : null}
+              </div>
+
+              <div>
+                <label htmlFor="addr-state" className="type-label">
+                  State
+                </label>
+                <select
+                  id="addr-state"
+                  value={draft.state}
+                  onChange={(e) => setField('state', e.target.value)}
+                  className={`mt-1.5 ${inputCls} cursor-pointer`}
+                >
+                  <option value="">Select state</option>
+                  {INDIAN_STATES_AND_UT.map((state) => (
+                    <option key={state} value={state}>
+                      {state}
+                    </option>
+                  ))}
+                </select>
+                {errors.state ? <p className="mt-1.5 text-xs text-red-600">{errors.state}</p> : null}
+              </div>
+
+              <div>
+                <label htmlFor="addr-pin" className="type-label">
+                  PIN Code
+                </label>
+                <input
+                  id="addr-pin"
+                  type="text"
+                  inputMode="numeric"
+                  value={draft.postalCode}
+                  onChange={(e) => setField('postalCode', e.target.value)}
+                  className={`mt-1.5 ${inputCls}`}
+                />
+                {errors.postalCode ? <p className="mt-1.5 text-xs text-red-600">{errors.postalCode}</p> : null}
+              </div>
+
+              <div>
+                <label htmlFor="addr-country" className="type-label">
+                  Country
+                </label>
+                <select
+                  id="addr-country"
+                  value={draft.country}
+                  onChange={(e) => setField('country', e.target.value)}
+                  className={`mt-1.5 ${inputCls} cursor-pointer`}
+                >
+                  <option value="India">India</option>
+                </select>
+              </div>
+            </div>
+
+            <label className="flex cursor-pointer items-center gap-2.5">
+              <input
+                type="checkbox"
+                checked={draft.isDefault}
+                onChange={(e) => setField('isDefault', e.target.checked)}
+                className="size-4 cursor-pointer accent-black"
+              />
+              <span className="font-sans text-sm text-zinc-700 dark:text-zinc-300">Set as default address</span>
+            </label>
+
+            {submitError ? (
+              <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+                {submitError}
+              </p>
+            ) : null}
+
+            <div className="flex justify-end gap-3 border-t border-zinc-200 pt-5 dark:border-zinc-800">
+              <Button
+                type="button"
+                variant="ghostLight"
+                onClick={onClose}
+                className="border-zinc-300"
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? 'Saving…' : isEditing ? 'Update Address' : 'Save Address'}
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </Portal>
   )
 }

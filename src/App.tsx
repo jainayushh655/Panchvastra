@@ -1,4 +1,4 @@
-import { Fragment, Suspense, lazy } from 'react'
+import { Fragment, Suspense, lazy, useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { MainLayout } from '@/components/layout/MainLayout'
@@ -62,7 +62,57 @@ const TermsOfServicePage = lazy(() =>
  */
 const AdminApp = lazy(() => import('@/admin').then((m) => ({ default: m.AdminApp })))
 
+/*
+ * ──────────────────────────────────────────────────────────────────────────────
+ * WARMING THE TWO ROUTES EVERY SHOPPER TAKES NEXT
+ * ──────────────────────────────────────────────────────────────────────────────
+ * Code splitting moved those chunks off the first load, which is the right trade — but it
+ * moved the download to the worst possible moment: the tap. A shopper who taps a product
+ * card then waits for `ProductDetailPage` to arrive before anything happens, and on a slow
+ * mobile connection that is a second of a page that looks broken.
+ *
+ * Fetching them while the browser is IDLE gets both: the first paint is not delayed, and
+ * by the time anyone has read the hero and scrolled to a product the chunk is already in
+ * the cache, so the navigation is instant.
+ *
+ * Only Shop and the product page are warmed. They are where essentially all homepage
+ * traffic goes; speculatively downloading checkout, the profile or the 30 kB custom-piece
+ * builder for someone who is still looking at the hero would be spending a mobile
+ * visitor's data on a guess.
+ *
+ * `requestIdleCallback` means this never competes with the page's own work — and it is
+ * skipped entirely on a metered or 2G connection, where an unrequested download is a real
+ * cost to the visitor. Safari has neither API, hence both fallbacks.
+ */
+function usePrefetchLikelyRoutes() {
+  useEffect(() => {
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string }
+    }).connection
+
+    if (connection?.saveData) return
+    if (connection?.effectiveType && /2g/.test(connection.effectiveType)) return
+
+    const warm = () => {
+      void import('@/pages/ShopPage')
+      void import('@/pages/ProductDetailPage')
+    }
+
+    const idle = window.requestIdleCallback
+    if (typeof idle === 'function') {
+      const handle = idle(warm, { timeout: 3000 })
+      return () => window.cancelIdleCallback?.(handle)
+    }
+
+    // Safari: a plain timeout, long enough to be clear of the first paint.
+    const timer = window.setTimeout(warm, 2000)
+    return () => window.clearTimeout(timer)
+  }, [])
+}
+
 export default function App() {
+  usePrefetchLikelyRoutes()
+
   return (
     <Fragment>
       <Routes>

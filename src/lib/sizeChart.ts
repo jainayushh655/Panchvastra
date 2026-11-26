@@ -14,18 +14,37 @@
  * Add a future mapping by adding one line to CATEGORY_CHARTS or SUBCATEGORY_CHARTS below.
  */
 
-/** The three artwork files in `public/images/`. */
+/**
+ * The three artwork files in `public/images/`, each in two formats.
+ *
+ * The charts are 1086x1448 renders of a measurement table — large flat areas plus small
+ * black text, which is exactly where WebP wins big: the same artwork is ~90 kB as WebP
+ * against ~300 kB as an 8-bit PNG, with no visible loss on the text.
+ *
+ * The PNG is the `<picture>` fallback, so a browser without WebP support still gets a
+ * chart rather than a broken image. It is never downloaded when the WebP is taken.
+ */
 export const SIZE_CHART_IMAGES = {
   regular: '/images/Size_chart_regular_polo_fullsleeves.png',
   oversize: '/images/Size_chart_oversize_hoodie_sweatshirt.png',
   shorts: '/images/Size_chart_shorts.png',
 } as const
 
+/** WebP of the same three charts, preferred by `<picture>` where the browser supports it. */
+export const SIZE_CHART_IMAGES_WEBP = {
+  regular: '/images/Size_chart_regular_polo_fullsleeves.webp',
+  oversize: '/images/Size_chart_oversize_hoodie_sweatshirt.webp',
+  shorts: '/images/Size_chart_shorts.webp',
+} as const
+
 export type SizeChartKey = keyof typeof SIZE_CHART_IMAGES
 
 export type SizeChart = {
   key: SizeChartKey
+  /** PNG. The `<picture>` fallback, and the `src` any plain `<img>` would use. */
   src: string
+  /** WebP of the same artwork, roughly a third the bytes. */
+  webpSrc: string
   /** Describes the chart for screen readers and for the image's alt text. */
   alt: string
 }
@@ -126,7 +145,7 @@ export function getSizeChart(
 
   if (!key) return null
 
-  return { key, src: SIZE_CHART_IMAGES[key], alt: CHART_ALT[key] }
+  return { key, src: SIZE_CHART_IMAGES[key], webpSrc: SIZE_CHART_IMAGES_WEBP[key], alt: CHART_ALT[key] }
 }
 
 /* ------------------------------------------------------- charts from key highlights */
@@ -186,7 +205,7 @@ export type SizeChartHighlight = {
 
 function chartFor(key: SizeChartKey | undefined): SizeChart | null {
   if (!key) return null
-  return { key, src: SIZE_CHART_IMAGES[key], alt: CHART_ALT[key] }
+  return { key, src: SIZE_CHART_IMAGES[key], webpSrc: SIZE_CHART_IMAGES_WEBP[key], alt: CHART_ALT[key] }
 }
 
 /**

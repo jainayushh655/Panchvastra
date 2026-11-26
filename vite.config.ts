@@ -37,9 +37,10 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
             if (!id.includes('node_modules')) return undefined
 
-            if (id.includes('framer-motion') || id.includes('motion-dom') || id.includes('motion-utils')) {
-              return 'vendor-motion'
-            }
+            // No `vendor-motion` rule: framer-motion is gone. It was listed as a
+            // dependency but imported nowhere — the hero and route transitions are CSS
+            // keyframes in `index.css`. Keeping the rule would have described a chunk
+            // that can never be produced.
             if (id.includes('react-router')) return 'vendor-router'
             if (id.includes('axios')) return 'vendor-axios'
             // Matched last: 'react-dom' and 'react-router' both contain 'react'.

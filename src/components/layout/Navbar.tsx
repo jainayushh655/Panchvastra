@@ -65,7 +65,21 @@ export function Navbar() {
         makes that collision structurally impossible. Gap and padding tighten at the same
         point. From 375px up nothing here applies and the bar is byte-for-byte as it was.
       */}
-      <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 py-3.5 max-[374px]:grid-cols-[auto_minmax(0,1fr)_auto] max-[374px]:gap-1 max-[374px]:px-2 sm:gap-3 sm:px-4">
+      {/*
+        One more track change, at `md`, for the same reason as the `max-[374px]` one below:
+        equal `1fr` side tracks centre the wordmark beautifully but hand each side only half
+        the leftover width, whether its content fits or not.
+
+        At `md` the left track now carries THREE links (Shop, Custom Piece, About Us), which
+        at 768px needs more than its half — and a `minmax(0,1fr)` track does not grow, so the
+        overflow would run under the wordmark. Content-sized side tracks at `md` make that
+        impossible; the middle track absorbs the slack and still has room to spare for the
+        brand.
+
+        From `lg` up the equal thirds come back, because there the links fit several times
+        over and true optical centring is worth having.
+      */}
+      <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 py-3.5 max-[374px]:grid-cols-[auto_minmax(0,1fr)_auto] max-[374px]:gap-1 max-[374px]:px-2 sm:gap-3 sm:px-4 md:grid-cols-[auto_minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
         {/* LEFT */}
         <div className="flex items-center gap-4">
           <button
@@ -80,7 +94,9 @@ export function Navbar() {
             </svg>
           </button>
 
-          <nav className="hidden items-center gap-7 md:flex" aria-label="Primary">
+          {/* `gap-6` at `md`, where three links have to share a tablet-width track, and the
+              original `gap-7` from `lg` up where there is room to spare. */}
+          <nav className="hidden items-center gap-6 md:flex lg:gap-7" aria-label="Primary">
             <NavLink
               to="/shop"
               className={({ isActive }) => navLinkCls({ isActive: isActive && !categoryFilterActive })}
@@ -88,6 +104,19 @@ export function Navbar() {
             >
               Shop
             </NavLink>
+
+            {/*
+              Between Shop and About Us on purpose: it is a way to BUY, so it belongs beside
+              Shop in the shopping half of the bar rather than next to the company pages.
+
+              "Custom Piece" is the name the rest of the app already uses for this page —
+              its document title, the homepage banner's destination and the admin screen
+              that receives the enquiries — so the label matches what the shopper lands on.
+            */}
+            <NavLink to="/custom-piece" className={navLinkCls}>
+              Custom Piece
+            </NavLink>
+
             <NavLink to="/about" className={navLinkCls}>
               About Us
             </NavLink>
@@ -148,6 +177,14 @@ export function Navbar() {
               onClick={() => setOpen(false)}
             >
               Shop
+            </Link>
+            {/* Same order as the desktop bar, so the two never disagree. */}
+            <Link
+              to="/custom-piece"
+              className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-cream hover:bg-sand/15"
+              onClick={() => setOpen(false)}
+            >
+              Custom Piece
             </Link>
             <Link
               to="/about"

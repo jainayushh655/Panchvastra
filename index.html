@@ -17,6 +17,31 @@
       name="description"
       content="PANCHVASTRA — Gen Z streetwear. Regular tees, oversized fits, shorts. Ships across India."
     />
+    <!--
+      Open the connections the first screen needs BEFORE anything asks for them.
+
+      A cross-origin request costs a DNS lookup, a TCP handshake and a TLS handshake before
+      a single byte of the response moves — on a 4G connection in India that is routinely
+      300-600ms, and it is otherwise paid serially: the browser only learns it needs
+      api.panchvastra.com after the JavaScript bundle has downloaded, parsed and run.
+      Preconnecting overlaps all of it with the bundle download.
+
+      TWO hosts, because the catalogue and its imagery are on different origins and each
+      needs its own connection:
+
+        api.panchvastra.com      the Django API (`/v1/...`) — keep in step with the proxy
+                                 target in `vite.config.ts`
+        storage.panchvastra.com  every product photo and hero image
+
+      The storage host matters most. Its first request is for the LCP element, and it is
+      only reached AFTER the catalogue response names the URL — so without this, its
+      handshake starts at the very end of a serial chain: bundle, then API, then image.
+    -->
+    <link rel="preconnect" href="https://api.panchvastra.com" crossorigin />
+    <link rel="preconnect" href="https://storage.panchvastra.com" crossorigin />
+    <link rel="dns-prefetch" href="https://api.panchvastra.com" />
+    <link rel="dns-prefetch" href="https://storage.panchvastra.com" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!--
@@ -34,15 +59,27 @@
       The <noscript> copy keeps the fonts working with JavaScript disabled, where the
       onload trick cannot run.
     -->
+    <!--
+      PLAYFAIR DISPLAY IS REQUESTED AT 700 ONLY.
+
+      It used to ask for 500, 600 and 700. Every single use of the display face in the app
+      is `font-bold`, including the h1-h4 base rule in `index.css` that applies `font-bold`
+      with it — so 500 and 600 were two extra font files downloaded on every first visit
+      and never painted with. Poppins keeps all four weights because all four are used:
+      400, 500 (`font-medium`), 600 (`font-semibold`) and 700 (`font-bold`).
+
+      If a lighter display weight is ever wanted, add it back here AND use it; a weight in
+      this URL that nothing applies is pure download.
+    -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap"
       rel="stylesheet"
       media="print"
       onload="this.media='all'; this.onload=null;"
     />
     <noscript>
       <link
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap"
         rel="stylesheet"
       />
     </noscript>

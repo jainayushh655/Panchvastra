@@ -1,4 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { OVERLAY_Z, Portal } from '@/components/ui/Portal'
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 import {
   createReview,
   getReviewById,
@@ -137,13 +139,10 @@ export function ReviewFormModal({
     [newPhotos],
   )
 
-  useEffect(() => {
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = previous
-    }
-  }, [])
+  // Freezes the page behind the dialog. Shared and reference-counted, because these
+  // dialogs stack (the address picker opens the address form over itself) and a
+  // per-component save-and-restore unlocks the page while one is still open.
+  useBodyScrollLock(true)
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -299,214 +298,218 @@ export function ReviewFormModal({
     .filter(Boolean)
     .join(' · ')
 
+  /* Portalled to `document.body` — see `Portal` for why a `z-index` alone cannot keep
+     an overlay above the page it covers. */
   return (
-    <div
-      className="fixed inset-0 z-[90] flex items-end justify-center bg-espresso/40 sm:items-center sm:p-4"
-      onClick={() => !saving && onClose()}
-    >
+    <Portal>
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={fid('heading')}
-        onClick={(event) => event.stopPropagation()}
-        className="flex max-h-[92vh] w-full max-w-lg flex-col rounded-t-2xl border border-zinc-200 bg-white shadow-[0_30px_60px_-36px_rgba(43,23,17,0.4)] sm:max-h-[90vh] sm:rounded-2xl"
+        className={`fixed inset-0 ${OVERLAY_Z.modal} flex items-end justify-center bg-espresso/40 sm:items-center sm:p-4`}
+        onClick={() => !saving && onClose()}
       >
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-zinc-200 p-5 sm:p-6">
-          <div className="min-w-0">
-            <p className="type-eyebrow">{editingId != null ? 'Edit review' : 'Write a review'}</p>
-            <h2 id={fid('heading')} className="mt-1 truncate font-display text-lg font-bold tracking-tight text-black">
-              {context?.productName ?? 'Your review'}
-            </h2>
-            {contextLine ? <p className="type-body-sm mt-0.5">{contextLine}</p> : null}
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={fid('heading')}
+          onClick={(event) => event.stopPropagation()}
+          className="flex max-h-[92vh] w-full max-w-lg flex-col rounded-t-2xl border border-zinc-200 bg-white shadow-[0_30px_60px_-36px_rgba(43,23,17,0.4)] sm:max-h-[90vh] sm:rounded-2xl"
+        >
+          <div className="flex shrink-0 items-start justify-between gap-4 border-b border-zinc-200 p-5 sm:p-6">
+            <div className="min-w-0">
+              <p className="type-eyebrow">{editingId != null ? 'Edit review' : 'Write a review'}</p>
+              <h2 id={fid('heading')} className="mt-1 truncate font-display text-lg font-bold tracking-tight text-black">
+                {context?.productName ?? 'Your review'}
+              </h2>
+              {contextLine ? <p className="type-body-sm mt-0.5">{contextLine}</p> : null}
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              aria-label="Close"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full border border-zinc-300 text-zinc-600 transition-colors hover:border-black hover:text-black disabled:opacity-50"
+            >
+              <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                <path d="M6 6l12 12M18 6L6 18" strokeWidth={1.8} strokeLinecap="round" />
+              </svg>
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            aria-label="Close"
-            className="flex size-9 shrink-0 items-center justify-center rounded-full border border-zinc-300 text-zinc-600 transition-colors hover:border-black hover:text-black disabled:opacity-50"
-          >
-            <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-              <path d="M6 6l12 12M18 6L6 18" strokeWidth={1.8} strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
+          {loading ? (
+            <div className="p-10 text-center font-sans text-sm text-zinc-500">Loading your review…</div>
+          ) : (
+            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
+                {/*
+                  Stated at the TOP, before anything is typed — the whole point is that the
+                  warning arrives before the effort, not after it.
+                */}
+                {unavailable ? (
+                  <p className="rounded-lg border border-sand bg-soft-beige px-3.5 py-3 font-sans text-xs leading-relaxed text-espresso">
+                    <strong className="font-bold">Reviews aren&rsquo;t live yet.</strong> You can fill
+                    this in to see how it works, but it can&rsquo;t be saved until reviews are enabled
+                    on the server.
+                  </p>
+                ) : null}
 
-        {loading ? (
-          <div className="p-10 text-center font-sans text-sm text-zinc-500">Loading your review…</div>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
-              {/*
-                Stated at the TOP, before anything is typed — the whole point is that the
-                warning arrives before the effort, not after it.
-              */}
-              {unavailable ? (
-                <p className="rounded-lg border border-sand bg-soft-beige px-3.5 py-3 font-sans text-xs leading-relaxed text-espresso">
-                  <strong className="font-bold">Reviews aren&rsquo;t live yet.</strong> You can fill
-                  this in to see how it works, but it can&rsquo;t be saved until reviews are enabled
-                  on the server.
-                </p>
-              ) : null}
+                <div>
+                  <p className="font-sans text-sm font-semibold text-black">Your rating</p>
+                  <StarInput value={rating} onChange={setRating} describedBy={fieldErrors.rating ? fid('rating-error') : undefined} />
+                  {fieldErrors.rating ? (
+                    <p id={fid('rating-error')} className="mt-1 font-sans text-xs text-burgundy">
+                      {fieldErrors.rating}
+                    </p>
+                  ) : null}
+                </div>
 
-              <div>
-                <p className="font-sans text-sm font-semibold text-black">Your rating</p>
-                <StarInput value={rating} onChange={setRating} describedBy={fieldErrors.rating ? fid('rating-error') : undefined} />
-                {fieldErrors.rating ? (
-                  <p id={fid('rating-error')} className="mt-1 font-sans text-xs text-burgundy">
-                    {fieldErrors.rating}
+                <div>
+                  <label htmlFor={fid('title')} className="font-sans text-sm font-semibold text-black">
+                    Title
+                  </label>
+                  <input
+                    id={fid('title')}
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    maxLength={150}
+                    placeholder="Sum it up in a few words"
+                    className="mt-1.5 w-full rounded-lg border border-zinc-300 px-3 py-2.5 focus:border-chocolate focus:outline-none"
+                  />
+                  {fieldErrors.title ? <p className="mt-1 font-sans text-xs text-burgundy">{fieldErrors.title}</p> : null}
+                </div>
+
+                <div>
+                  <label htmlFor={fid('text')} className="font-sans text-sm font-semibold text-black">
+                    Your review
+                  </label>
+                  <textarea
+                    id={fid('text')}
+                    value={reviewText}
+                    onChange={(event) => setReviewText(event.target.value)}
+                    maxLength={2000}
+                    rows={4}
+                    placeholder="How is the fabric, the fit, the print?"
+                    className="mt-1.5 w-full resize-y rounded-lg border border-zinc-300 px-3 py-2.5 focus:border-chocolate focus:outline-none"
+                  />
+                  <p className="mt-1 text-right font-sans text-[11px] text-zinc-400">{reviewText.length}/2000</p>
+                  {fieldErrors.review_text ? (
+                    <p className="font-sans text-xs text-burgundy">{fieldErrors.review_text}</p>
+                  ) : null}
+                </div>
+
+                <div>
+                  <p className="font-sans text-sm font-semibold text-black">How did it fit?</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {FIT_FEEDBACK_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={fitFeedback === option.value}
+                        // Tapping the chosen option again clears it — the question is
+                        // optional and there has to be a way back to "no answer".
+                        onClick={() => setFitFeedback((current) => (current === option.value ? '' : option.value))}
+                        className={`rounded-full border px-3.5 py-1.5 font-sans text-xs font-semibold transition-colors ${
+                          fitFeedback === option.value
+                            ? 'border-chocolate bg-chocolate text-cream'
+                            : 'border-zinc-300 text-zinc-700 hover:border-sand'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={isRecommended}
+                    onChange={(event) => setIsRecommended(event.target.checked)}
+                    className="size-4 accent-[var(--color-chocolate)]"
+                  />
+                  <span className="font-sans text-sm text-black">I recommend this product</span>
+                </label>
+
+                <div>
+                  <p className="font-sans text-sm font-semibold text-black">
+                    Photos <span className="font-normal text-zinc-500">({totalPhotos}/{MAX_REVIEW_PHOTOS})</span>
+                  </p>
+
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {keptPhotos.map((photo) => (
+                      <div key={photo.id} className="relative size-20 overflow-hidden rounded-md border border-zinc-200">
+                        <img src={photo.image_url} alt="" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setRemovedPhotoIds((previous) => [...previous, photo.id])}
+                          aria-label="Remove photo"
+                          className="absolute right-0.5 top-0.5 flex size-5 items-center justify-center rounded-full bg-espresso/75 text-cream"
+                        >
+                          <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                            <path d="M6 6l12 12M18 6L6 18" strokeWidth={2.4} strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+
+                    {newPhotos.map((photo) => (
+                      <div key={photo.key} className="relative size-20 overflow-hidden rounded-md border border-zinc-200">
+                        <img src={photo.previewUrl} alt="" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeNewPhoto(photo.key)}
+                          aria-label="Remove photo"
+                          className="absolute right-0.5 top-0.5 flex size-5 items-center justify-center rounded-full bg-espresso/75 text-cream"
+                        >
+                          <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                            <path d="M6 6l12 12M18 6L6 18" strokeWidth={2.4} strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+
+                    {remainingSlots > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex size-20 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-zinc-300 text-zinc-500 transition-colors hover:border-sand hover:text-black"
+                      >
+                        <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                          <path d="M12 5v14M5 12h14" strokeWidth={1.6} strokeLinecap="round" />
+                        </svg>
+                        <span className="font-sans text-[10px] font-semibold uppercase">Add</span>
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(event) => handleFiles(event.target.files)}
+                    className="sr-only"
+                  />
+                </div>
+
+                {formError ? (
+                  <p role="alert" className="rounded-lg border border-sand bg-soft-beige px-3 py-2 font-sans text-xs text-espresso">
+                    {formError}
                   </p>
                 ) : null}
               </div>
 
-              <div>
-                <label htmlFor={fid('title')} className="font-sans text-sm font-semibold text-black">
-                  Title
-                </label>
-                <input
-                  id={fid('title')}
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  maxLength={150}
-                  placeholder="Sum it up in a few words"
-                  className="mt-1.5 w-full rounded-lg border border-zinc-300 px-3 py-2.5 focus:border-chocolate focus:outline-none"
-                />
-                {fieldErrors.title ? <p className="mt-1 font-sans text-xs text-burgundy">{fieldErrors.title}</p> : null}
+              <div className="flex shrink-0 gap-3 border-t border-zinc-200 p-5 sm:p-6">
+                <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={saving}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1" disabled={saving}>
+                  {saving ? 'Saving…' : editingId != null ? 'Update review' : 'Post review'}
+                </Button>
               </div>
-
-              <div>
-                <label htmlFor={fid('text')} className="font-sans text-sm font-semibold text-black">
-                  Your review
-                </label>
-                <textarea
-                  id={fid('text')}
-                  value={reviewText}
-                  onChange={(event) => setReviewText(event.target.value)}
-                  maxLength={2000}
-                  rows={4}
-                  placeholder="How is the fabric, the fit, the print?"
-                  className="mt-1.5 w-full resize-y rounded-lg border border-zinc-300 px-3 py-2.5 focus:border-chocolate focus:outline-none"
-                />
-                <p className="mt-1 text-right font-sans text-[11px] text-zinc-400">{reviewText.length}/2000</p>
-                {fieldErrors.review_text ? (
-                  <p className="font-sans text-xs text-burgundy">{fieldErrors.review_text}</p>
-                ) : null}
-              </div>
-
-              <div>
-                <p className="font-sans text-sm font-semibold text-black">How did it fit?</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {FIT_FEEDBACK_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      aria-pressed={fitFeedback === option.value}
-                      // Tapping the chosen option again clears it — the question is
-                      // optional and there has to be a way back to "no answer".
-                      onClick={() => setFitFeedback((current) => (current === option.value ? '' : option.value))}
-                      className={`rounded-full border px-3.5 py-1.5 font-sans text-xs font-semibold transition-colors ${
-                        fitFeedback === option.value
-                          ? 'border-chocolate bg-chocolate text-cream'
-                          : 'border-zinc-300 text-zinc-700 hover:border-sand'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <label className="flex items-center gap-2.5">
-                <input
-                  type="checkbox"
-                  checked={isRecommended}
-                  onChange={(event) => setIsRecommended(event.target.checked)}
-                  className="size-4 accent-[var(--color-chocolate)]"
-                />
-                <span className="font-sans text-sm text-black">I recommend this product</span>
-              </label>
-
-              <div>
-                <p className="font-sans text-sm font-semibold text-black">
-                  Photos <span className="font-normal text-zinc-500">({totalPhotos}/{MAX_REVIEW_PHOTOS})</span>
-                </p>
-
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {keptPhotos.map((photo) => (
-                    <div key={photo.id} className="relative size-20 overflow-hidden rounded-md border border-zinc-200">
-                      <img src={photo.image_url} alt="" className="h-full w-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => setRemovedPhotoIds((previous) => [...previous, photo.id])}
-                        aria-label="Remove photo"
-                        className="absolute right-0.5 top-0.5 flex size-5 items-center justify-center rounded-full bg-espresso/75 text-cream"
-                      >
-                        <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-                          <path d="M6 6l12 12M18 6L6 18" strokeWidth={2.4} strokeLinecap="round" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
-
-                  {newPhotos.map((photo) => (
-                    <div key={photo.key} className="relative size-20 overflow-hidden rounded-md border border-zinc-200">
-                      <img src={photo.previewUrl} alt="" className="h-full w-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => removeNewPhoto(photo.key)}
-                        aria-label="Remove photo"
-                        className="absolute right-0.5 top-0.5 flex size-5 items-center justify-center rounded-full bg-espresso/75 text-cream"
-                      >
-                        <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-                          <path d="M6 6l12 12M18 6L6 18" strokeWidth={2.4} strokeLinecap="round" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
-
-                  {remainingSlots > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex size-20 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-zinc-300 text-zinc-500 transition-colors hover:border-sand hover:text-black"
-                    >
-                      <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-                        <path d="M12 5v14M5 12h14" strokeWidth={1.6} strokeLinecap="round" />
-                      </svg>
-                      <span className="font-sans text-[10px] font-semibold uppercase">Add</span>
-                    </button>
-                  ) : null}
-                </div>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(event) => handleFiles(event.target.files)}
-                  className="sr-only"
-                />
-              </div>
-
-              {formError ? (
-                <p role="alert" className="rounded-lg border border-sand bg-soft-beige px-3 py-2 font-sans text-xs text-espresso">
-                  {formError}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex shrink-0 gap-3 border-t border-zinc-200 p-5 sm:p-6">
-              <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={saving}>
-                Cancel
-              </Button>
-              <Button type="submit" className="flex-1" disabled={saving}>
-                {saving ? 'Saving…' : editingId != null ? 'Update review' : 'Post review'}
-              </Button>
-            </div>
-          </form>
-        )}
+            </form>
+          )}
+        </div>
       </div>
-    </div>
+    </Portal>
   )
 }

@@ -824,6 +824,15 @@
   font-size: 0.82rem;
 }
 
+/* Progress and results that are NOT problems — image optimisation reports through this.
+   Same size as the error line so the form does not jump when one replaces the other, but
+   muted rather than red, because nothing has gone wrong. */
+.admin-form__hint {
+  margin: 0;
+  color: var(--admin-muted, #6b7280);
+  font-size: 0.82rem;
+}
+
 @media (max-width: 600px) {
   .admin-form__row { grid-template-columns: 1fr; }
 }
