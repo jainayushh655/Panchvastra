@@ -105,18 +105,6 @@ export function Navbar() {
               Shop
             </NavLink>
 
-            {/*
-              Between Shop and About Us on purpose: it is a way to BUY, so it belongs beside
-              Shop in the shopping half of the bar rather than next to the company pages.
-
-              "Custom Piece" is the name the rest of the app already uses for this page —
-              its document title, the homepage banner's destination and the admin screen
-              that receives the enquiries — so the label matches what the shopper lands on.
-            */}
-            <NavLink to="/custom-piece" className={navLinkCls}>
-              Custom Piece
-            </NavLink>
-
             <NavLink to="/about" className={navLinkCls}>
               About Us
             </NavLink>
@@ -179,13 +167,6 @@ export function Navbar() {
               Shop
             </Link>
             {/* Same order as the desktop bar, so the two never disagree. */}
-            <Link
-              to="/custom-piece"
-              className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-cream hover:bg-sand/15"
-              onClick={() => setOpen(false)}
-            >
-              Custom Piece
-            </Link>
             <Link
               to="/about"
               className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-cream hover:bg-sand/15"

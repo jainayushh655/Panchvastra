@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { Link } from 'react-router-dom'
+
 import type { HomepageHeroSlide } from '@/types/homepage'
 
 /**
@@ -174,57 +174,6 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
    */
   const go = (step: number) => setI((x) => (x + step + n) % n)
 
-  /**
-   * The hero's single call to action. Shared by the mobile and desktop branches.
-   *
-   * One centred button: the secondary "Our story" link was removed, and the row is now
-   * `justify-center` in both branches so the button reads as centred against the hero at
-   * every width. `s.secondaryCta` is left untouched on the slide type and the API payload —
-   * it is simply no longer rendered here.
-   */
-  /*
-   * The button is smaller below `sm` and full size from there up.
-   *
-   * It used to be a fixed 140x42 at every width. Against a 720px desktop hero that reads
-   * as a neat label; against a 180px hero on a 320px phone it is a quarter of the picture.
-   * The smaller step is phones only, so tablet and desktop are untouched.
-   */
-  const renderActions = (s: HeroCarouselSlide) => (
-    <div className="flex w-full justify-center">
-      <Link
-        to={s.primaryCta.to}
-        className="inline-flex items-center justify-center border border-white/70 bg-white/80 px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-black backdrop-blur-md transition-colors hover:bg-white/95 sm:px-7 sm:py-3 sm:text-xs sm:tracking-[0.14em]"
-      >
-        {s.primaryCta.label}
-      </Link>
-    </div>
-  )
-
-  /** Slide indicators. Driven by `i`, which both branches keep current. */
-  const renderDots = () =>
-    n > 1 ? (
-      <div className="flex gap-2">
-        {slides.map((_, idx) => (
-          <button
-            key={slides[idx].id}
-            type="button"
-            aria-label={`Slide ${idx + 1} of ${n}`}
-            aria-current={idx === i}
-            onClick={() => setI(idx)}
-            className="flex h-8 items-center justify-center px-2"
-          >
-            {/* Dot is drawn by the inner span so the button itself can carry a
-                comfortable tap area without changing the visual size. */}
-            <span
-              className={`block h-2 rounded-full transition-all ${
-                idx === i ? 'w-8 bg-white' : 'w-2 bg-zinc-600 hover:bg-zinc-400'
-              }`}
-            />
-          </button>
-        ))}
-      </div>
-    ) : null
-
   /*
    * There is no scrim over the artwork. The dark left-to-right gradient that used to sit on
    * top of every slide has been removed, so an admin-uploaded image is shown exactly as it
@@ -336,7 +285,6 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
                   />
                 ) : null}
                 <div className="relative">
-                  {renderActions(s)}
                 </div>
               </div>
             )
@@ -351,7 +299,28 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
           the black band; nothing is being covered up.
         */}
         <div className="absolute inset-x-0 bottom-0 flex items-center justify-center px-4 pb-2 sm:pb-4">
-          {renderDots()}
+          {n > 1 ? (
+            <div className="flex gap-2">
+              {slides.map((_, idx) => (
+                <button
+                  key={slides[idx].id}
+                  type="button"
+                  aria-label={`Slide ${idx + 1} of ${n}`}
+                  aria-current={idx === i}
+                  onClick={() => setI(idx)}
+                  className="flex h-8 items-center justify-center px-2"
+                >
+                  {/* Dot is drawn by the inner span so the button itself can carry a
+                      comfortable tap area without changing the visual size. */}
+                  <span
+                    className={`block h-2 rounded-full transition-all ${
+                      idx === i ? 'w-8 bg-white' : 'w-2 bg-zinc-600 hover:bg-zinc-400'
+                    }`}
+                  />
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       </section>
       )}
@@ -372,7 +341,7 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
            * `min-h` keeps the box tall enough for the actions where a 16:9 box would be
            * shorter than the content; the content is bottom-aligned so it stays lower-left.
            */
-          className="relative flex min-h-[26rem] flex-col justify-end overflow-hidden px-4 pb-20 pt-16 lg:aspect-[16/9]"
+          className="pv-desktop-hero relative flex flex-col justify-end overflow-hidden px-4 pb-20 pt-16"
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
@@ -424,7 +393,6 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
               key={slide.id}
               className="pv-hero-enter flex min-h-[230px] items-end justify-center md:min-h-[300px]"
             >
-              {renderActions(slide)}
             </div>
           </div>
 
@@ -457,7 +425,28 @@ export function HeroCarousel({ slides, autoMs = 5000 }: Props) {
             the section's height stays exactly `aspect-[16/9]` = the artwork's height.
           */}
           <div className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center px-4 pb-6">
-            {renderDots()}
+            {n > 1 ? (
+              <div className="flex gap-2">
+                {slides.map((_, idx) => (
+                  <button
+                    key={slides[idx].id}
+                    type="button"
+                    aria-label={`Slide ${idx + 1} of ${n}`}
+                    aria-current={idx === i}
+                    onClick={() => setI(idx)}
+                    className="flex h-8 items-center justify-center px-2"
+                  >
+                    {/* Dot is drawn by the inner span so the button itself can carry a
+                        comfortable tap area without changing the visual size. */}
+                    <span
+                      className={`block h-2 rounded-full transition-all ${
+                        idx === i ? 'w-8 bg-white' : 'w-2 bg-zinc-600 hover:bg-zinc-400'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         </section>
       </div>

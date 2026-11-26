@@ -4,6 +4,7 @@ import { NewArrivalSection } from '@/components/home/NewArrivalSection'
 import { HomeCategoryGrid } from '@/components/home/HomeCategoryGrid'
 import { HomeCategoryFilters } from '@/components/home/HomeCategoryFilters'
 import { HomeProductGrid } from '@/components/home/HomeProductGrid'
+import { CustomPieceBanner } from '@/components/home/CustomPieceBanner'
 import { getProducts } from '@/api/product'
 import { getCategoriesCached } from '@/api/catalogCache'
 import type { Product } from '@/types'
@@ -120,6 +121,7 @@ export function HomePage() {
   return (
     <div>
       <HeroCarousel slides={heroSlides} />
+      <CustomPieceBanner />
       <NewArrivalSection products={newArrivals} loading={loading} />
       {/*
         Every category, not just the ones with stock.

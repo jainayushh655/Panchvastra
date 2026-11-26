@@ -4,16 +4,15 @@ import type { Product } from '@/types'
 
 export function NewArrivalSection({ products, loading }: { products: Product[]; loading: boolean }) {
   return (
-    <section className="bg-white px-4 pb-6 pt-8 sm:pb-8 sm:pt-10">
+    <section className="bg-white px-4 pb-3 pt-4 sm:pb-4 sm:pt-5">
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">Fresh Drop</p>
-          <h2 className="mt-2 font-display text-3xl font-bold uppercase tracking-tight text-black sm:text-4xl">
+          <h2 className="font-display text-3xl font-bold uppercase tracking-tight text-black sm:text-4xl">
             New Arrival
           </h2>
         </div>
 
-        <div className="mt-8 grid grid-cols-2 gap-4 sm:gap-5 sm:mt-10 lg:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-4 sm:mt-6 sm:gap-5 lg:grid-cols-4">
           {loading ? (
             <ProductGridSkeleton count={4} />
           ) : products.length === 0 ? (

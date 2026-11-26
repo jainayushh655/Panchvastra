@@ -197,6 +197,22 @@
     background-color: var(--color-chocolate);
     box-shadow: 0 1px 3px rgb(43 23 17 / 0.28);
   }
+
+  /* Keep the desktop hero compact and proportional; mobile retains its existing sizing. */
+  @media (min-width: 1024px) {
+    /* Desktop only: show the complete image edge-to-edge without cropping or distortion. */
+    .pv-desktop-hero {
+      left: 0;
+      width: 100vw;
+      max-width: 100vw;
+      height: min(calc(100vw * 9 / 16), calc(100vh - 71px));
+      max-height: calc(100vh - 71px);
+      aspect-ratio: 16 / 9;
+      margin-inline: 0;
+      transform: none;
+      background: #fff;
+    }
+  }
 }
 
 /* ---------------------------------------------------------------- auth split screen */

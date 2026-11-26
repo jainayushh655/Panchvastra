@@ -47,7 +47,7 @@ export function HomeCategoryGrid({ categories }: { categories: CategoryDto[] }) 
   const gridColsClass = tiles.length >= 3 ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2'
 
   return (
-    <section className="bg-white px-4 pb-6 pt-6 sm:pb-7 sm:pt-8">
+    <section className="bg-white px-4 pb-5 pt-3 sm:pb-6 sm:pt-4">
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
           <h2 className="font-display text-3xl font-bold uppercase tracking-tight text-black sm:text-4xl">
@@ -56,7 +56,7 @@ export function HomeCategoryGrid({ categories }: { categories: CategoryDto[] }) 
         </div>
 
         <div
-          className={`mt-6 grid grid-cols-1 gap-3 sm:mt-8 ${gridColsClass} ${
+          className={`mt-4 grid grid-cols-1 gap-3 sm:mt-5 ${gridColsClass} ${
             tiles.length === 1 ? 'mx-auto max-w-sm' : ''
           }`}
         >
